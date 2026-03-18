@@ -1,0 +1,86 @@
+/* =========================
+   BREAKPOINTS
+========================= */
+$mobile-sm: 360px;
+$mobile: 480px;
+$tablet: 768px;
+$laptop: 1024px;
+$desktop: 1280px;
+
+/* =========================
+   SPACING
+========================= */
+$space-0: 0;
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-7: 32px;
+$space-8: 40px;
+$space-9: 48px;
+$space-10: 64px;
+
+/* =========================
+   BORDER RADIUS
+========================= */
+$radius-xs: 6px;
+$radius-sm: 10px;
+$radius-md: 14px;
+$radius-lg: 18px;
+$radius-xl: 24px;
+$radius-pill: 999px;
+
+/* =========================
+   FONT SIZES
+========================= */
+$text-xs: 12px;
+$text-sm: 14px;
+$text-md: 16px;
+$text-lg: 18px;
+$text-xl: 20px;
+$text-2xl: 24px;
+$text-3xl: 30px;
+$text-4xl: 36px;
+
+/* =========================
+   LINE HEIGHT
+========================= */
+$leading-tight: 1.15;
+$leading-snug: 1.25;
+$leading-normal: 1.5;
+$leading-relaxed: 1.7;
+
+/* =========================
+   FONT WEIGHT
+========================= */
+$weight-regular: 400;
+$weight-medium: 500;
+$weight-semibold: 600;
+$weight-bold: 700;
+
+/* =========================
+   SHADOW TOKENS
+========================= */
+$shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+$shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+$shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.16);
+
+/* =========================
+   TRANSITIONS
+========================= */
+$transition-fast: 0.15s ease;
+$transition-normal: 0.25s ease;
+$transition-slow: 0.35s ease;
+
+/* =========================
+   LAYOUT
+========================= */
+$container-xs: 540px;
+$container-sm: 720px;
+$container-md: 960px;
+$container-lg: 1140px;
+$container-xl: 1280px;
+$sidebar-width: 280px;
+$header-height: 64px;
