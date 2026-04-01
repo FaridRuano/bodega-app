@@ -1,0 +1,246 @@
+.headerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.statsGroup {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.statCard {
+    min-width: 180px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    box-shadow: var(--shadow-sm);
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.warningCard {
+    background: var(--warning-soft);
+}
+
+.mutedCard {
+    background: var(--bg-subtle);
+}
+
+.statLabel {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.statValue {
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.searchBox {
+    min-width: 280px;
+    max-width: 360px;
+    width: 100%;
+    padding: 0 14px;
+    height: 46px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    color: var(--text-muted);
+}
+
+.searchInput {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.searchInput::placeholder {
+    color: var(--text-muted);
+}
+
+.listSection {
+    display: flex;
+    flex-direction: column;
+}
+
+.productList {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.productCard {
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    box-shadow: var(--shadow-sm);
+
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.9fr) auto;
+    gap: 16px;
+    align-items: center;
+}
+
+.productInfo {
+    min-width: 0;
+}
+
+.productTitleRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.productName {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.productMeta {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.stockSummary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.stockBlock {
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stockBlock span {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.stockBlock strong {
+    font-size: 20px;
+    line-height: 1;
+    color: var(--text-primary);
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+
+.statusSuccess {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.statusWarning {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.statusDanger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.statusMuted {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+.emptyState {
+    padding: 32px 20px;
+    border-radius: 18px;
+    border: 1px dashed var(--border-subtle);
+    background: var(--surface-primary);
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 1080px) {
+    .productCard {
+        grid-template-columns: 1fr;
+    }
+
+    .actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 768px) {
+    .searchBox {
+        max-width: unset;
+    }
+
+    .stockSummary {
+        grid-template-columns: 1fr;
+    }
+
+    .statCard {
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 640px) {
+    .statsGroup {
+        width: 100%;
+    }
+
+    .statCard {
+        flex: 1 1 160px;
+    }
+
+    .actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .actions :global(.btn) {
+        width: 100%;
+        justify-content: center;
+    }
+}

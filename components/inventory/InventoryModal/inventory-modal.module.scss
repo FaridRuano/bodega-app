@@ -1,0 +1,133 @@
+.movementModal {
+    max-width: 720px;
+}
+
+.form {
+    display: grid;
+    gap: 14px;
+}
+
+.productCard {
+    display: grid;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    background: var(--bg-subtle);
+}
+
+.productMain {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.productName {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.productMeta {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+
+    span {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+}
+
+.unitBadge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-subtle);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.stockGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.stockItem {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-subtle);
+}
+
+.stockLabel {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.stockValue {
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.selectInput {
+    appearance: none;
+    cursor: pointer;
+}
+
+.helperCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px dashed var(--border-subtle);
+    border-radius: 14px;
+    background: var(--surface-primary);
+}
+
+.helperLabel {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.helperValue {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.notesField {
+    min-height: 96px;
+}
+
+@media (max-width: 768px) {
+    .stockGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .productMain {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .stockGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .helperCard {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

@@ -3,9 +3,12 @@ import mongoose from "mongoose";
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
+  throw new Error("MONGODB_URI no está definida en .env.local");
 }
 
+/**
+ * Cache global para evitar múltiples conexiones en desarrollo
+ */
 let cached = global.mongoose;
 
 if (!cached) {
@@ -15,18 +18,19 @@ if (!cached) {
   };
 }
 
-export async function connectToDatabase() {
+/**
+ * Conectar a MongoDB (helper reutilizable)
+ */
+export async function dbConnect() {
+  // Si ya hay conexión, la reutiliza
   if (cached.conn) {
     return cached.conn;
   }
 
+  // Si no hay promesa, crea una nueva conexión
   if (!cached.promise) {
-    const options = {
+    cached.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI, options).then((mongoose) => {
-      return mongoose;
     });
   }
 
@@ -39,3 +43,5 @@ export async function connectToDatabase() {
 
   return cached.conn;
 }
+
+export default dbConnect;

@@ -1,0 +1,88 @@
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* ITEMS */
+
+.itemsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.itemsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.sectionTitle {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.itemsList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.itemRow {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 10px;
+    align-items: end;
+
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+}
+
+.removeBtn {
+    height: 42px;
+    width: 42px;
+
+    border-radius: 10px;
+    border: none;
+    background: var(--danger-soft);
+    color: var(--danger);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.removeBtn:hover {
+    background: var(--danger);
+    color: var(--text-inverse);
+}
+
+.emptyState {
+    padding: 16px;
+    border-radius: 12px;
+    background: var(--bg-subtle);
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+    .itemRow {
+        grid-template-columns: 1fr;
+    }
+
+    .removeBtn {
+        width: 100%;
+    }
+}

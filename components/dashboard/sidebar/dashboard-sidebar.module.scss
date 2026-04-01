@@ -1,0 +1,309 @@
+.sidebarCard {
+    height: 100%;
+    border: 1px solid var(--border-subtle);
+    border-radius: 30px;
+    background: var(--glass-bg);
+    box-shadow:
+        0 1px 0 var(--glass-highlight) inset,
+        var(--shadow-lg);
+    overflow: hidden;
+    transition:
+        width 0.28s ease,
+        border-radius 0.28s ease;
+}
+
+.mobileCard {
+    height: 100%;
+    border-radius: 28px;
+}
+
+.sidebarInner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.15rem;
+}
+
+.topSection {
+    margin-bottom: 1rem;
+}
+
+.brand {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.9rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.brandMark {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    background: linear-gradient(180deg,
+            var(--accent) 0%,
+            var(--accent-hover) 100%);
+    color: var(--text-on-accent);
+    font-size: 0.95rem;
+    font-weight: 800;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+}
+
+.brandText {
+    min-width: 0;
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+
+.brandTitle {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
+.brandSubtitle {
+    margin: 0.15rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.closeButton,
+.collapseButton {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--surface-primary) 86%, transparent);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.closeButton {
+    display: none;
+}
+
+.closeButton:hover,
+.collapseButton:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+    background: var(--surface-secondary);
+    transform: translateY(-1px);
+}
+
+.mobileCard .closeButton {
+    display: grid;
+}
+
+.mobileCard .collapseButton {
+    display: none;
+}
+
+.nav {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.25rem;
+}
+
+.navItem {
+    position: relative;
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    align-items: center;
+    gap: 0.9rem;
+    min-height: 52px;
+    padding: 0 0.9rem;
+    border-left: 2px solid transparent;
+    text-decoration: none;
+    border-radius: 0 5px 5px 0;
+    color: var(--text-secondary);
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.navItem:hover {
+    transform: translateX(2px);
+    border-color: var(--border-subtle);
+    background: color-mix(in srgb, var(--surface-primary) 72%, transparent);
+    color: var(--text-primary);
+}
+
+.navItemActive {
+    border-color: color-mix(in srgb, var(--accent) 100%, var(--border-subtle));
+    background-color: var(--accent-soft);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+
+.navIcon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--surface-primary) 86%, transparent);
+    color: inherit;
+    flex-shrink: 0;
+}
+
+.navItemActive .navIcon {
+    border-color: color-mix(in srgb, var(--accent) 26%, var(--border-subtle));
+    background: color-mix(in srgb, var(--accent-soft) 68%, var(--surface-primary));
+}
+
+.navLabel {
+    font-size: 0.95rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+
+.footer {
+    margin-top: auto;
+    display: grid;
+    gap: 0.9rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.logoutButton {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.94rem;
+    font-weight: 650;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.logoutButton:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+}
+
+.logoutButton span {
+    white-space: nowrap;
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+
+/* estado colapsado desktop */
+.collapsed {
+    border-radius: 22px;
+}
+
+.collapsed .sidebarInner {
+    height: calc(100% - 2.4rem);
+    padding: 1.2rem 0;
+}
+
+.collapsed .brand {
+    display: flex;
+    flex-direction: column;
+    justify-items: center;
+    gap: 0;
+}
+
+.collapsed .nav{
+    display: flex;
+    flex-direction: column;
+}
+
+.collapsed .navItem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.collapsed .brandText,
+.collapsed .navLabel,
+.collapsed .userInfo,
+.collapsed .logoutButton span {
+    display: none;
+    opacity: 0;
+    transform: translateX(-6px);
+    pointer-events: none;
+    width: 0;
+    overflow: hidden;
+    height: 0;
+}
+
+.collapsed .navItem {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding-inline: 0.5rem;
+}
+
+.collapsed .navItem:hover {
+    transform: none;
+}
+
+.collapsed .navItemActive::before {
+    left: 50%;
+    top: auto;
+    bottom: -1px;
+    width: 22px;
+    height: 3px;
+    transform: translateX(-50%);
+}
+
+.collapsed .userCard {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding: 0.75rem;
+}
+
+.collapsed .logoutButton {
+    padding-inline: 0;
+}
+
+.collapsed .logoutButton,
+.collapsed .userCard {
+    justify-content: center;
+}
+
+.collapsed .footer {
+    justify-items: center;
+}
+
+.collapsed .collapseButton {
+    justify-self: center;
+}

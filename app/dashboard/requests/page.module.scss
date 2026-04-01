@@ -1,0 +1,319 @@
+.headerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.statsGroup {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.statCard {
+    min-width: 180px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    box-shadow: var(--shadow-sm);
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    transition: .3s ease-out;
+}
+
+.warningCard {
+    background: var(--warning-soft);
+
+    &.activeCard {
+        border-color: var(--warning);
+    }
+}
+
+.infoCard {
+    background: var(--info-soft);
+
+    &.activeCard {
+        border-color: var(--info);
+    }
+}
+
+.successCard {
+    background: var(--success-soft);
+
+    &.activeCard {
+        border-color: var(--success);
+    }
+}
+
+.activeCard{
+    transform: scale(1.025);
+    box-shadow: var(--shadow-sm);
+}
+
+.statLabel {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.statValue {
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.searchBox {
+    min-width: 280px;
+    flex: 1;
+    padding: 0 14px;
+    height: 46px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    color: var(--text-muted);
+}
+
+.searchInput {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.searchInput::placeholder {
+    color: var(--text-muted);
+}
+
+.filtersGroup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filterItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 210px;
+    color: var(--text-secondary);
+}
+
+.listSection {
+    display: flex;
+    flex-direction: column;
+}
+
+.requestList {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.requestCard {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.requestCard:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-accent);
+}
+
+.cardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.requestNumber {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.requestMeta {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.statusPending {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.statusApproved {
+    background: var(--info-soft);
+    color: var(--info);
+}
+
+.statusPartial {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.statusFulfilled {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.statusRejected {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.statusCancelled {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+.statusDefault {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+.cardBody {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.cardInfoRow {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+}
+
+.infoLabel {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.infoValue {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.cardNote {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.emptyState {
+    padding: 36px 20px;
+    border-radius: 18px;
+    border: 1px dashed var(--border-subtle);
+    background: var(--surface-primary);
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 1220px) {
+    .requestList {
+        grid-template-columns: 1fr 1fr;
+    }
+
+}
+
+@media (max-width: 900px) {
+    .toolbar {
+        align-items: stretch;
+    }
+
+
+}
+
+@media (max-width: 768px) {
+    .cardBody {
+        grid-template-columns: 1fr;
+    }
+
+    .statCard {
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 640px) {
+    .headerRow {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .requestList {
+        grid-template-columns: 1fr;
+    }
+
+    .statsGroup {
+        width: 100%;
+    }
+
+    .statCard {
+        flex: 1 1 160px;
+    }
+
+    .searchBox {
+        min-width: unset;
+        width: 100%;
+    }
+
+    .filtersGroup {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filterItem {
+        width: 100%;
+    }
+}

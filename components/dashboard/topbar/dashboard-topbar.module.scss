@@ -1,0 +1,92 @@
+.topbarCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 80px;
+    border-bottom: 1px solid var(--border-subtle);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.leftGroup,
+.rightGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.menuButton,
+.iconButton {
+    width: 44px;
+    height: 44px;
+    display: none;
+    place-items: center;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--surface-primary) 82%, transparent);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease,
+        background-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.menuButton:hover,
+.iconButton:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+    background: var(--surface-secondary);
+}
+
+.iconButton {
+    display: grid;
+}
+
+.eyebrow {
+    margin: 0 0 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+
+
+@media (max-width: 1024px) {
+    .menuButton {
+        display: grid;
+    }
+}
+
+@media (max-width: 768px) {
+    .topbarCard {
+        min-height: 74px;
+        padding: 0.9rem 1rem;
+    }
+
+    .title {
+        font-size: 1.15rem;
+    }
+
+    .eyebrow {
+        font-size: 0.74rem;
+    }
+
+    .userMeta {
+        display: none;
+    }
+
+}
