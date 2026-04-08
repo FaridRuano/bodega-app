@@ -4,6 +4,8 @@ import dbConnect from "@libs/mongodb";
 import Product from "@models/Product";
 import Category from "@models/Category";
 import InventoryStock from "@models/InventoryStock";
+import { parsePositiveNumber } from "@libs/apiUtils";
+import { STOCK_LOCATIONS } from "@models/InventoryStock";
 
 function getDefaultInventory() {
     return {
@@ -119,18 +121,54 @@ function normalizeProduct(product, inventoryMap) {
     };
 }
 
-export async function GET() {
+function buildSearchFilter(search) {
+    const normalized = String(search || "").trim();
+    if (!normalized) return null;
+
+    const regex = new RegExp(normalized, "i");
+
+    return {
+        $or: [
+            { name: regex },
+            { code: regex },
+            { description: regex },
+        ],
+    };
+}
+
+function normalizeLocation(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return null;
+    return STOCK_LOCATIONS.includes(normalized) ? normalized : null;
+}
+
+export async function GET(request) {
     try {
         await dbConnect();
 
-        const products = await Product.find({})
-            .populate({
-                path: "categoryId",
-                model: Category,
-                select: "name slug isActive",
-            })
-            .sort({ name: 1 })
-            .lean();
+        const { searchParams } = new URL(request.url);
+        const hasPagination = searchParams.has("page") || searchParams.has("limit");
+        const page = parsePositiveNumber(searchParams.get("page"), 1);
+        const limit = Math.min(parsePositiveNumber(searchParams.get("limit"), 10), 100);
+        const search = searchParams.get("search") || "";
+        const location = normalizeLocation(searchParams.get("location"));
+
+        const query = buildSearchFilter(search) || {};
+        const skip = (page - 1) * limit;
+
+        const [products, total] = await Promise.all([
+            Product.find(query)
+                .populate({
+                    path: "categoryId",
+                    model: Category,
+                    select: "name slug isActive",
+                })
+                .sort({ name: 1 })
+                .skip(hasPagination ? skip : 0)
+                .limit(hasPagination ? limit : 1000)
+                .lean(),
+            Product.countDocuments(query),
+        ]);
 
         const inventoryMap = await buildInventoryMap(
             products.map((product) => product._id)
@@ -144,9 +182,15 @@ export async function GET() {
             totalProducts: data.length,
             activeProducts: data.filter((product) => product.isActive).length,
             trackedProducts: data.filter((product) => product.tracksStock).length,
-            outOfStockProducts: data.filter((product) => product.status === "out").length,
+            outOfStockProducts: data.filter((product) => {
+                const quantity = location
+                    ? Number(product.inventory?.[location] || 0)
+                    : Number(product.inventory?.total || 0);
+                return quantity <= 0;
+            }).length,
             lowStockProducts: data.filter((product) => product.status === "low").length,
             warningStockProducts: data.filter((product) => product.status === "warning").length,
+            selectedLocation: location,
         };
 
         return NextResponse.json(
@@ -154,6 +198,12 @@ export async function GET() {
                 success: true,
                 data,
                 summary,
+                meta: {
+                    page,
+                    limit: hasPagination ? limit : data.length,
+                    total,
+                    pages: hasPagination ? Math.max(Math.ceil(total / limit), 1) : 1,
+                },
             },
             { status: 200 }
         );

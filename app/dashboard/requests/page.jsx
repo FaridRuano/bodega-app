@@ -2,30 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./page.module.scss";
 
-import { useDashboardUser } from "@context/dashboard-user-context";
-import ConfirmModal from "@components/shared/ConfirmModal/ConfirmModal";
+import DialogModal from "@components/shared/DialogModal/DialogModal";
 import RequestFulfillmentModal from "@components/requests/RequestFulfillmentModal/RequestFulfillmentModal";
 import RequestReviewModal from "@components/requests/RequestReviewModal/RequestReviewModal";
 import RequestDetailsModal from "@components/requests/RequestDetailsModal/RequestDetailsModal";
 import RequestFormModal from "@components/requests/RequestFormModal/RequestFormModal";
 import { getPurposeLabel } from "@libs/constants/purposes";
+import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
+import { PAGE_LIMITS } from "@libs/constants/pagination";
+import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+import { getUserDisplayName } from "@libs/userDisplay";
+import {
+  getLocationLabel,
+  getRequestStatusLabel,
+  getRequestTypeLabel,
+} from "@libs/constants/domainLabels";
 
-const REQUEST_TYPE_LABELS = {
-  operation: "Operación",
-  production: "Producción",
-};
-
-const REQUEST_STATUS_LABELS = {
-  pending: "Pendiente",
-  approved: "Aprobada",
-  partially_fulfilled: "Parcialmente atendida",
-  fulfilled: "Completada",
-  rejected: "Rechazada",
-  cancelled: "Cancelada",
-};
+const PAGE_SIZE = PAGE_LIMITS.requests;
 
 function createEmptyRequestItem() {
   return {
@@ -36,12 +33,14 @@ function createEmptyRequestItem() {
   };
 }
 
-function createInitialFormData() {
+function createInitialFormData(requestType = "production") {
+  const isReturnRequest = requestType === "return";
+
   return {
-    requestType: "production",
-    sourceLocation: "warehouse",
-    destinationLocation: "kitchen",
-    requestPurpose: "",
+    requestType,
+    sourceLocation: isReturnRequest ? "kitchen" : "warehouse",
+    destinationLocation: isReturnRequest ? "warehouse" : "kitchen",
+    requestPurpose: isReturnRequest ? "return_to_warehouse" : "",
     notes: "",
     items: [createEmptyRequestItem()],
   };
@@ -81,7 +80,7 @@ function getRequestStatusClass(status) {
 }
 
 function formatDate(value) {
-  if (!value) return "—";
+  if (!value) return "Ã¢â‚¬â€,Ã¢â‚¬â€";
 
   try {
     return new Intl.DateTimeFormat("es-EC", {
@@ -89,27 +88,32 @@ function formatDate(value) {
       timeStyle: "short",
     }).format(new Date(value));
   } catch {
-    return "—";
+    return "Ã¢â‚¬â€,Ã¢â‚¬â€";
   }
 }
 
 function getPersonName(user) {
-  if (!user) return "—";
-  return user.username || "Usuario";
+  if (!user) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
+  return getUserDisplayName(user, "Usuario");
 }
 
 export default function RequestsPage() {
-  const user = useDashboardUser();
-  const currentUserId = user?._id || user?.id || "";
-
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [allRequests, setAllRequests] = useState([]);
   const [products, setProducts] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState(() => getStringParam(searchParams, "search"));
+  const [statusFilter, setStatusFilter] = useState(() => getStringParam(searchParams, "status", "all"));
+  const [requestTypeFilter, setRequestTypeFilter] = useState(() =>
+    getStringParam(searchParams, "requestType", "all")
+  );
+  const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
 
   const [selectedRequest, setSelectedRequest] = useState(null);
 
@@ -130,12 +134,14 @@ export default function RequestsPage() {
     mode: "dispatch",
   });
 
-  const [confirmModal, setConfirmModal] = useState({
+  const [dialogModal, setDialogModal] = useState({
     open: false,
     title: "",
-    description: "",
-    confirmLabel: "Confirmar",
+    message: "",
+    confirmText: "Confirmar",
+    cancelText: "Cancelar",
     variant: "warning",
+    showCancel: false,
     onConfirm: null,
   });
 
@@ -185,6 +191,48 @@ export default function RequestsPage() {
     }
   }
 
+  async function fetchCurrentUser() {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || "No se pudo obtener la sesiÃƒÂ³n.");
+      }
+
+      setCurrentUser(result.user || null);
+    } catch (error) {
+      console.error(error);
+      setCurrentUser(null);
+    }
+  }
+
+  function closeDialogModal() {
+    setDialogModal({
+      open: false,
+      title: "",
+      message: "",
+      confirmText: "Confirmar",
+      cancelText: "Cancelar",
+      variant: "warning",
+      showCancel: false,
+      onConfirm: null,
+    });
+  }
+
+  function openDialogModal(config) {
+    setDialogModal({
+      open: true,
+      title: config.title || "",
+      message: config.message || "",
+      confirmText: config.confirmText || "Aceptar",
+      cancelText: config.cancelText || "Cancelar",
+      variant: config.variant || "info",
+      showCancel: Boolean(config.showCancel),
+      onConfirm: config.onConfirm || closeDialogModal,
+    });
+  }
+
   async function fetchRequestById(requestId) {
     const response = await fetch(`/api/requests/${requestId}`);
     const result = await response.json();
@@ -204,49 +252,85 @@ export default function RequestsPage() {
   }
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchProducts();
     fetchRequests();
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, requestTypeFilter]);
+
+  useEffect(() => {
+    const nextQuery = buildSearchParams(searchParams, {
+      search: search.trim() || null,
+      status: statusFilter !== "all" ? statusFilter : null,
+      requestType: requestTypeFilter !== "all" ? requestTypeFilter : null,
+      page: page > 1 ? page : null,
+    });
+
+    if (nextQuery !== searchParams.toString()) {
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    }
+  }, [page, pathname, router, search, searchParams, statusFilter, requestTypeFilter]);
+
+  const requestsByType = useMemo(() => {
+    if (requestTypeFilter === "all") {
+      return allRequests;
+    }
+
+    return allRequests.filter((request) => request.requestType === requestTypeFilter);
+  }, [allRequests, requestTypeFilter]);
+
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return allRequests.filter((request) => {
+    return requestsByType.filter((request) => {
       const matchesStatus =
         statusFilter === "all" || request.status === statusFilter;
 
       const matchesSearch =
         !query ||
         request.requestNumber?.toLowerCase().includes(query) ||
+        request.requestedBy?.firstName?.toLowerCase().includes(query) ||
+        request.requestedBy?.lastName?.toLowerCase().includes(query) ||
         request.requestedBy?.name?.toLowerCase().includes(query) ||
+        request.requestedBy?.username?.toLowerCase().includes(query) ||
         request.requestedBy?.email?.toLowerCase().includes(query) ||
         request.notes?.toLowerCase().includes(query) ||
         request.justification?.toLowerCase().includes(query);
 
       return matchesStatus && matchesSearch;
     });
-  }, [allRequests, statusFilter, search]);
+  }, [requestsByType, statusFilter, search]);
+
+  const paginatedRequests = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredRequests.slice(start, start + PAGE_SIZE);
+  }, [filteredRequests, page]);
 
   const localSummary = useMemo(() => {
     return {
-      total: allRequests.length,
-      pending: allRequests.filter((r) => r.status === "pending").length,
-      approved: allRequests.filter((r) => r.status === "approved").length,
-      partiallyFulfilled: allRequests.filter(
+      total: requestsByType.length,
+      pending: requestsByType.filter((r) => r.status === "pending").length,
+      approved: requestsByType.filter((r) => r.status === "approved").length,
+      partiallyFulfilled: requestsByType.filter(
         (r) => r.status === "partially_fulfilled"
       ).length,
-      fulfilled: allRequests.filter((r) => r.status === "fulfilled").length,
-      rejected: allRequests.filter((r) => r.status === "rejected").length,
-      cancelled: allRequests.filter((r) => r.status === "cancelled").length,
+      fulfilled: requestsByType.filter((r) => r.status === "fulfilled").length,
+      rejected: requestsByType.filter((r) => r.status === "rejected").length,
+      cancelled: requestsByType.filter((r) => r.status === "cancelled").length,
     };
-  }, [allRequests]);
+  }, [requestsByType]);
 
   function resetFormState() {
     setFormData(createInitialFormData());
   }
 
   function openCreateModal() {
-    resetFormState();
+    setFormData(
+      createInitialFormData(requestTypeFilter === "return" ? "return" : "production")
+    );
     setFormModal({
       open: true,
       mode: "create",
@@ -293,7 +377,11 @@ export default function RequestsPage() {
       setDetailsOpen(true);
     } catch (error) {
       console.error(error);
-      alert(error.message || "No se pudo abrir la solicitud.");
+      openDialogModal({
+        title: "No se pudo abrir la solicitud",
+        message: error.message || "Intenta nuevamente en unos segundos.",
+        variant: "danger",
+      });
     }
   }
 
@@ -356,11 +444,6 @@ export default function RequestsPage() {
   async function handleSubmitForm(event) {
     event.preventDefault();
 
-    if (!currentUserId) {
-      alert("No se pudo identificar el usuario actual.");
-      return;
-    }
-
     const cleanedItems = formData.items
       .map((item) => ({
         productId: item.productId,
@@ -368,14 +451,40 @@ export default function RequestsPage() {
         notes: item.notes || "",
       }))
       .filter((item) => item.productId && item.requestedQuantity > 0);
+    const sourceInventoryKey =
+      formData.sourceLocation === "warehouse" ? "warehouse" : "kitchen";
 
     if (!formData.requestPurpose) {
-      alert("Debes seleccionar el motivo de la solicitud.");
+      openDialogModal({
+        title: "Falta informaciÃƒÂ³n",
+        message: "Debes seleccionar el motivo de la solicitud.",
+        variant: "warning",
+      });
       return;
     }
 
     if (!cleanedItems.length) {
-      alert("Debes agregar al menos un producto válido.");
+      openDialogModal({
+        title: "Falta informaciÃƒÂ³n",
+        message: "Debes agregar al menos un producto vÃƒÂ¡lido.",
+        variant: "warning",
+      });
+      return;
+    }
+
+    const invalidByInventory = cleanedItems.find((item) => {
+      const product = products.find((productItem) => productItem._id === item.productId);
+      const available = Number(product?.inventory?.[sourceInventoryKey] || 0);
+      return Number(item.requestedQuantity || 0) > available;
+    });
+
+    if (invalidByInventory) {
+      const product = products.find((productItem) => productItem._id === invalidByInventory.productId);
+      openDialogModal({
+        title: "Cantidad no disponible",
+        message: `La cantidad de ${product?.name || "este producto"} supera el stock disponible en ${sourceInventoryKey === "warehouse" ? "bodega" : "cocina"}.`,
+        variant: "warning",
+      });
       return;
     }
 
@@ -391,7 +500,6 @@ export default function RequestsPage() {
         justification: formData.requestPurpose,
         notes: formData.notes,
         items: cleanedItems,
-        requestedBy: currentUserId,
       };
 
       const endpoint = isEdit
@@ -421,7 +529,11 @@ export default function RequestsPage() {
       }
     } catch (error) {
       console.error(error);
-      alert(error.message || "No se pudo guardar la solicitud.");
+      openDialogModal({
+        title: "No se pudo guardar la solicitud",
+        message: error.message || "Intenta nuevamente.",
+        variant: "danger",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -482,8 +594,12 @@ export default function RequestsPage() {
   async function handleSubmitReview(event) {
     event.preventDefault();
 
-    if (!selectedRequest?._id || !currentUserId) {
-      alert("No se pudo procesar la solicitud.");
+    if (!selectedRequest?._id) {
+      openDialogModal({
+        title: "Solicitud no disponible",
+        message: "No se pudo procesar la solicitud.",
+        variant: "warning",
+      });
       return;
     }
 
@@ -496,7 +612,6 @@ export default function RequestsPage() {
       if (reviewModal.mode === "approve") {
         endpoint = `/api/requests/${selectedRequest._id}/approve`;
         payload = {
-          approvedBy: currentUserId,
           notes: reviewData.notes,
           items: reviewData.items.map((item) => ({
             itemId: item.itemId,
@@ -508,7 +623,6 @@ export default function RequestsPage() {
       if (reviewModal.mode === "reject") {
         endpoint = `/api/requests/${selectedRequest._id}/reject`;
         payload = {
-          rejectedBy: currentUserId,
           statusReason: reviewData.notes,
         };
       }
@@ -532,7 +646,11 @@ export default function RequestsPage() {
       await refreshSelectedRequest(selectedRequest._id);
     } catch (error) {
       console.error(error);
-      alert(error.message || "No se pudo procesar la solicitud.");
+      openDialogModal({
+        title: "No se pudo procesar la solicitud",
+        message: error.message || "Intenta nuevamente.",
+        variant: "danger",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -590,8 +708,12 @@ export default function RequestsPage() {
   async function handleSubmitFulfillment(event) {
     event.preventDefault();
 
-    if (!selectedRequest?._id || !currentUserId) {
-      alert("No se pudo procesar la solicitud.");
+    if (!selectedRequest?._id) {
+      openDialogModal({
+        title: "Solicitud no disponible",
+        message: "No se pudo procesar la solicitud.",
+        variant: "warning",
+      });
       return;
     }
 
@@ -620,12 +742,10 @@ export default function RequestsPage() {
 
       const payload = isDispatch
         ? {
-          dispatchedBy: currentUserId,
           notes: fulfillmentData.notes,
           items,
         }
         : {
-          receivedBy: currentUserId,
           notes: fulfillmentData.notes,
           items,
         };
@@ -641,7 +761,7 @@ export default function RequestsPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo procesar la operación.");
+        throw new Error(result.message || "No se pudo procesar la operaciÃƒÂ³n.");
       }
 
       closeFulfillmentModal();
@@ -649,21 +769,27 @@ export default function RequestsPage() {
       await refreshSelectedRequest(selectedRequest._id);
     } catch (error) {
       console.error(error);
-      alert(error.message || "No se pudo procesar la operación.");
+      openDialogModal({
+        title: "No se pudo procesar la operaciÃƒÂ³n",
+        message: error.message || "Intenta nuevamente.",
+        variant: "danger",
+      });
     } finally {
       setIsSubmitting(false);
     }
   }
 
   function openCancelConfirm() {
-    if (!selectedRequest?._id || !currentUserId) return;
+    if (!selectedRequest?._id) return;
 
-    setConfirmModal({
+    openDialogModal({
       open: true,
       title: "Cancelar solicitud",
-      description: "Esta acción marcará la solicitud como cancelada.",
-      confirmLabel: "Sí, cancelar",
+      message: "Esta acción marcará la solicitud como cancelada.",
+      confirmText: "Sí, cancelar",
+      cancelText: "Volver",
       variant: "danger",
+      showCancel: true,
       onConfirm: async () => {
         try {
           setIsSubmitting(true);
@@ -674,7 +800,7 @@ export default function RequestsPage() {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              cancelledBy: currentUserId,
+              statusReason: "Solicitud cancelada desde el panel.",
             }),
           });
 
@@ -686,27 +812,20 @@ export default function RequestsPage() {
             );
           }
 
-          closeConfirmModal();
+          closeDialogModal();
           await fetchRequests();
           await refreshSelectedRequest(selectedRequest._id);
         } catch (error) {
           console.error(error);
-          alert(error.message || "No se pudo cancelar la solicitud.");
+          openDialogModal({
+            title: "No se pudo cancelar la solicitud",
+            message: error.message || "Intenta nuevamente.",
+            variant: "danger",
+          });
         } finally {
           setIsSubmitting(false);
         }
       },
-    });
-  }
-
-  function closeConfirmModal() {
-    setConfirmModal({
-      open: false,
-      title: "",
-      description: "",
-      confirmLabel: "Confirmar",
-      variant: "warning",
-      onConfirm: null,
     });
   }
 
@@ -750,18 +869,6 @@ export default function RequestsPage() {
             </strong>
           </button>
 
-          {/* <button
-            type="button"
-            onClick={() => setStatusFilter("partially_fulfilled")}
-            className={`${styles.statCard} ${styles.infoCard} ${statusFilter === "partially_fulfilled" ? styles.activeCard : ""
-              }`}
-          >
-            <span className={styles.statLabel}>Parcialmente atendidas</span>
-            <strong className={styles.statValue}>
-              {localSummary.partiallyFulfilled || 0}
-            </strong>
-          </button> */}
-
           <button
             type="button"
             onClick={() => setStatusFilter("fulfilled")}
@@ -775,14 +882,35 @@ export default function RequestsPage() {
           </button>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={openCreateModal}
-        >
-          <Plus size={16} />
-          Nueva solicitud
-        </button>
+        {["admin", "kitchen"].includes(currentUser?.role) ? (
+          <div className={styles.actionGroup}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setRequestTypeFilter("production");
+                setFormData(createInitialFormData("production"));
+                setFormModal({ open: true, mode: "create" });
+              }}
+            >
+              <Plus size={16} />
+              Nueva solicitud
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setRequestTypeFilter("return");
+                setFormData(createInitialFormData("return"));
+                setFormModal({ open: true, mode: "create" });
+              }}
+            >
+              <Plus size={16} />
+              Nueva devolución
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className={styles.toolbar}>
@@ -798,6 +926,27 @@ export default function RequestsPage() {
         </div>
 
         <div className={styles.filtersGroup}>
+          <button
+            type="button"
+            className={`btn ${requestTypeFilter === "all" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setRequestTypeFilter("all")}
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            className={`btn ${requestTypeFilter === "return" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setRequestTypeFilter("return")}
+          >
+            Transferencias
+          </button>
+          <button
+            type="button"
+            className={`btn ${requestTypeFilter === "production" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setRequestTypeFilter("production")}
+          >
+            Producción
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
@@ -817,7 +966,7 @@ export default function RequestsPage() {
           </div>
         ) : (
           <div className={styles.requestList}>
-            {filteredRequests.map((request) => (
+            {paginatedRequests.map((request) => (
               <article
                 key={request._id}
                 className={styles.requestCard}
@@ -829,8 +978,7 @@ export default function RequestsPage() {
                       {request.requestNumber}
                     </p>
                     <p className={styles.requestMeta}>
-                      {REQUEST_TYPE_LABELS[request.requestType] ||
-                        request.requestType}{" "}
+                      {getRequestTypeLabel(request.requestType)}{" "}
                       · {getPersonName(request.requestedBy)}
                     </p>
                   </div>
@@ -840,7 +988,7 @@ export default function RequestsPage() {
                       request.status
                     )}`}
                   >
-                    {REQUEST_STATUS_LABELS[request.status] || request.status}
+                    {getRequestStatusLabel(request.status)}
                   </span>
                 </div>
 
@@ -848,18 +996,14 @@ export default function RequestsPage() {
                   <div className={styles.cardInfoRow}>
                     <span className={styles.infoLabel}>Origen</span>
                     <strong className={styles.infoValue}>
-                      {request.sourceLocation === "warehouse"
-                        ? "Bodega"
-                        : "Cocina"}
+                      {getLocationLabel(request.sourceLocation)}
                     </strong>
                   </div>
 
                   <div className={styles.cardInfoRow}>
                     <span className={styles.infoLabel}>Destino</span>
                     <strong className={styles.infoValue}>
-                      {request.destinationLocation === "warehouse"
-                        ? "Bodega"
-                        : "Cocina"}
+                      {getLocationLabel(request.destinationLocation)}
                     </strong>
                   </div>
 
@@ -889,6 +1033,16 @@ export default function RequestsPage() {
             ))}
           </div>
         )}
+
+        <PaginationBar
+          page={page}
+          totalPages={Math.max(Math.ceil(filteredRequests.length / PAGE_SIZE), 1)}
+          totalItems={filteredRequests.length}
+          fromItem={filteredRequests.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+          toItem={filteredRequests.length === 0 ? 0 : Math.min(page * PAGE_SIZE, filteredRequests.length)}
+          itemLabel="solicitudes"
+          onPageChange={setPage}
+        />
       </div>
 
       <RequestFormModal
@@ -908,6 +1062,7 @@ export default function RequestsPage() {
       <RequestDetailsModal
         open={detailsOpen}
         request={selectedRequest}
+        currentUserRole={currentUser?.role}
         onClose={closeDetailsModal}
         onApprove={() => openReviewModal("approve")}
         onReject={() => openReviewModal("reject")}
@@ -941,15 +1096,17 @@ export default function RequestsPage() {
         isSubmitting={isSubmitting}
       />
 
-      <ConfirmModal
-        open={confirmModal.open}
-        title={confirmModal.title}
-        description={confirmModal.description}
-        confirmLabel={confirmModal.confirmLabel}
-        variant={confirmModal.variant}
-        isSubmitting={isSubmitting}
-        onClose={closeConfirmModal}
-        onConfirm={confirmModal.onConfirm}
+      <DialogModal
+        open={dialogModal.open}
+        title={dialogModal.title}
+        message={dialogModal.message}
+        confirmText={dialogModal.confirmText}
+        cancelText={dialogModal.cancelText}
+        variant={dialogModal.variant}
+        showCancel={dialogModal.showCancel}
+        loading={isSubmitting}
+        onClose={closeDialogModal}
+        onConfirm={dialogModal.onConfirm}
       />
     </>
   );

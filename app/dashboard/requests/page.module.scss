@@ -8,25 +8,33 @@
 }
 
 .statsGroup {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(160px, 80px));
     gap: 12px;
-    flex-wrap: wrap;
     flex: 1;
 }
 
 .statCard {
-    min-width: 180px;
-    padding: 14px 16px;
-    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    padding: 10px 16px;
+    border-radius: 18px;
     border: 1px solid var(--border-subtle);
-    background: var(--surface-primary);
-    box-shadow: var(--shadow-sm);
-
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        var(--surface-primary);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    text-align: start;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
+    cursor: pointer;
 
-    transition: .3s ease-out;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
 }
 
 .warningCard {
@@ -53,20 +61,26 @@
     }
 }
 
-.activeCard{
+.activeCard {
     transform: scale(1.025);
     box-shadow: var(--shadow-sm);
 }
 
 .statLabel {
+    position: relative;
+    margin: 0;
     font-size: 13px;
-    color: var(--text-secondary);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-muted);
 }
 
 .statValue {
-    font-size: 28px;
-    line-height: 1;
+    position: relative;
+    margin: 0;
+    font-size: 18px;
     font-weight: 700;
+    line-height: 1;
     color: var(--text-primary);
 }
 
@@ -77,6 +91,13 @@
     gap: 14px;
     flex-wrap: wrap;
     margin-bottom: 20px;
+}
+
+.actionGroup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .searchBox {
@@ -268,8 +289,17 @@
 }
 
 @media (max-width: 900px) {
+    .statsGroup {
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
+
+    }
+
     .toolbar {
         align-items: stretch;
+    }
+
+    .actionGroup {
+        width: 100%;
     }
 
 
@@ -278,10 +308,6 @@
 @media (max-width: 768px) {
     .cardBody {
         grid-template-columns: 1fr;
-    }
-
-    .statCard {
-        min-width: 150px;
     }
 }
 
@@ -295,25 +321,40 @@
         grid-template-columns: 1fr;
     }
 
-    .statsGroup {
-        width: 100%;
-    }
-
-    .statCard {
-        flex: 1 1 160px;
-    }
-
     .searchBox {
         min-width: unset;
         width: 100%;
     }
 
+    .actionGroup {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .actionGroup :global(.btn) {
+        width: 100%;
+        justify-content: center;
+    }
+
     .filtersGroup {
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         align-items: stretch;
+    }
+
+    .filtersGroup :global(.btn) {
+        width: 100%;
+        justify-content: center;
     }
 
     .filterItem {
         width: 100%;
+    }
+}
+
+@media (max-width: 420px) {
+    .actionGroup,
+    .filtersGroup {
+        grid-template-columns: 1fr;
     }
 }

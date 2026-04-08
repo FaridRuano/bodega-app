@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Request from "@models/Request";
 import InventoryStock from "@models/InventoryStock";
@@ -138,6 +139,9 @@ export async function POST(request, { params }) {
     const session = await mongoose.startSession();
 
     try {
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -150,17 +154,8 @@ export async function POST(request, { params }) {
         }
 
         const body = await request.json();
-
-        const dispatchedBy = normalizeText(body.dispatchedBy);
         const notes = normalizeNullableText(body.notes);
         const items = Array.isArray(body.items) ? body.items : [];
-
-        if (!dispatchedBy || !isValidObjectId(dispatchedBy)) {
-            return NextResponse.json(
-                { success: false, message: "El usuario que despacha no es válido." },
-                { status: 400 }
-            );
-        }
 
         if (!items.length) {
             return NextResponse.json(
@@ -177,27 +172,69 @@ export async function POST(request, { params }) {
         }).session(session);
 
         if (!requestDoc) {
-            await session.abortTransaction();
-            session.endSession();
-
-            return NextResponse.json(
-                { success: false, message: "La solicitud no existe." },
-                { status: 404 }
-            );
+            throw new Error("La solicitud no existe.");
         }
 
-        if (!["approved", "partially_fulfilled"].includes(requestDoc.status)) {
+        const isReturnRequest = requestDoc.requestType === "return";
+        const canDispatch = isReturnRequest
+            ? ["admin", "kitchen"].includes(user.role)
+            : ["admin", "warehouse"].includes(user.role);
+
+        if (!canDispatch) {
             await session.abortTransaction();
             session.endSession();
-
             return NextResponse.json(
                 {
                     success: false,
-                    message:
-                        "Solo se pueden despachar solicitudes aprobadas o parcialmente atendidas.",
+                    message: isReturnRequest
+                        ? "Solo cocina o administración pueden despachar devoluciones."
+                        : "Solo bodega o administración pueden despachar solicitudes.",
+                },
+                { status: 403 }
+            );
+        }
+
+        const allowedStatuses = isReturnRequest
+            ? ["pending", "partially_fulfilled"]
+            : ["approved", "partially_fulfilled"];
+
+        if (!allowedStatuses.includes(requestDoc.status)) {
+            await session.abortTransaction();
+            session.endSession();
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: isReturnRequest
+                        ? "Solo se pueden despachar devoluciones pendientes o parciales."
+                        : "Solo se pueden despachar solicitudes aprobadas o parcialmente atendidas.",
                 },
                 { status: 409 }
             );
+        }
+
+        async function getOrCreateStock(productId, location) {
+            let stock = await InventoryStock.findOne({
+                productId,
+                location,
+            }).session(session);
+
+            if (!stock) {
+                const created = await InventoryStock.create(
+                    [
+                        {
+                            productId,
+                            location,
+                            quantity: 0,
+                            reservedQuantity: 0,
+                        },
+                    ],
+                    { session }
+                );
+
+                stock = created[0];
+            }
+
+            return stock;
         }
 
         const itemMap = new Map(
@@ -233,28 +270,25 @@ export async function POST(request, { params }) {
                 throw new Error("La cantidad despachada no es válida.");
             }
 
-            const approvedQuantity = Number(requestItem.approvedQuantity || 0);
+            const targetQuantity = isReturnRequest
+                ? Number(requestItem.requestedQuantity || 0)
+                : Number(requestItem.approvedQuantity || 0);
             const alreadyDispatched = Number(requestItem.dispatchedQuantity || 0);
-            const remainingToDispatch = approvedQuantity - alreadyDispatched;
+            const remainingToDispatch = targetQuantity - alreadyDispatched;
 
             if (dispatchQuantity > remainingToDispatch) {
-                throw new Error("No puedes despachar más de la cantidad pendiente aprobada.");
+                throw new Error(
+                    isReturnRequest
+                        ? "No puedes despachar más de la cantidad pendiente por devolver."
+                        : "No puedes despachar más de la cantidad pendiente aprobada."
+                );
             }
 
             if (dispatchQuantity === 0) {
                 continue;
             }
 
-            const stock = await InventoryStock.findOne({
-                productId: requestItem.productId,
-                location: requestDoc.sourceLocation,
-            }).session(session);
-
-            if (!stock) {
-                throw new Error(
-                    "No existe stock para uno de los productos en la ubicación de origen."
-                );
-            }
+            const stock = await getOrCreateStock(requestItem.productId, requestDoc.sourceLocation);
 
             if (Number(stock.availableQuantity || 0) < dispatchQuantity) {
                 throw new Error("Stock insuficiente para completar el despacho.");
@@ -262,7 +296,6 @@ export async function POST(request, { params }) {
 
             stock.quantity = Number(stock.quantity || 0) - dispatchQuantity;
             stock.lastMovementAt = dispatchedAt;
-
             await stock.save({ session });
 
             requestItem.dispatchedQuantity = alreadyDispatched + dispatchQuantity;
@@ -274,7 +307,7 @@ export async function POST(request, { params }) {
 
             movementsToCreate.push({
                 productId: requestItem.productId,
-                movementType: "request_dispatch",
+                movementType: isReturnRequest ? "request_return" : "request_dispatch",
                 quantity: dispatchQuantity,
                 unitSnapshot: requestItem.unitSnapshot,
                 fromLocation: requestDoc.sourceLocation,
@@ -282,42 +315,46 @@ export async function POST(request, { params }) {
                 referenceType: "request",
                 referenceId: requestDoc._id,
                 notes,
-                performedBy: dispatchedBy,
+                performedBy: user.id,
             });
         }
 
         if (!dispatchLogItems.length) {
             await session.abortTransaction();
             session.endSession();
-
             return NextResponse.json(
-                { success: false, message: "Debes despachar al menos una cantidad mayor a cero." },
+                {
+                    success: false,
+                    message: isReturnRequest
+                        ? "Debes despachar al menos una cantidad mayor a cero para la devolución."
+                        : "Debes despachar al menos una cantidad mayor a cero.",
+                },
                 { status: 400 }
             );
         }
 
         requestDoc.dispatches.push({
-            dispatchedBy,
+            dispatchedBy: user.id,
             dispatchedAt,
             notes,
             items: dispatchLogItems,
         });
 
         requestDoc.notes = notes || requestDoc.notes;
-
         requestDoc.recalculateStatus();
 
         requestDoc.addActivity({
             type: "dispatch",
-            performedBy: dispatchedBy,
+            performedBy: user.id,
             performedAt: dispatchedAt,
-            title: "Despacho registrado",
-            description: notes || "Se registró un despacho para la solicitud.",
+            title: isReturnRequest ? "Devolución despachada" : "Despacho registrado",
+            description: notes || (isReturnRequest
+                ? "Se registró el envío de una devolución hacia bodega."
+                : "Se registró un despacho para la solicitud."),
             items: dispatchLogItems,
         });
 
         await requestDoc.save({ session });
-
         await InventoryMovement.create(movementsToCreate, { session });
 
         await session.commitTransaction();
@@ -328,13 +365,15 @@ export async function POST(request, { params }) {
         return NextResponse.json(
             {
                 success: true,
-                message: "Despacho registrado correctamente.",
+                message: isReturnRequest
+                    ? "Devolución despachada correctamente."
+                    : "Despacho registrado correctamente.",
                 data: normalizeRequestDocument(populated),
             },
             { status: 200 }
         );
     } catch (error) {
-        await session.abortTransaction();
+        await session.abortTransaction().catch(() => {});
         session.endSession();
 
         console.error("POST /api/requests/[id]/dispatch error:", error);

@@ -21,11 +21,15 @@ const UserSchema = new mongoose.Schema(
         },
         email: {
             type: String,
-            unique: true,
-            sparse: true, // 👈 clave
             trim: true,
             lowercase: true,
+            default: undefined,
+            set: (value) => {
+                const normalized = String(value || "").trim().toLowerCase();
+                return normalized || undefined;
+            },
         },
+
         password: {
             type: String,
             required: true,
@@ -48,6 +52,16 @@ const UserSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
+    }
+);
+
+UserSchema.index(
+    { email: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            email: { $type: "string", $ne: "" },
+        },
     }
 );
 

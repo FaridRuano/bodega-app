@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 
+import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Category from "@models/Category";
 
 export async function GET() {
   try {
+    const { response } = await requireAuthenticatedUser();
+    if (response) return response;
+
     await dbConnect();
 
     const categories = await Category.find({})
@@ -33,6 +37,9 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const { response } = await requireUserRole(["admin"]);
+    if (response) return response;
+
     await dbConnect();
 
     const body = await request.json();

@@ -198,6 +198,27 @@
     transition: border 0.15s ease, box-shadow 0.15s ease;
 }
 
+.filtersGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.filterSelect {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+    padding: 0 14px;
+    outline: none;
+}
+
 .form-input::placeholder,
 .form-textarea::placeholder {
     color: var(--text-muted);

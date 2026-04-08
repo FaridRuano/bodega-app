@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { signOut } from "next-auth/react";
@@ -14,13 +14,10 @@ import {
     SlidersHorizontal,
     ClipboardList,
     History,
-    Undo2,
-    Truck,
-    Inbox,
     LogOut,
     X,
-    ChefHat,
 } from "lucide-react";
+import { getRoleLabel } from "@libs/access";
 
 const adminNavigationItems = [
     {
@@ -44,11 +41,6 @@ const adminNavigationItems = [
         icon: Factory,
     },
     {
-        label: "Cocina",
-        href: "/dashboard/kitchen",
-        icon: ChefHat,
-    },
-    {
         label: "Movimientos",
         href: "/dashboard/movements",
         icon: ArrowRightLeft,
@@ -59,6 +51,11 @@ const adminNavigationItems = [
         icon: Boxes,
     },
     {
+        label: "Historial",
+        href: "/dashboard/history",
+        icon: History,
+    },
+    {
         label: "Configuración",
         href: "/dashboard/config",
         icon: SlidersHorizontal,
@@ -66,6 +63,16 @@ const adminNavigationItems = [
 ];
 
 const kitchenNavigationItems = [
+    {
+        label: "Resumen",
+        href: "/dashboard",
+        icon: LayoutGrid,
+    },
+    {
+        label: "Inventario",
+        href: "/dashboard/kitchen",
+        icon: Boxes,
+    },
     {
         label: "Solicitudes",
         href: "/dashboard/requests",
@@ -77,11 +84,6 @@ const kitchenNavigationItems = [
         icon: Factory,
     },
     {
-        label: "Devoluciones",
-        href: "/dashboard/returns",
-        icon: Undo2,
-    },
-    {
         label: "Historial",
         href: "/dashboard/history",
         icon: History,
@@ -90,19 +92,14 @@ const kitchenNavigationItems = [
 
 const warehouseNavigationItems = [
     {
+        label: "Resumen",
+        href: "/dashboard",
+        icon: LayoutGrid,
+    },
+    {
         label: "Solicitudes",
-        href: "/dashboard/warehouse/requests",
+        href: "/dashboard/requests",
         icon: ClipboardList,
-    },
-    {
-        label: "Entregas",
-        href: "/dashboard/warehouse/dispatches",
-        icon: Truck,
-    },
-    {
-        label: "Devoluciones",
-        href: "/dashboard/warehouse/returns",
-        icon: Inbox,
     },
     {
         label: "Movimientos",
@@ -116,7 +113,7 @@ const warehouseNavigationItems = [
     },
     {
         label: "Historial",
-        href: "/dashboard/warehouse/history",
+        href: "/dashboard/history",
         icon: History,
     },
 ];
@@ -145,12 +142,13 @@ export default function DashboardSidebar({
     const navigationItems = getNavigationByRole(user?.role);
 
     function isActiveRoute(href) {
-        // caso especial: dashboard raíz
-        if (href === "/dashboard") {
+        const [baseHref] = href.split("?");
+
+        if (baseHref === "/dashboard") {
             return pathname === "/dashboard";
         }
 
-        return pathname.startsWith(href);
+        return pathname.startsWith(baseHref);
     }
 
     async function handleSignOut() {
@@ -158,18 +156,6 @@ export default function DashboardSidebar({
             callbackUrl: "/login",
         });
     }
-
-    function getRole(role) {
-        switch (role) {
-            case "admin":
-                return "Administrador";
-            case "kitchen":
-                return "Cocina";
-            default:
-                return "Usuario";
-        }
-    }
-
 
     return (
         <div
@@ -186,7 +172,7 @@ export default function DashboardSidebar({
 
                         <div className={styles.brandText}>
                             <p className={styles.brandTitle}>Doble Filo</p>
-                            <p className={styles.brandSubtitle}>{getRole(user?.role)}</p>
+                            <p className={styles.brandSubtitle}>{getRoleLabel(user?.role)}</p>
                         </div>
 
                         {isMobile ? (

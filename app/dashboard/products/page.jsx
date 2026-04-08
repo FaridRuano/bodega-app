@@ -8,13 +8,19 @@ import {
   Tag,
   ThermometerSnowflake,
 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 
 import styles from "./page.module.scss";
 import ProductModal from "@components/products/ProductModal/ProductModal";
 import ProductViewModal from "@components/products/ProductViewModal/ProductViewModal";
 import DialogModal from "@components/shared/DialogModal/DialogModal";
+import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
 import { getUnitLabel } from "@libs/constants/units";
+import { PAGE_LIMITS } from "@libs/constants/pagination";
+import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+
+const PAGE_SIZE = PAGE_LIMITS.products;
 
 const PRODUCT_TYPE_LABELS = {
   raw_material: "Materia prima",
@@ -40,14 +46,18 @@ function formatNumber(value) {
 }
 
 export default function ProductsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [search, setSearch] = useState(() => getStringParam(searchParams, "search"));
+  const [categoryFilter, setCategoryFilter] = useState(() => getStringParam(searchParams, "categoryId"));
+  const [statusFilter, setStatusFilter] = useState(() => getStringParam(searchParams, "status", "all"));
+  const [typeFilter, setTypeFilter] = useState(() => getStringParam(searchParams, "productType", "all"));
+  const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -134,7 +144,26 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, categoryFilter, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    const nextQuery = buildSearchParams(searchParams, {
+      search: search.trim() || null,
+      categoryId: categoryFilter || null,
+      status: statusFilter !== "all" ? statusFilter : null,
+      productType: typeFilter !== "all" ? typeFilter : null,
+      page: page > 1 ? page : null,
+    });
+
+    if (nextQuery !== searchParams.toString()) {
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    }
+  }, [categoryFilter, page, pathname, router, search, searchParams, statusFilter, typeFilter]);
 
   const filteredProducts = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
@@ -167,6 +196,11 @@ export default function ProductsPage() {
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [products, search, categoryFilter, statusFilter, typeFilter]);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredProducts.slice(start, start + PAGE_SIZE);
+  }, [filteredProducts, page]);
 
   async function refreshViewedProduct(productId) {
     const response = await fetch(`/api/products/${productId}`, {
@@ -581,7 +615,7 @@ export default function ProductsPage() {
           </div>
         ) : (
           <div className={styles.list}>
-            {filteredProducts.map((product) => (
+            {paginatedProducts.map((product) => (
               <button
                 key={product._id}
                 type="button"
@@ -656,6 +690,16 @@ export default function ProductsPage() {
             ))}
           </div>
         )}
+
+        <PaginationBar
+          page={page}
+          totalPages={Math.max(Math.ceil(filteredProducts.length / PAGE_SIZE), 1)}
+          totalItems={filteredProducts.length}
+          fromItem={filteredProducts.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+          toItem={filteredProducts.length === 0 ? 0 : Math.min(page * PAGE_SIZE, filteredProducts.length)}
+          itemLabel="productos"
+          onPageChange={setPage}
+        />
       </div>
 
       <ProductModal

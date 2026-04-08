@@ -1,10 +1,12 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Request, { REQUEST_STATUSES, REQUEST_TYPES } from "@models/Request";
 import Product from "@models/Product";
-import { STOCK_LOCATIONS } from "@models/InventoryStock";
+import InventoryStock, { STOCK_LOCATIONS } from "@models/InventoryStock";
+import { parsePositiveNumber } from "@libs/apiUtils";
 
 function isValidObjectId(value) {
     return mongoose.Types.ObjectId.isValid(value);
@@ -56,7 +58,7 @@ async function generateRequestNumber() {
         attempts += 1;
     }
 
-    throw new Error("No se pudo generar un número único de solicitud.");
+    throw new Error("No se pudo generar un nÃºmero Ãºnico de solicitud.");
 }
 
 function buildSearchFilter(search) {
@@ -177,11 +179,17 @@ function normalizeRequestDocument(request) {
 
 export async function GET(request) {
     try {
+        const { response } = await requireAuthenticatedUser();
+        if (response) return response;
+
         await dbConnect();
 
         const { searchParams } = new URL(request.url);
 
         const search = searchParams.get("search");
+        const hasPagination = searchParams.has("page") || searchParams.has("limit");
+        const page = parsePositiveNumber(searchParams.get("page"), 1);
+        const limit = Math.min(parsePositiveNumber(searchParams.get("limit"), 10), 100);
         const status = normalizeRequestStatus(searchParams.get("status"));
         const requestType = normalizeRequestType(searchParams.get("requestType"), null);
         const sourceLocation = normalizeLocation(searchParams.get("sourceLocation"));
@@ -201,7 +209,7 @@ export async function GET(request) {
         if (requestedBy) {
             if (!isValidObjectId(requestedBy)) {
                 return NextResponse.json(
-                    { success: false, message: "El usuario solicitante no es válido." },
+                    { success: false, message: "El usuario solicitante no es vÃ¡lido." },
                     { status: 400 }
                 );
             }
@@ -210,33 +218,55 @@ export async function GET(request) {
         }
 
         const query = { $and: filters };
+        const skip = (page - 1) * limit;
 
-        const requests = await Request.find(query)
-            .populate("requestedBy", "username email")
-            .populate("approvedBy", "username email")
-            .populate("rejectedBy", "username email")
-            .populate("cancelledBy", "username email")
-            .populate("items.productId", "code name slug unit isActive")
-            .populate("dispatches.dispatchedBy", "username email")
-            .populate("receipts.receivedBy", "username email")
-            .populate("activityLog.performedBy", "username email")
-            .sort({ requestedAt: -1, createdAt: -1 })
-            .lean({ virtuals: true });
+        const [requests, total, pending, approved, partiallyFulfilled, fulfilled, rejected, cancelled] = await Promise.all([
+            Request.find(query)
+                 .populate("requestedBy", "firstName lastName username email")
+                 .populate("approvedBy", "firstName lastName username email")
+                 .populate("rejectedBy", "firstName lastName username email")
+                 .populate("cancelledBy", "firstName lastName username email")
+                .populate("items.productId", "code name slug unit isActive")
+                 .populate("dispatches.dispatchedBy", "firstName lastName username email")
+                 .populate("receipts.receivedBy", "firstName lastName username email")
+                 .populate("activityLog.performedBy", "firstName lastName username email")
+                .sort({ requestedAt: -1, createdAt: -1 })
+                .skip(hasPagination ? skip : 0)
+                .limit(hasPagination ? limit : 1000)
+                .lean({ virtuals: true }),
+            Request.countDocuments(query),
+            Request.countDocuments({ ...query, status: "pending" }),
+            Request.countDocuments({ ...query, status: "approved" }),
+            Request.countDocuments({ ...query, status: "partially_fulfilled" }),
+            Request.countDocuments({ ...query, status: "fulfilled" }),
+            Request.countDocuments({ ...query, status: "rejected" }),
+            Request.countDocuments({ ...query, status: "cancelled" }),
+        ]);
 
         const data = requests.map(normalizeRequestDocument);
 
         const summary = {
-            total: data.length,
-            pending: data.filter((item) => item.status === "pending").length,
-            approved: data.filter((item) => item.status === "approved").length,
-            partiallyFulfilled: data.filter((item) => item.status === "partially_fulfilled").length,
-            fulfilled: data.filter((item) => item.status === "fulfilled").length,
-            rejected: data.filter((item) => item.status === "rejected").length,
-            cancelled: data.filter((item) => item.status === "cancelled").length,
+            total,
+            pending,
+            approved,
+            partiallyFulfilled,
+            fulfilled,
+            rejected,
+            cancelled,
         };
 
         return NextResponse.json(
-            { success: true, data, summary },
+            {
+                success: true,
+                data,
+                summary,
+                meta: {
+                    page,
+                    limit: hasPagination ? limit : data.length,
+                    total,
+                    pages: hasPagination ? Math.max(Math.ceil(total / limit), 1) : 1,
+                },
+            },
             { status: 200 }
         );
     } catch (error) {
@@ -251,36 +281,50 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
+        const { user, response } = await requireUserRole(["admin", "kitchen"]);
+        if (response) return response;
+
         await dbConnect();
 
         const body = await request.json();
 
         const requestType = normalizeRequestType(body.requestType, "operation");
-        const sourceLocation = normalizeLocation(body.sourceLocation, "warehouse");
-        const destinationLocation = normalizeLocation(body.destinationLocation, "kitchen");
-        const requestedBy = normalizeText(body.requestedBy);
+        const isReturnRequest = requestType === "return";
+        const sourceLocation = normalizeLocation(
+            body.sourceLocation,
+            isReturnRequest ? "kitchen" : "warehouse"
+        );
+        const destinationLocation = normalizeLocation(
+            body.destinationLocation,
+            isReturnRequest ? "warehouse" : "kitchen"
+        );
         const justification = normalizeNullableText(body.justification);
         const notes = normalizeNullableText(body.notes);
 
         if (!requestType) {
             return NextResponse.json(
-                { success: false, message: "El tipo de solicitud no es válido." },
+                { success: false, message: "El tipo de solicitud no es vÃ¡lido." },
                 { status: 400 }
             );
         }
 
         if (!sourceLocation || !destinationLocation) {
             return NextResponse.json(
-                { success: false, message: "Las ubicaciones no son válidas." },
+                { success: false, message: "Las ubicaciones no son vÃ¡lidas." },
                 { status: 400 }
             );
         }
 
-        if (!requestedBy || !isValidObjectId(requestedBy)) {
-            return NextResponse.json(
-                { success: false, message: "El usuario solicitante no es válido." },
-                { status: 400 }
-            );
+        if (isReturnRequest) {
+            if (sourceLocation !== "kitchen" || destinationLocation !== "warehouse") {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Las devoluciones solo pueden enviarse de cocina hacia bodega.",
+                    },
+                    { status: 400 }
+                );
+            }
         }
 
         const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -304,7 +348,7 @@ export async function POST(request) {
 
         if (invalidId) {
             return NextResponse.json(
-                { success: false, message: "Uno o más productos no son válidos." },
+                { success: false, message: "Uno o mÃ¡s productos no son vÃ¡lidos." },
                 { status: 400 }
             );
         }
@@ -316,7 +360,7 @@ export async function POST(request) {
 
         if (products.length !== productIds.length) {
             return NextResponse.json(
-                { success: false, message: "Uno o más productos no existen o están inactivos." },
+                { success: false, message: "Uno o mÃ¡s productos no existen o estÃ¡n inactivos." },
                 { status: 404 }
             );
         }
@@ -324,15 +368,26 @@ export async function POST(request) {
         const productMap = new Map(
             products.map((product) => [String(product._id), product])
         );
+        const stocks = await InventoryStock.find({
+            productId: { $in: productIds },
+            location: sourceLocation,
+        }).lean();
+        const stockMap = new Map(stocks.map((stock) => [String(stock.productId), stock]));
 
         const items = rawItems.map((item) => {
             const productId = normalizeText(item.productId);
             const product = productMap.get(productId);
             const requestedQuantity = Number(item.requestedQuantity);
             const itemNotes = normalizeNullableText(item.notes);
+            const stock = stockMap.get(productId);
+            const available = Number(
+                typeof stock?.availableQuantity !== "undefined"
+                    ? stock.availableQuantity
+                    : stock?.quantity || 0
+            );
 
             if (!product) {
-                throw new Error("Uno o más productos no existen.");
+                throw new Error("Uno o mÃ¡s productos no existen.");
             }
 
             if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
@@ -341,11 +396,17 @@ export async function POST(request) {
                 );
             }
 
+            if (requestedQuantity > available) {
+                throw new Error(
+                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${sourceLocation === "warehouse" ? "bodega" : "cocina"}.`
+                );
+            }
+
             return {
                 productId: product._id,
                 unitSnapshot: product.unit,
                 requestedQuantity,
-                approvedQuantity: 0,
+                approvedQuantity: isReturnRequest ? requestedQuantity : 0,
                 dispatchedQuantity: 0,
                 receivedQuantity: 0,
                 returnedQuantity: 0,
@@ -362,7 +423,7 @@ export async function POST(request) {
             status: "pending",
             sourceLocation,
             destinationLocation,
-            requestedBy,
+            requestedBy: user.id,
             items,
             dispatches: [],
             receipts: [],
@@ -374,24 +435,26 @@ export async function POST(request) {
 
         createdRequest.addActivity({
             type: "request_created",
-            performedBy: requestedBy,
+            performedBy: user.id,
             performedAt: requestedAt,
             title: "Solicitud creada",
-            description: null,
+            description: isReturnRequest
+                ? "Se registró una devolución pendiente hacia bodega."
+                : null,
             items: [],
         });
 
         await createdRequest.save();
 
         const populatedRequest = await Request.findById(createdRequest._id)
-            .populate("requestedBy", "username email")
-            .populate("approvedBy", "username email")
-            .populate("rejectedBy", "username email")
-            .populate("cancelledBy", "username email")
+             .populate("requestedBy", "firstName lastName username email")
+             .populate("approvedBy", "firstName lastName username email")
+             .populate("rejectedBy", "firstName lastName username email")
+             .populate("cancelledBy", "firstName lastName username email")
             .populate("items.productId", "code name slug unit isActive")
-            .populate("dispatches.dispatchedBy", "username email")
-            .populate("receipts.receivedBy", "username email")
-            .populate("activityLog.performedBy", "username email")
+             .populate("dispatches.dispatchedBy", "firstName lastName username email")
+             .populate("receipts.receivedBy", "firstName lastName username email")
+             .populate("activityLog.performedBy", "firstName lastName username email")
             .lean({ virtuals: true });
 
         return NextResponse.json(
@@ -407,7 +470,7 @@ export async function POST(request) {
 
         if (error?.code === 11000) {
             return NextResponse.json(
-                { success: false, message: "Ya existe una solicitud con ese número." },
+                { success: false, message: "Ya existe una solicitud con ese nÃºmero." },
                 { status: 409 }
             );
         }

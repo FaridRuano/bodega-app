@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Request from "@models/Request";
 
@@ -134,6 +135,9 @@ async function getRequestById(id) {
 
 export async function POST(request, { params }) {
     try {
+        const { user, response } = await requireUserRole(["admin", "warehouse"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -147,15 +151,7 @@ export async function POST(request, { params }) {
 
         const body = await request.json();
 
-        const rejectedBy = normalizeText(body.rejectedBy);
         const statusReason = normalizeNullableText(body.statusReason);
-
-        if (!rejectedBy || !isValidObjectId(rejectedBy)) {
-            return NextResponse.json(
-                { success: false, message: "El usuario que rechaza no es válido." },
-                { status: 400 }
-            );
-        }
 
         if (!statusReason) {
             return NextResponse.json(
@@ -176,6 +172,16 @@ export async function POST(request, { params }) {
             );
         }
 
+        if (requestDoc.requestType === "return") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Las devoluciones no se rechazan; deben recibirse o cancelarse.",
+                },
+                { status: 409 }
+            );
+        }
+
         if (requestDoc.status !== "pending") {
             return NextResponse.json(
                 { success: false, message: "Solo se pueden rechazar solicitudes pendientes." },
@@ -186,13 +192,13 @@ export async function POST(request, { params }) {
         const rejectedAt = new Date();
 
         requestDoc.status = "rejected";
-        requestDoc.rejectedBy = rejectedBy;
+        requestDoc.rejectedBy = user.id;
         requestDoc.rejectedAt = rejectedAt;
         requestDoc.statusReason = statusReason;
 
         requestDoc.addActivity({
             type: "rejected",
-            performedBy: rejectedBy,
+            performedBy: user.id,
             performedAt: rejectedAt,
             title: "Solicitud rechazada",
             description: statusReason,

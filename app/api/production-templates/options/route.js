@@ -13,12 +13,12 @@ function buildSearchFilter(search) {
     if (!search?.trim()) return null;
 
     const safeSearch = search.trim();
+    const regex = new RegExp(safeSearch, "i");
 
     return {
         $or: [
-            { name: { $regex: safeSearch, $options: "i" } },
-            { code: { $regex: safeSearch, $options: "i" } },
-            { category: { $regex: safeSearch, $options: "i" } },
+            { name: regex },
+            { code: regex },
         ],
     };
 }

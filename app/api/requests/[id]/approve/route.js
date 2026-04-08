@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Request from "@models/Request";
 
@@ -134,6 +135,9 @@ async function getRequestById(id) {
 
 export async function POST(request, { params }) {
     try {
+        const { user, response } = await requireUserRole(["admin", "warehouse"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -147,17 +151,9 @@ export async function POST(request, { params }) {
 
         const body = await request.json();
 
-        const approvedBy = normalizeText(body.approvedBy);
         const items = Array.isArray(body.items) ? body.items : [];
         const notes = normalizeNullableText(body.notes);
         const statusReason = normalizeNullableText(body.statusReason);
-
-        if (!approvedBy || !isValidObjectId(approvedBy)) {
-            return NextResponse.json(
-                { success: false, message: "El usuario aprobador no es válido." },
-                { status: 400 }
-            );
-        }
 
         if (!items.length) {
             return NextResponse.json(
@@ -175,6 +171,16 @@ export async function POST(request, { params }) {
             return NextResponse.json(
                 { success: false, message: "La solicitud no existe." },
                 { status: 404 }
+            );
+        }
+
+        if (requestDoc.requestType === "return") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Las devoluciones no requieren aprobación de bodega.",
+                },
+                { status: 409 }
             );
         }
 
@@ -275,7 +281,7 @@ export async function POST(request, { params }) {
 
         const approvedAt = new Date();
 
-        requestDoc.approvedBy = approvedBy;
+        requestDoc.approvedBy = user.id;
         requestDoc.approvedAt = approvedAt;
         requestDoc.statusReason = statusReason;
         requestDoc.notes = notes || requestDoc.notes;
@@ -284,7 +290,7 @@ export async function POST(request, { params }) {
 
         requestDoc.addActivity({
             type: "approved",
-            performedBy: approvedBy,
+            performedBy: user.id,
             performedAt: approvedAt,
             title: "Solicitud aprobada",
             description:

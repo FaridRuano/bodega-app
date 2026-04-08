@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Factory,
     Filter,
@@ -10,11 +10,17 @@ import {
     Search,
     Settings2,
 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./page.module.scss";
 import ProductionTemplateReviewModal from "@components/config/ProductionTemplateReview/ProductionTemplateReview";
 import ProductionTemplateModal from "@components/config/ProductionTemplateModal/ProductionTemplateModal";
 import ConfirmModal from "@components/shared/ConfirmModal/ConfirmModal";
+import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
+import { PAGE_LIMITS } from "@libs/constants/pagination";
+import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+
+const PAGE_SIZE = PAGE_LIMITS.productionTemplates;
 
 const TYPE_OPTIONS = [
     { value: "", label: "Todos los tipos" },
@@ -38,16 +44,23 @@ const TYPE_LABELS = {
 };
 
 export default function ProductionTemplatesPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState("");
+    const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
+    const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0, cutting: 0 });
 
     const [filters, setFilters] = useState({
-        search: "",
-        type: "",
-        isActive: "",
+        search: getStringParam(searchParams, "search"),
+        type: getStringParam(searchParams, "type"),
+        isActive: getStringParam(searchParams, "isActive"),
     });
+    const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
 
     const [createEditOpen, setCreateEditOpen] = useState(false);
     const [reviewOpen, setReviewOpen] = useState(false);
@@ -56,6 +69,22 @@ export default function ProductionTemplatesPage() {
     const [categories, setCategories] = useState([]);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
+    useEffect(() => {
+        setPage(1);
+    }, [filters.search, filters.type, filters.isActive]);
+
+    useEffect(() => {
+        const nextQuery = buildSearchParams(searchParams, {
+            search: filters.search.trim() || null,
+            type: filters.type || null,
+            isActive: filters.isActive || null,
+            page: page > 1 ? page : null,
+        });
+
+        if (nextQuery !== searchParams.toString()) {
+            router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+        }
+    }, [filters, page, pathname, router, searchParams]);
 
     async function fetchTemplates() {
         try {
@@ -63,6 +92,8 @@ export default function ProductionTemplatesPage() {
             setError("");
 
             const params = new URLSearchParams();
+            params.set("page", String(page));
+            params.set("limit", String(PAGE_SIZE));
 
             if (filters.search.trim()) params.set("search", filters.search.trim());
             if (filters.type) params.set("type", filters.type);
@@ -80,6 +111,18 @@ export default function ProductionTemplatesPage() {
             }
 
             setTemplates(result.data || []);
+            setPagination({
+                page: Number(result.pagination?.page || page),
+                limit: Number(result.pagination?.limit || PAGE_SIZE),
+                total: Number(result.pagination?.total || 0),
+                pages: Number(result.pagination?.pages || 1),
+            });
+            setSummary({
+                total: Number(result.summary?.total || 0),
+                active: Number(result.summary?.active || 0),
+                inactive: Number(result.summary?.inactive || 0),
+                cutting: Number(result.summary?.cutting || 0),
+            });
         } catch (err) {
             setError(err.message || "Ocurrió un error al cargar las fichas.");
         } finally {
@@ -106,24 +149,14 @@ export default function ProductionTemplatesPage() {
         }
     }
 
-
     useEffect(() => {
         fetchTemplates();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filters.type, filters.isActive]);
+    }, [filters, page]);
 
     useEffect(() => {
         fetchCategories();
     }, []);
-
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            fetchTemplates();
-        }, 350);
-
-        return () => clearTimeout(timeout);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filters.search]);
 
     function handleFilterChange(event) {
         const { name, value } = event.target;
@@ -134,11 +167,7 @@ export default function ProductionTemplatesPage() {
     }
 
     function handleClearFilters() {
-        setFilters({
-            search: "",
-            type: "",
-            isActive: "",
-        });
+        setFilters({ search: "", type: "", isActive: "" });
     }
 
     function handleOpenCreate() {
@@ -246,7 +275,6 @@ export default function ProductionTemplatesPage() {
                 throw new Error(result.message || "No se pudo actualizar el estado.");
             }
             handleCloseReview();
-            /* setSelectedTemplate(result.data); */
             await fetchTemplates();
         } catch (err) {
             setError(err.message || "No se pudo actualizar el estado.");
@@ -267,12 +295,9 @@ export default function ProductionTemplatesPage() {
             setActionLoading(true);
             setError("");
 
-            const response = await fetch(
-                `/api/production-templates/${selectedTemplate._id}`,
-                {
-                    method: "DELETE",
-                }
-            );
+            const response = await fetch(`/api/production-templates/${selectedTemplate._id}`, {
+                method: "DELETE",
+            });
 
             const result = await response.json();
 
@@ -290,15 +315,6 @@ export default function ProductionTemplatesPage() {
             setActionLoading(false);
         }
     }
-
-    const summary = useMemo(() => {
-        const total = templates.length;
-        const active = templates.filter((item) => item.isActive).length;
-        const inactive = templates.filter((item) => !item.isActive).length;
-        const cutting = templates.filter((item) => item.type === "cutting").length;
-
-        return { total, active, inactive, cutting };
-    }, [templates]);
 
     return (
         <>
@@ -392,7 +408,6 @@ export default function ProductionTemplatesPage() {
 
                     <div className="form-grid form-grid--3">
                         <div className="form-field">
-                            <label className="form-label">Buscar</label>
                             <div className={styles.searchField}>
                                 <Search size={16} className={styles.searchIcon} />
                                 <input
@@ -406,7 +421,6 @@ export default function ProductionTemplatesPage() {
                         </div>
 
                         <div className="form-field">
-                            <label className="form-label">Tipo</label>
                             <select
                                 name="type"
                                 value={filters.type}
@@ -422,7 +436,6 @@ export default function ProductionTemplatesPage() {
                         </div>
 
                         <div className="form-field">
-                            <label className="form-label">Estado</label>
                             <select
                                 name="isActive"
                                 value={filters.isActive}
@@ -443,7 +456,7 @@ export default function ProductionTemplatesPage() {
 
                 {loading ? (
                     <section className={styles.grid}>
-                        {Array.from({ length: 6 }).map((_, index) => (
+                        {Array.from({ length: PAGE_SIZE }).map((_, index) => (
                             <article key={index} className={styles.skeletonCard}>
                                 <div className={styles.skeletonTop} />
                                 <div className={styles.skeletonLine} />
@@ -474,86 +487,98 @@ export default function ProductionTemplatesPage() {
                         </button>
                     </section>
                 ) : (
-                    <section className={styles.grid}>
-                        {templates.map((template) => (
-                            <article
-                                key={template._id}
-                                className={styles.templateCard}
-                                onClick={() => handleOpenReview(template._id)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(event) => {
-                                    if (event.key === "Enter" || event.key === " ") {
-                                        event.preventDefault();
-                                        handleOpenReview(template._id);
-                                    }
-                                }}
-                            >
-                                <div className={styles.cardHeader}>
-                                    <div className={styles.cardHeaderMain}>
-                                        <div className={styles.cardBadges}>
-                                            {template.code ? (
-                                                <span className={styles.codeBadge}>
-                                                    {template.code}
-                                                </span>
-                                            ) : null}
+                    <>
+                        <section className={styles.grid}>
+                            {templates.map((template) => (
+                                <article
+                                    key={template._id}
+                                    className={styles.templateCard}
+                                    onClick={() => handleOpenReview(template._id)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            handleOpenReview(template._id);
+                                        }
+                                    }}
+                                >
+                                    <div className={styles.cardHeader}>
+                                        <div className={styles.cardHeaderMain}>
+                                            <div className={styles.cardBadges}>
+                                                {template.code ? (
+                                                    <span className={styles.codeBadge}>
+                                                        {template.code}
+                                                    </span>
+                                                ) : null}
 
-                                            <span
-                                                className={`${styles.statusBadge} ${template.isActive
-                                                    ? styles.active
-                                                    : styles.inactive
-                                                    }`}
-                                            >
-                                                {template.isActive ? "Activa" : "Inactiva"}
-                                            </span>
+                                                <span
+                                                    className={`${styles.statusBadge} ${template.isActive
+                                                        ? styles.active
+                                                        : styles.inactive
+                                                        }`}
+                                                >
+                                                    {template.isActive ? "Activa" : "Inactiva"}
+                                                </span>
+                                            </div>
+
+                                            <h3 className={styles.cardTitle}>{template.name}</h3>
+
+                                            <p className={styles.cardDescription}>
+                                                {template.description || "Sin descripción registrada."}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.cardMeta}>
+                                        <div className={styles.metaPill}>
+                                            <span className={styles.metaLabel}>Tipo</span>
+                                            <strong className={styles.metaValue}>
+                                                {TYPE_LABELS[template.type] || template.type}
+                                            </strong>
                                         </div>
 
-                                        <h3 className={styles.cardTitle}>{template.name}</h3>
+                                        <div className={styles.metaPill}>
+                                            <span className={styles.metaLabel}>Categoría</span>
+                                            <strong className={styles.metaValue}>
+                                                {template.category || "—"}
+                                            </strong>
+                                        </div>
 
-                                        <p className={styles.cardDescription}>
-                                            {template.description || "Sin descripción registrada."}
-                                        </p>
-                                    </div>
-                                </div>
+                                        <div className={styles.metaPill}>
+                                            <span className={styles.metaLabel}>Insumos</span>
+                                            <strong className={styles.metaValue}>
+                                                {template.inputs.length || 0}
+                                            </strong>
+                                        </div>
 
-                                <div className={styles.cardMeta}>
-                                    <div className={styles.metaPill}>
-                                        <span className={styles.metaLabel}>Tipo</span>
-                                        <strong className={styles.metaValue}>
-                                            {TYPE_LABELS[template.type] || template.type}
-                                        </strong>
-                                    </div>
-
-                                    <div className={styles.metaPill}>
-                                        <span className={styles.metaLabel}>Categoría</span>
-                                        <strong className={styles.metaValue}>
-                                            {template.category || "—"}
-                                        </strong>
-                                    </div>
-
-                                    <div className={styles.metaPill}>
-                                        <span className={styles.metaLabel}>Insumos</span>
-                                        <strong className={styles.metaValue}>
-                                            {template.inputs.length || 0}
-                                        </strong>
+                                        <div className={styles.metaPill}>
+                                            <span className={styles.metaLabel}>Resultados</span>
+                                            <strong className={styles.metaValue}>
+                                                {template.outputs.length || 0}
+                                            </strong>
+                                        </div>
                                     </div>
 
-                                    <div className={styles.metaPill}>
-                                        <span className={styles.metaLabel}>Resultados</span>
-                                        <strong className={styles.metaValue}>
-                                            {template.outputs.length || 0}
-                                        </strong>
+                                    <div className={styles.cardFooter}>
+                                        <span className={styles.footerText}>
+                                            Haz clic para revisar la ficha completa
+                                        </span>
                                     </div>
-                                </div>
+                                </article>
+                            ))}
+                        </section>
 
-                                <div className={styles.cardFooter}>
-                                    <span className={styles.footerText}>
-                                        Haz clic para revisar la ficha completa
-                                    </span>
-                                </div>
-                            </article>
-                        ))}
-                    </section>
+                        <PaginationBar
+                            page={pagination.page}
+                            totalPages={pagination.pages}
+                            totalItems={pagination.total}
+                            fromItem={pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
+                            toItem={pagination.total === 0 ? 0 : Math.min(pagination.page * pagination.limit, pagination.total)}
+                            itemLabel="fichas"
+                            onPageChange={setPage}
+                        />
+                    </>
                 )}
             </section>
 

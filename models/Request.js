@@ -4,6 +4,7 @@ import { STOCK_LOCATIONS } from "./InventoryStock";
 export const REQUEST_TYPES = [
     "production",
     "operation",
+    "return",
 ];
 
 export const REQUEST_STATUSES = [
@@ -407,6 +408,41 @@ requestSchema.methods.recalculateStatus = function () {
 
     const items = this.items || [];
 
+    if (this.requestType === "return") {
+        const totalRequested = items.reduce(
+            (sum, item) => sum + Number(item.requestedQuantity || 0),
+            0
+        );
+
+        const totalDispatched = items.reduce(
+            (sum, item) => sum + Number(item.dispatchedQuantity || 0),
+            0
+        );
+
+        const totalReceived = items.reduce(
+            (sum, item) => sum + Number(item.receivedQuantity || 0),
+            0
+        );
+
+        if (totalRequested <= 0) {
+            this.status = "pending";
+            return this.status;
+        }
+
+        if (totalReceived >= totalRequested) {
+            this.status = "fulfilled";
+            return this.status;
+        }
+
+        if (totalDispatched > 0 || totalReceived > 0) {
+            this.status = "partially_fulfilled";
+            return this.status;
+        }
+
+        this.status = "pending";
+        return this.status;
+    }
+
     const totalApproved = items.reduce(
         (sum, item) => sum + Number(item.approvedQuantity || 0),
         0
@@ -466,6 +502,10 @@ requestSchema.methods.addActivity = function ({
 requestSchema.set("toJSON", { virtuals: true });
 requestSchema.set("toObject", { virtuals: true });
 
-const Request = models.Request || model("Request", requestSchema);
+if (models.Request) {
+    delete models.Request;
+}
+
+const Request = model("Request", requestSchema);
 
 export default Request;

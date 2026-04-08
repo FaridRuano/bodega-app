@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Category from "@models/Category";
 import Product from "@models/Product";
@@ -11,6 +12,9 @@ function isValidObjectId(id) {
 
 export async function GET(_, context) {
     try {
+        const { response } = await requireAuthenticatedUser();
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await context.params;
@@ -59,6 +63,9 @@ export async function GET(_, context) {
 
 export async function PATCH(request, context) {
     try {
+        const { response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await context.params;
@@ -156,6 +163,9 @@ export async function PATCH(request, context) {
 
 export async function DELETE(_, context) {
     try {
+        const { response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await context.params;

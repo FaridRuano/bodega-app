@@ -1,0 +1,290 @@
+﻿.page {
+    display: grid;
+    gap: 18px;
+}
+
+.headerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(160px, 80px));
+    gap: 12px;
+    flex: 1;
+}
+
+.statCard,
+.card {
+    position: relative;
+    overflow: hidden;
+    padding: 10px 16px;
+    border-radius: 18px;
+    border: 1px solid var(--border-subtle);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        var(--surface-primary);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    text-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer;
+
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.statCard span {
+    position: relative;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-muted);
+}
+
+.statCard strong {
+    position: relative;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+}
+
+.warningCard {
+    background: var(--warning-soft);
+
+    &.activeCard {
+        border-color: var(--warning);
+    }
+}
+
+.infoCard {
+    background: var(--info-soft);
+
+    &.activeCard {
+        border-color: var(--info);
+    }
+}
+
+.successCard {
+    background: var(--success-soft);
+
+    &.activeCard {
+        border-color: var(--success);
+    }
+}
+
+.activeCard {
+    transform: scale(1.025);
+    box-shadow: var(--shadow-sm);
+}
+
+.filtersBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 16px 18px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 18px;
+    background: var(--surface-primary);
+}
+
+.filtersTitle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+
+.filtersGroup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filterSelect {
+    min-width: 220px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    color: var(--text-primary);
+}
+
+.list {
+    display: grid;
+    gap: 12px;
+}
+
+.card {
+    display: grid;
+    gap: 14px;
+}
+
+.cardTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.titleBlock {
+    display: grid;
+    gap: 10px;
+}
+
+.typeBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: var(--surface-secondary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.05rem;
+}
+
+.quantityBlock {
+    min-width: 132px;
+    text-align: right;
+}
+
+.quantityLabel {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.quantityValue {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.routePanel {
+    display: grid;
+    gap: 4px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-secondary) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 76%, transparent);
+}
+
+.routeLabel {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.routeText {
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.routeSubtext {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+.metaGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.metaItem {
+    display: grid;
+    gap: 5px;
+}
+
+.metaLabel {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.metaValue {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.metaInline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.note {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    font-size: 0.93rem;
+}
+
+.emptyState {
+    padding: 32px 24px;
+    border-radius: 18px;
+    border: 1px dashed var(--border-strong);
+    background: var(--surface-primary);
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+@media (max-width: 1000px) {
+    .stats {
+        grid-template-columns: repeat(2, minmax(0, 2fr));
+    }
+}
+
+@media (max-width: 720px) {
+
+    .stats,
+    .metaGrid {
+        grid-template-columns: repeat(2, minmax(0, 2fr));
+
+    }
+
+    .filtersGroup {
+        width: 100%;
+    }
+
+    .filterSelect {
+        min-width: 0;
+        flex: 1 1 100%;
+    }
+
+    .cardTop {
+        flex-direction: column;
+    }
+
+    .quantityBlock {
+        min-width: 0;
+        text-align: left;
+    }
+}

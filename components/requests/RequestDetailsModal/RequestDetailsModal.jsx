@@ -15,6 +15,7 @@ import {
 import styles from "./request-details-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
 import { getPurposeLabel } from "@libs/constants/purposes";
+import { getRequestTypeLabel } from "@libs/constants/domainLabels";
 
 const STATUS_CONFIG = {
     pending: {
@@ -97,6 +98,7 @@ function getActivityTitle(activity) {
 export default function RequestDetailsModal({
     open,
     request,
+    currentUserRole,
     onClose,
     onApprove,
     onReject,
@@ -182,26 +184,50 @@ export default function RequestDetailsModal({
     const statusConfig = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
     const StatusIcon = statusConfig.icon;
 
+    const isAdmin = currentUserRole === "admin";
+    const isWarehouse = currentUserRole === "warehouse";
+    const isKitchen = currentUserRole === "kitchen";
     const isFinal =
         request.status === "fulfilled" ||
         request.status === "rejected" ||
         request.status === "cancelled";
 
-    const canApprove = request.status === "pending";
-    const canReject = request.status === "pending";
-    const canEdit = request.status === "pending";
+    const isReturnRequest = request.requestType === "return";
+    const canApprove =
+        !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
+    const canReject =
+        !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
+    const canEdit = (isAdmin || isKitchen) && request.status === "pending";
 
     const canDispatch =
+        (isReturnRequest ? (isAdmin || isKitchen) : (isAdmin || isWarehouse)) &&
         !isFinal &&
-        (request.status === "approved" || request.status === "partially_fulfilled") &&
+        (
+            isReturnRequest
+                ? ["pending", "partially_fulfilled"].includes(request.status)
+                : ["approved", "partially_fulfilled"].includes(request.status)
+        ) &&
         summary.pendingDispatch > 0;
 
     const canReceive =
+        (isReturnRequest ? (isAdmin || isWarehouse) : (isAdmin || isKitchen)) &&
         !isFinal &&
-        (request.status === "approved" || request.status === "partially_fulfilled") &&
+        (
+            isReturnRequest
+                ? ["pending", "partially_fulfilled"].includes(request.status)
+                : ["approved", "partially_fulfilled"].includes(request.status)
+        ) &&
         summary.pendingReceive > 0;
 
-    const canCancel = !isFinal;
+    const canCancel =
+        !isFinal &&
+        summary.dispatched === 0 &&
+        (
+            ((isAdmin || isKitchen) && request.status === "pending") ||
+            ((isAdmin || isWarehouse) &&
+                !isReturnRequest &&
+                ["pending", "approved"].includes(request.status))
+        );
 
     const showFooter =
         canEdit || canReject || canApprove || canDispatch || canReceive || canCancel;
@@ -247,9 +273,7 @@ export default function RequestDetailsModal({
 
                                 <div className={styles.metaRow}>
                                     <span className={styles.requestType}>
-                                        {request.requestType === "production"
-                                            ? "Producción"
-                                            : "Operación"}
+                                        {getRequestTypeLabel(request.requestType)}
                                     </span>
 
                                     <span
@@ -519,7 +543,7 @@ export default function RequestDetailsModal({
                                 className="btn btn-primary"
                                 onClick={onDispatch}
                             >
-                                Despachar
+                                {isReturnRequest ? "Despachar devolución" : "Despachar"}
                             </button>
                         ) : null}
 
@@ -529,7 +553,7 @@ export default function RequestDetailsModal({
                                 className="btn btn-primary"
                                 onClick={onReceive}
                             >
-                                Confirmar recepción
+                                {isReturnRequest ? "Confirmar ingreso en bodega" : "Confirmar recepción"}
                             </button>
                         ) : null}
 

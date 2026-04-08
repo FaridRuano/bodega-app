@@ -1,9 +1,11 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Request from "@models/Request";
 import Product from "@models/Product";
+import InventoryStock from "@models/InventoryStock";
 
 function isValidObjectId(value) {
     return mongoose.Types.ObjectId.isValid(value);
@@ -28,17 +30,21 @@ function getUserName(user) {
     if (!user) return "";
 
     if (typeof user === "string") {
-        return "";
+        return user.trim();
     }
 
     if (typeof user === "object") {
-        if (typeof user.username === "string" && user.username.trim()) {
-            return user.username.trim();
-        }
+        const firstName = String(user.firstName || user._doc?.firstName || "").trim();
+        const lastName = String(user.lastName || user._doc?.lastName || "").trim();
+        const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
 
-        if (user._doc && typeof user._doc.username === "string" && user._doc.username.trim()) {
-            return user._doc.username.trim();
-        }
+        if (fullName) return fullName;
+
+        const username = String(user.username || user._doc?.username || "").trim();
+        if (username) return username;
+
+        const email = String(user.email || user._doc?.email || "").trim();
+        if (email) return email;
     }
 
     return "";
@@ -142,26 +148,29 @@ async function getRequestById(id) {
         _id: id,
         deletedAt: null,
     })
-        .populate({ path: "requestedBy", select: "username" })
-        .populate({ path: "approvedBy", select: "username" })
-        .populate({ path: "rejectedBy", select: "username" })
-        .populate({ path: "cancelledBy", select: "username" })
+        .populate({ path: "requestedBy", select: "firstName lastName username email" })
+        .populate({ path: "approvedBy", select: "firstName lastName username email" })
+        .populate({ path: "rejectedBy", select: "firstName lastName username email" })
+        .populate({ path: "cancelledBy", select: "firstName lastName username email" })
         .populate({ path: "items.productId", select: "code name slug unit isActive" })
-        .populate({ path: "dispatches.dispatchedBy", select: "username" })
-        .populate({ path: "receipts.receivedBy", select: "username" })
-        .populate({ path: "activityLog.performedBy", select: "username" })
+        .populate({ path: "dispatches.dispatchedBy", select: "firstName lastName username email" })
+        .populate({ path: "receipts.receivedBy", select: "firstName lastName username email" })
+        .populate({ path: "activityLog.performedBy", select: "firstName lastName username email" })
         .lean({ virtuals: true });
 }
 
 export async function GET(_request, { params }) {
     try {
+        const { response } = await requireAuthenticatedUser();
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
 
         if (!isValidObjectId(id)) {
             return NextResponse.json(
-                { success: false, message: "La solicitud no es válida." },
+                { success: false, message: "La solicitud no es vÃƒÂ¡lida." },
                 { status: 400 }
             );
         }
@@ -192,13 +201,16 @@ export async function GET(_request, { params }) {
 
 export async function PATCH(request, { params }) {
     try {
+        const { user, response } = await requireUserRole(["admin", "kitchen"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
 
         if (!isValidObjectId(id)) {
             return NextResponse.json(
-                { success: false, message: "La solicitud no es válida." },
+                { success: false, message: "La solicitud no es vÃƒÂ¡lida." },
                 { status: 400 }
             );
         }
@@ -224,17 +236,11 @@ export async function PATCH(request, { params }) {
 
         const body = await request.json();
 
+        const requestType = requestDoc.requestType || "operation";
+        const isReturnRequest = requestType === "return";
         const justification = normalizeNullableText(body.justification);
         const notes = normalizeNullableText(body.notes);
-        const editedBy = normalizeText(body.requestedBy);
         const rawItems = Array.isArray(body.items) ? body.items : [];
-
-        if (!editedBy || !isValidObjectId(editedBy)) {
-            return NextResponse.json(
-                { success: false, message: "El usuario que edita no es válido." },
-                { status: 400 }
-            );
-        }
 
         if (!rawItems.length) {
             return NextResponse.json(
@@ -253,7 +259,7 @@ export async function PATCH(request, { params }) {
 
         if (productIds.some((itemId) => !isValidObjectId(itemId))) {
             return NextResponse.json(
-                { success: false, message: "Uno o más productos no son válidos." },
+                { success: false, message: "Uno o mÃƒÂ¡s productos no son vÃƒÂ¡lidos." },
                 { status: 400 }
             );
         }
@@ -267,7 +273,7 @@ export async function PATCH(request, { params }) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Uno o más productos no existen o están inactivos.",
+                    message: "Uno o mÃƒÂ¡s productos no existen o estÃƒÂ¡n inactivos.",
                 },
                 { status: 404 }
             );
@@ -276,14 +282,25 @@ export async function PATCH(request, { params }) {
         const productMap = new Map(
             products.map((product) => [String(product._id), product])
         );
+        const stocks = await InventoryStock.find({
+            productId: { $in: productIds },
+            location: requestDoc.sourceLocation,
+        }).lean();
+        const stockMap = new Map(stocks.map((stock) => [String(stock.productId), stock]));
 
         requestDoc.items = rawItems.map((item) => {
             const productId = normalizeText(item.productId);
             const product = productMap.get(productId);
             const requestedQuantity = Number(item.requestedQuantity);
+            const stock = stockMap.get(productId);
+            const available = Number(
+                typeof stock?.availableQuantity !== "undefined"
+                    ? stock.availableQuantity
+                    : stock?.quantity || 0
+            );
 
             if (!product) {
-                throw new Error("Uno o más productos no existen.");
+                throw new Error("Uno o mÃƒÂ¡s productos no existen.");
             }
 
             if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
@@ -292,11 +309,17 @@ export async function PATCH(request, { params }) {
                 );
             }
 
+            if (requestedQuantity > available) {
+                throw new Error(
+                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${requestDoc.sourceLocation === "warehouse" ? "bodega" : "cocina"}.`
+                );
+            }
+
             return {
                 productId: product._id,
                 unitSnapshot: product.unit,
                 requestedQuantity,
-                approvedQuantity: 0,
+                approvedQuantity: isReturnRequest ? requestedQuantity : 0,
                 dispatchedQuantity: 0,
                 receivedQuantity: 0,
                 returnedQuantity: 0,
@@ -306,13 +329,17 @@ export async function PATCH(request, { params }) {
 
         requestDoc.justification = justification;
         requestDoc.notes = notes;
+        if (isReturnRequest) {
+            requestDoc.sourceLocation = "kitchen";
+            requestDoc.destinationLocation = "warehouse";
+        }
 
         requestDoc.addActivity({
             type: "edited",
-            performedBy: editedBy,
+            performedBy: user.id,
             performedAt: new Date(),
             title: "Solicitud editada",
-            description: "Se actualizaron la solicitud.",
+            description: "Se actualizó la solicitud.",
             items: [],
         });
 
@@ -343,27 +370,22 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
     try {
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
 
         if (!isValidObjectId(id)) {
             return NextResponse.json(
-                { success: false, message: "La solicitud no es válida." },
+                { success: false, message: "La solicitud no es vÃƒÂ¡lida." },
                 { status: 400 }
             );
         }
 
         const body = await request.json().catch(() => ({}));
         const statusReason = normalizeNullableText(body.statusReason);
-        const cancelledBy = normalizeText(body.cancelledBy);
-
-        if (!cancelledBy || !isValidObjectId(cancelledBy)) {
-            return NextResponse.json(
-                { success: false, message: "El usuario que cancela no es válido." },
-                { status: 400 }
-            );
-        }
 
         const requestDoc = await Request.findOne({
             _id: id,
@@ -389,7 +411,7 @@ export async function DELETE(request, { params }) {
 
         if (requestDoc.status === "cancelled") {
             return NextResponse.json(
-                { success: false, message: "La solicitud ya está cancelada." },
+                { success: false, message: "La solicitud ya estÃƒÂ¡ cancelada." },
                 { status: 409 }
             );
         }
@@ -401,16 +423,55 @@ export async function DELETE(request, { params }) {
             );
         }
 
+        const totalDispatched = (requestDoc.items || []).reduce(
+            (acc, item) => acc + Number(item.dispatchedQuantity || 0),
+            0
+        );
+
+        if (totalDispatched > 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "No se puede cancelar una solicitud que ya tiene despacho registrado.",
+                },
+                { status: 409 }
+            );
+        }
+
+        const isReturnRequest = requestDoc.requestType === "return";
+
+        if (isReturnRequest && user.role === "warehouse") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Bodega no puede cancelar devoluciones creadas desde cocina.",
+                },
+                { status: 403 }
+            );
+        }
+
+        if (user.role === "kitchen" && requestDoc.status !== "pending") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: isReturnRequest
+                        ? "Cocina solo puede cancelar devoluciones que aún no han sido despachadas."
+                        : "Cocina solo puede cancelar solicitudes que aún no han sido aprobadas.",
+                },
+                { status: 403 }
+            );
+        }
+
         const cancelledAt = new Date();
 
         requestDoc.status = "cancelled";
-        requestDoc.cancelledBy = cancelledBy;
+        requestDoc.cancelledBy = user.id;
         requestDoc.cancelledAt = cancelledAt;
         requestDoc.statusReason = statusReason || "Solicitud cancelada.";
 
         requestDoc.addActivity({
             type: "cancelled",
-            performedBy: cancelledBy,
+            performedBy: user.id,
             performedAt: cancelledAt,
             title: "Solicitud cancelada",
             description: requestDoc.statusReason,

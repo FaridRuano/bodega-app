@@ -20,7 +20,7 @@ export default function UserModal({
 }) {
     const isEdit = mode === "edit";
 
-    const emptyForm = {
+    const emptyForm = useMemo(() => ({
         firstName: "",
         lastName: "",
         username: "",
@@ -28,7 +28,7 @@ export default function UserModal({
         role: "kitchen",
         isActive: true,
         password: "",
-    };
+    }), []);
 
     const [form, setForm] = useState(emptyForm);
     const [initialForm, setInitialForm] = useState(emptyForm);
@@ -50,14 +50,18 @@ export default function UserModal({
                 password: "",
             };
 
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setForm(editForm);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setInitialForm(editForm);
             return;
         }
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(emptyForm);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setInitialForm(emptyForm);
-    }, [open, isEdit, initialData]);
+    }, [open, isEdit, initialData, emptyForm]);
 
     function handleChange(event) {
         const { name, value, type, checked } = event.target;

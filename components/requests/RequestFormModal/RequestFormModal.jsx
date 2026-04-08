@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { ClipboardList, Plus, Trash2, X } from "lucide-react";
+import { ArrowRight, ArrowRightFromLine, Circle, CircleAlertIcon, ClipboardList, FlipVertical, GripVertical, Plus, Trash2, X } from "lucide-react";
 
 import styles from "./request-form-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
 import { REQUEST_PURPOSE_OPTIONS } from "@libs/constants/purposes";
+import { getRequestTypeLabel } from "@libs/constants/domainLabels";
+import ProductAutoComplete from "@components/shared/ProductAutocomplete/ProductAutoComplete";
 
 export default function RequestFormModal({
     open,
@@ -41,8 +43,30 @@ export default function RequestFormModal({
         }).length;
     }, [formData.items]);
 
+    const hasInventoryOverflow = useMemo(() => {
+        return (formData.items || []).some((item) => {
+            const selectedProduct = products.find((product) => product._id === item.productId);
+            if (!selectedProduct) return false;
+
+            const sourceLocation =
+                formData.sourceLocation === "warehouse" ? "warehouse" : "kitchen";
+            const maxAvailable = Number(selectedProduct?.inventory?.[sourceLocation] || 0);
+            const quantity = Number(item.requestedQuantity || 0);
+
+            return Number.isFinite(quantity) && quantity > maxAvailable;
+        });
+    }, [formData.items, formData.sourceLocation, products]);
+
+    const sourceLocationLabel =
+        formData.sourceLocation === "warehouse" ? "bodega" : "cocina";
+
+    const isReturnRequest = formData.requestType === "return";
     const hasRequestPurpose = Boolean(formData.requestPurpose?.trim?.());
-    const canSubmit = hasRequestPurpose && validItemsCount > 0 && !isSubmitting;
+    const canSubmit =
+        hasRequestPurpose &&
+        validItemsCount > 0 &&
+        !hasInventoryOverflow &&
+        !isSubmitting;
 
     function handleFormSubmit(event) {
         event.preventDefault();
@@ -70,10 +94,18 @@ export default function RequestFormModal({
 
                         <div>
                             <h2 className="modal-title">
-                                {mode === "edit" ? "Editar solicitud" : "Nueva solicitud"}
+                                {mode === "edit"
+                                    ? isReturnRequest
+                                        ? "Editar devolución"
+                                        : "Editar solicitud"
+                                    : isReturnRequest
+                                        ? "Nueva devolución"
+                                        : "Nueva solicitud"}
                             </h2>
                             <p className="modal-description">
-                                Define los productos y cantidades que deseas solicitar.
+                                {isReturnRequest
+                                    ? "Define los productos y cantidades que regresarán a bodega."
+                                    : "Define los productos y cantidades que deseas solicitar."}
                             </p>
                         </div>
                     </div>
@@ -116,6 +148,13 @@ export default function RequestFormModal({
                                     const selectedProduct = products.find(
                                         (product) => product._id === item.productId
                                     );
+                                    const sourceLocation =
+                                        formData.sourceLocation === "warehouse"
+                                            ? "warehouse"
+                                            : "kitchen";
+                                    const maxAvailable = Number(
+                                        selectedProduct?.inventory?.[sourceLocation] || 0
+                                    );
 
                                     const quantity = Number(item.requestedQuantity || 0);
                                     const hasValidQuantity =
@@ -125,35 +164,34 @@ export default function RequestFormModal({
                                         <div key={index} className={styles.itemRow}>
                                             <div className="form-field">
                                                 <label className="form-label">Producto</label>
-                                                <select
-                                                    className="form-input"
+                                                <ProductAutoComplete
                                                     value={item.productId}
-                                                    onChange={(event) =>
+                                                    selectedProduct={selectedProduct}
+                                                    onChange={(product) =>
                                                         onItemChange(
                                                             index,
                                                             "productId",
-                                                            event.target.value
+                                                            product?._id || ""
                                                         )
                                                     }
                                                     disabled={isSubmitting}
-                                                >
-                                                    <option value="">Seleccionar</option>
-                                                    {products.map((product) => (
-                                                        <option
-                                                            key={product._id}
-                                                            value={product._id}
-                                                        >
-                                                            {product.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                    placeholder="Buscar por nombre o código..."
+                                                />
                                             </div>
 
                                             <div className="form-field">
-                                                <label className="form-label">Cantidad</label>
+                                                <div className={styles.quantityLabelRow}>
+                                                    <label className="form-label">Cantidad</label>
+                                                    {selectedProduct ? (
+                                                        <span className={styles.stockHint}>
+                                                            Máx. {maxAvailable}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    max={selectedProduct ? maxAvailable : undefined}
                                                     step="0.01"
                                                     className="form-input"
                                                     value={item.requestedQuantity}
@@ -167,7 +205,7 @@ export default function RequestFormModal({
                                                     placeholder="0"
                                                     disabled={isSubmitting}
                                                 />
-                                                
+
                                             </div>
 
                                             <div className="form-field">
@@ -213,15 +251,19 @@ export default function RequestFormModal({
                                 })}
                             </div>
 
-                            {validItemsCount === 0 && (
-                                <p className="errorText">
-                                    Debes agregar al menos un producto con una cantidad mayor a cero.
-                                </p>
-                            )}
+                            <div className={styles.alertSlot}>
+                                {hasInventoryOverflow ? (
+                                    <div className={styles.formAlert}>
+                                        Ajusta las cantidades. Uno o más productos superan el stock disponible en {sourceLocationLabel}.
+                                    </div>
+                                ) : null}
+                            </div>
                         </div>
 
                         <div className="form-field">
-                            <label className="form-label">Motivo de la solicitud</label>
+                            <label className="form-label">
+                                {isReturnRequest ? "Motivo de la devolución" : "Motivo de la solicitud"}
+                            </label>
                             <select
                                 name="requestPurpose"
                                 className="form-input"
@@ -231,7 +273,11 @@ export default function RequestFormModal({
                             >
                                 <option value="">Seleccionar</option>
 
-                                {REQUEST_PURPOSE_OPTIONS.map((option) => (
+                                {REQUEST_PURPOSE_OPTIONS.filter((option) =>
+                                    isReturnRequest
+                                        ? option.value === "return_to_warehouse"
+                                        : option.value !== "return_to_warehouse"
+                                ).map((option) => (
                                     <option key={option.value} value={option.value}>
                                         {option.label}
                                     </option>
@@ -240,7 +286,9 @@ export default function RequestFormModal({
 
                             {!hasRequestPurpose && (
                                 <p className={styles.errorText}>
-                                    Debes seleccionar el motivo de la solicitud.
+                                    {isReturnRequest
+                                        ? "Debes seleccionar el motivo de la devolución."
+                                        : "Debes seleccionar el motivo de la solicitud."}
                                 </p>
                             )}
                         </div>
@@ -255,6 +303,17 @@ export default function RequestFormModal({
                                 placeholder="Información adicional"
                                 disabled={isSubmitting}
                             />
+                        </div>
+
+                        <div className={styles.typeHint}>
+                            <span className={styles.typeHintLabel}>Flujo</span>
+                            <strong className={styles.typeHintValue}>
+                                {getRequestTypeLabel(formData.requestType)}
+                                <ArrowRightFromLine width={13}/>{" "}
+                                {formData.sourceLocation === "warehouse" ? "Bodega" : "Cocina"}
+                                <ArrowRight width={13} />{" "}
+                                {formData.destinationLocation === "warehouse" ? "Bodega" : "Cocina"}
+                            </strong>
                         </div>
 
                         <div className="modal-footer">
@@ -276,7 +335,7 @@ export default function RequestFormModal({
                                     ? "Guardando..."
                                     : mode === "edit"
                                         ? "Guardar cambios"
-                                        : "Guardar solicitud"}
+                                        : "Crear"}
                             </button>
                         </div>
                     </form>

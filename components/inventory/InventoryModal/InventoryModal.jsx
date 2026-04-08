@@ -55,6 +55,7 @@ export default function InventoryMovementModal({
     onClose,
     onSubmit,
     isSubmitting = false,
+    locationOptions = LOCATION_OPTIONS,
 }) {
     const config = MODE_CONFIG[mode] || MODE_CONFIG.entry;
     const Icon = config.icon;
@@ -221,7 +222,7 @@ export default function InventoryMovementModal({
                                         onChange={onChange}
                                         required
                                     >
-                                        {LOCATION_OPTIONS.map((option) => (
+                                        {locationOptions.map((option) => (
                                             <option key={option.value} value={option.value}>
                                                 {option.label}
                                             </option>
@@ -244,7 +245,7 @@ export default function InventoryMovementModal({
                                             onChange={onChange}
                                             required
                                         >
-                                            {LOCATION_OPTIONS.map((option) => (
+                                            {locationOptions.map((option) => (
                                                 <option key={option.value} value={option.value}>
                                                     {option.label}
                                                 </option>
@@ -264,7 +265,7 @@ export default function InventoryMovementModal({
                                             onChange={onChange}
                                             required
                                         >
-                                            {LOCATION_OPTIONS.map((option) => (
+                                            {locationOptions.map((option) => (
                                                 <option key={option.value} value={option.value}>
                                                     {option.label}
                                                 </option>

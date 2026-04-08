@@ -1,16 +1,7 @@
 import { Schema, model, models } from "mongoose";
 import { slugify } from "@libs/slugify";
+import { PRODUCT_UNITS } from "@libs/constants/units";
 
-export const PRODUCT_UNITS = [
-    "unit",
-    "kg",
-    "g",
-    "lb",
-    "l",
-    "ml",
-    "package",
-    "box",
-];
 
 export const PRODUCT_TYPES = [
     "raw_material",

@@ -1,0 +1,185 @@
+.fieldBlock {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.control {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
+    border-radius: 14px;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+.controlOpen {
+    border-color: var(--border-accent);
+    box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.controlError {
+    border-color: var(--danger);
+}
+
+.controlDisabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.leadingIcon {
+    margin-left: 14px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.trailingIcon,
+.loadingIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-right: 14px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.input {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 14px;
+    padding: 0 10px;
+}
+
+.input::placeholder {
+    color: var(--text-muted);
+}
+
+.iconButton {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+    margin-right: 6px;
+}
+
+.iconButton:hover {
+    color: var(--text-primary);
+}
+
+.helperText {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.errorText {
+    font-size: 12px;
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.dropdown {
+    position: absolute;
+    top: calc(100% - 22px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.optionsList {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.stateRow {
+    padding: 14px 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.option {
+    width: 100%;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.option:last-child {
+    border-bottom: none;
+}
+
+.option:hover,
+.optionHighlighted {
+    background: var(--accent-soft);
+}
+
+.optionSelected {
+    background: rgba(248, 211, 0, 0.12);
+}
+
+.optionMain {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.optionLabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.optionMeta {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.checkIcon {
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.spin {
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

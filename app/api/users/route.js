@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
+import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import User from "@models/User";
 
+function normalizeOptionalEmail(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized || undefined;
+}
+
 export async function GET() {
   try {
+    const { response } = await requireUserRole(["admin"]);
+    if (response) return response;
+
     await dbConnect();
 
     const users = await User.find({})
@@ -35,6 +44,9 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const { response } = await requireUserRole(["admin"]);
+    if (response) return response;
+
     await dbConnect();
 
     const body = await request.json();
@@ -90,9 +102,11 @@ export async function POST(request) {
     }
 
     const normalizedUsername = username.trim().toLowerCase();
-    const normalizedEmail = email?.trim()?.toLowerCase() || null;
+    const normalizedEmail = normalizeOptionalEmail(email);
 
-    const existingUsername = await User.findOne({ username: normalizedUsername });
+    const existingUsername = await User.findOne({
+      username: normalizedUsername,
+    });
 
     if (existingUsername) {
       return NextResponse.json(
@@ -105,7 +119,9 @@ export async function POST(request) {
     }
 
     if (normalizedEmail) {
-      const existingEmail = await User.findOne({ email: normalizedEmail });
+      const existingEmail = await User.findOne({
+        email: normalizedEmail,
+      });
 
       if (existingEmail) {
         return NextResponse.json(
@@ -120,15 +136,18 @@ export async function POST(request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
+    const userData = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       username: normalizedUsername,
-      email: normalizedEmail,
       password: hashedPassword,
       role,
       isActive: Boolean(isActive),
-    });
+    };
+
+    userData.email = normalizedEmail;
+
+    const user = await User.create(userData);
 
     const userObject = user.toObject();
     delete userObject.password;
@@ -145,6 +164,26 @@ export async function POST(request) {
     console.error("POST /api/users error:", error);
 
     if (error?.code === 11000) {
+      if (error?.keyPattern?.email) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Ya existe un usuario con ese correo electrónico.",
+          },
+          { status: 409 }
+        );
+      }
+
+      if (error?.keyPattern?.username) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Ya existe un usuario con ese nombre de usuario.",
+          },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         {
           success: false,

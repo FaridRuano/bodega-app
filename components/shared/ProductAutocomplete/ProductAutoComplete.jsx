@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import styles from "./product-autocomplete.module.scss";
+import { getUnitLabel } from "@libs/constants/units";
 
 export default function ProductAutocomplete({
     value = "",
@@ -108,6 +109,7 @@ export default function ProductAutocomplete({
         }, 300);
 
         return () => clearTimeout(debounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, showDropdown]);
 
     function handleInputChange(event) {
@@ -185,7 +187,7 @@ export default function ProductAutocomplete({
 
                                     {(product.unitLabel || product.unit) && (
                                         <span className={styles.optionMeta}>
-                                            Unidad: {product.unitLabel || product.unit}
+                                            Unidad: {product.unitLabel || getUnitLabel(product.unit)}
                                         </span>
                                     )}
                                 </button>

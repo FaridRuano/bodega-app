@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Product from "@models/Product";
 import Category from "@models/Category";
@@ -57,6 +58,9 @@ function normalizeProduct(product, inventory) {
 
 export async function GET(_, { params }) {
     try {
+        const { response } = await requireAuthenticatedUser();
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -113,6 +117,9 @@ export async function GET(_, { params }) {
 
 export async function PATCH(request, { params }) {
     try {
+        const { response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -287,6 +294,9 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(_, { params }) {
     try {
+        const { response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;

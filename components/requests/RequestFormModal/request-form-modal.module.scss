@@ -33,25 +33,30 @@
 }
 
 .itemRow {
+    position: relative;
     display: grid;
     grid-template-columns: 2fr 1fr 1fr auto;
     gap: 10px;
     align-items: end;
 
-    padding: 12px;
+    padding: 14px;
+    padding-right: 56px;
     border-radius: 14px;
     background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
 }
 
 .removeBtn {
-    height: 42px;
-    width: 42px;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    height: 30px;
+    width: 30px;
 
-    border-radius: 10px;
-    border: none;
-    background: var(--danger-soft);
-    color: var(--danger);
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    color: var(--text-muted);
 
     display: inline-flex;
     align-items: center;
@@ -62,8 +67,9 @@
 }
 
 .removeBtn:hover {
-    background: var(--danger);
-    color: var(--text-inverse);
+    border-color: color-mix(in srgb, var(--danger) 22%, transparent);
+    background: var(--danger-soft);
+    color: var(--danger);
 }
 
 .emptyState {
@@ -75,14 +81,70 @@
     color: var(--text-muted);
 }
 
+.typeHint {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
+}
+
+.typeHintLabel {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.typeHintValue {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.quantityLabelRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.stockHint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.formAlert {
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
+    background: color-mix(in srgb, var(--danger-soft) 70%, transparent);
+    color: var(--danger);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.alertSlot {
+    min-height: 44px;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 768px) {
     .itemRow {
         grid-template-columns: 1fr;
+        padding-right: 14px;
     }
 
     .removeBtn {
-        width: 100%;
+        top: 10px;
+        right: 10px;
     }
 }

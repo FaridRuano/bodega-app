@@ -37,6 +37,7 @@ export default function RequestFulfillmentModal({
     }, [open, onClose]);
 
     const isDispatch = mode === "dispatch";
+    const isReturnRequest = request?.requestType === "return";
 
     const hasAtLeastOneQuantity = useMemo(() => {
         return (fulfillmentData?.items || []).some((item) => {
@@ -101,12 +102,22 @@ export default function RequestFulfillmentModal({
 
                         <div>
                             <h2 className="modal-title">
-                                {isDispatch ? "Despachar solicitud" : "Confirmar recepción"}
+                                {isDispatch
+                                    ? isReturnRequest
+                                        ? "Despachar devolución"
+                                        : "Despachar solicitud"
+                                    : isReturnRequest
+                                        ? "Confirmar ingreso en bodega"
+                                        : "Confirmar recepción"}
                             </h2>
                             <p className="modal-description">
                                 {isDispatch
-                                    ? "Registra las cantidades que serán despachadas desde inventario."
-                                    : "Confirma las cantidades recibidas."}
+                                    ? isReturnRequest
+                                        ? "Registra las cantidades que saldrán desde cocina hacia bodega."
+                                        : "Registra las cantidades que serán despachadas desde inventario."
+                                    : isReturnRequest
+                                        ? "Confirma las cantidades devueltas que ingresan a bodega."
+                                        : "Confirma las cantidades recibidas."}
                             </p>
                         </div>
                     </div>
@@ -212,8 +223,12 @@ export default function RequestFulfillmentModal({
                                 onChange={onChange}
                                 placeholder={
                                     isDispatch
-                                        ? "Notas de despacho"
-                                        : "Notas de recepción"
+                                        ? isReturnRequest
+                                            ? "Notas del envío a bodega"
+                                            : "Notas de despacho"
+                                        : isReturnRequest
+                                            ? "Notas de ingreso en bodega"
+                                            : "Notas de recepción"
                                 }
                                 disabled={isSubmitting}
                             />
@@ -237,8 +252,12 @@ export default function RequestFulfillmentModal({
                                 {isSubmitting
                                     ? "Procesando..."
                                     : isDispatch
-                                        ? "Confirmar despacho"
-                                        : "Confirmar recepción"}
+                                        ? isReturnRequest
+                                            ? "Confirmar salida"
+                                            : "Confirmar despacho"
+                                        : isReturnRequest
+                                            ? "Confirmar ingreso"
+                                            : "Confirmar recepción"}
                             </button>
                         </div>
                     </form>

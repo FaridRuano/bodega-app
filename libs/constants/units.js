@@ -1,3 +1,14 @@
+export const PRODUCT_UNITS = [
+    "unit",
+    "kg",
+    "g",
+    "lb",
+    "l",
+    "ml",
+    "package",
+    "box",
+];
+
 export const UNIT_LABELS = {
     unit: "Unidad",
     kg: "Kilogramo",

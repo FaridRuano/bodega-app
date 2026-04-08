@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import User from "@models/User";
 
@@ -8,8 +9,16 @@ function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id);
 }
 
+function normalizeOptionalEmail(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    return normalized || undefined;
+}
+
 export async function GET(_, { params }) {
     try {
+        const { response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -58,6 +67,9 @@ export async function GET(_, { params }) {
 
 export async function PATCH(request, { params }) {
     try {
+        const { user: currentUser, response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -155,7 +167,7 @@ export async function PATCH(request, { params }) {
         }
 
         if (typeof email === "string") {
-            const normalizedEmail = email.trim().toLowerCase() || null;
+            const normalizedEmail = normalizeOptionalEmail(email);
 
             if (normalizedEmail) {
                 const existingEmail = await User.findOne({
@@ -182,7 +194,39 @@ export async function PATCH(request, { params }) {
         }
 
         if (typeof isActive === "boolean") {
+            if (
+                !isActive &&
+                String(user._id) === String(currentUser.id) &&
+                user.role === "admin"
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "No puedes desactivar tu propio usuario administrador.",
+                    },
+                    { status: 409 }
+                );
+            }
+
             user.isActive = isActive;
+        }
+
+        if (user.role === "admin" && user.isActive === false) {
+            const activeAdminCount = await User.countDocuments({
+                role: "admin",
+                isActive: true,
+                _id: { $ne: user._id },
+            });
+
+            if (activeAdminCount === 0) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Debe existir al menos un administrador activo.",
+                    },
+                    { status: 409 }
+                );
+            }
         }
 
         await user.save();
@@ -223,6 +267,9 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(_, { params }) {
     try {
+        const { user: currentUser, response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -247,6 +294,34 @@ export async function DELETE(_, { params }) {
                 },
                 { status: 404 }
             );
+        }
+
+        if (String(user._id) === String(currentUser.id)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "No puedes eliminar tu propio usuario.",
+                },
+                { status: 409 }
+            );
+        }
+
+        if (user.role === "admin") {
+            const otherAdminCount = await User.countDocuments({
+                role: "admin",
+                _id: { $ne: user._id },
+                isActive: true,
+            });
+
+            if (otherAdminCount === 0) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "No puedes eliminar el ultimo administrador activo.",
+                    },
+                    { status: 409 }
+                );
+            }
         }
 
         await User.findByIdAndDelete(id);

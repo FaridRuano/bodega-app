@@ -1,14 +1,9 @@
 import mongoose from "mongoose";
 import { UNIT_VALUES } from "@libs/constants/units";
+import { PRODUCTION_TEMPLATE_TYPES } from "@libs/constants/productionTypes";
 
 const { Schema, model, models } = mongoose;
 
-export const PRODUCTION_TEMPLATE_TYPES = [
-    "transformation",
-    "cutting",
-    "preparation",
-    "portioning",
-];
 
 export const DESTINATION_TYPES = [
     "kitchen",

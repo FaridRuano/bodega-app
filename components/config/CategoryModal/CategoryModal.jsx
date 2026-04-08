@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
 export default function CategoryModal({
@@ -30,13 +30,17 @@ export default function CategoryModal({
                 description: initialData.description || "",
             };
 
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setForm(data);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setInitialForm(data);
         }
 
         if (mode === "create") {
             const empty = { name: "", description: "" };
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setForm(empty);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setInitialForm(empty);
         }
     }, [mode, initialData, open]);
@@ -55,12 +59,9 @@ export default function CategoryModal({
     }
 
     // 🧠 detectar cambios
-    const isDirty = useMemo(() => {
-        return (
-            form.name !== initialForm.name ||
-            form.description !== initialForm.description
-        );
-    }, [form, initialForm]);
+    const isDirty =
+        form.name !== initialForm.name ||
+        form.description !== initialForm.description;
 
     // 🧠 validación mínima
     const isValid = form.name.trim().length > 0;

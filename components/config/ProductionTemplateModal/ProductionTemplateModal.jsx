@@ -133,7 +133,9 @@ export default function ProductionTemplateModal({
 
     useEffect(() => {
         const nextForm = buildInitialForm(initialData);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(nextForm);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setInitialForm(nextForm);
     }, [initialData, mode, open]);
 

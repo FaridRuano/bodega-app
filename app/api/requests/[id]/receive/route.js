@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
+import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Request from "@models/Request";
+import InventoryStock from "@models/InventoryStock";
 
 function isValidObjectId(value) {
     return mongoose.Types.ObjectId.isValid(value);
@@ -133,7 +135,12 @@ async function getRequestById(id) {
 }
 
 export async function POST(request, { params }) {
+    const session = await mongoose.startSession();
+
     try {
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen"]);
+        if (response) return response;
+
         await dbConnect();
 
         const { id } = await params;
@@ -146,17 +153,8 @@ export async function POST(request, { params }) {
         }
 
         const body = await request.json();
-
-        const receivedBy = normalizeText(body.receivedBy);
         const notes = normalizeNullableText(body.notes);
         const items = Array.isArray(body.items) ? body.items : [];
-
-        if (!receivedBy || !isValidObjectId(receivedBy)) {
-            return NextResponse.json(
-                { success: false, message: "El usuario receptor no es válido." },
-                { status: 400 }
-            );
-        }
 
         if (!items.length) {
             return NextResponse.json(
@@ -165,26 +163,77 @@ export async function POST(request, { params }) {
             );
         }
 
+        session.startTransaction();
+
         const requestDoc = await Request.findOne({
             _id: id,
             deletedAt: null,
-        });
+        }).session(session);
 
         if (!requestDoc) {
-            return NextResponse.json(
-                { success: false, message: "La solicitud no existe." },
-                { status: 404 }
-            );
+            throw new Error("La solicitud no existe.");
         }
 
-        if (!["approved", "partially_fulfilled"].includes(requestDoc.status)) {
+        const isReturnRequest = requestDoc.requestType === "return";
+        const canReceive = isReturnRequest
+            ? ["admin", "warehouse"].includes(user.role)
+            : ["admin", "kitchen"].includes(user.role);
+
+        if (!canReceive) {
+            await session.abortTransaction();
+            session.endSession();
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Solo se pueden recibir solicitudes con despacho pendiente o parcial.",
+                    message: isReturnRequest
+                        ? "Solo bodega o administración pueden confirmar devoluciones."
+                        : "Solo cocina o administración pueden confirmar recepciones.",
+                },
+                { status: 403 }
+            );
+        }
+
+        const allowedStatuses = isReturnRequest
+            ? ["pending", "partially_fulfilled"]
+            : ["approved", "partially_fulfilled"];
+
+        if (!allowedStatuses.includes(requestDoc.status)) {
+            await session.abortTransaction();
+            session.endSession();
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: isReturnRequest
+                        ? "Solo se pueden recibir devoluciones con cantidades ya despachadas."
+                        : "Solo se pueden recibir solicitudes con despacho pendiente o parcial.",
                 },
                 { status: 409 }
             );
+        }
+
+        async function getOrCreateStock(productId, location) {
+            let stock = await InventoryStock.findOne({
+                productId,
+                location,
+            }).session(session);
+
+            if (!stock) {
+                const created = await InventoryStock.create(
+                    [
+                        {
+                            productId,
+                            location,
+                            quantity: 0,
+                            reservedQuantity: 0,
+                        },
+                    ],
+                    { session }
+                );
+
+                stock = created[0];
+            }
+
+            return stock;
         }
 
         const itemMap = new Map(
@@ -200,17 +249,11 @@ export async function POST(request, { params }) {
             const receivedQuantity = Number(incomingItem.receivedQuantity);
 
             if (!itemId || !isValidObjectId(itemId)) {
-                return NextResponse.json(
-                    { success: false, message: "Uno de los items a recibir no es válido." },
-                    { status: 400 }
-                );
+                throw new Error("Uno de los items a recibir no es válido.");
             }
 
             if (providedItemIds.has(itemId)) {
-                return NextResponse.json(
-                    { success: false, message: "Hay items repetidos en la recepción." },
-                    { status: 400 }
-                );
+                throw new Error("Hay items repetidos en la recepción.");
             }
 
             providedItemIds.add(itemId);
@@ -218,17 +261,11 @@ export async function POST(request, { params }) {
             const requestItem = itemMap.get(itemId);
 
             if (!requestItem) {
-                return NextResponse.json(
-                    { success: false, message: "Uno de los items a recibir no es válido." },
-                    { status: 400 }
-                );
+                throw new Error("Uno de los items a recibir no es válido.");
             }
 
             if (!Number.isFinite(receivedQuantity) || receivedQuantity < 0) {
-                return NextResponse.json(
-                    { success: false, message: "La cantidad recibida no es válida." },
-                    { status: 400 }
-                );
+                throw new Error("La cantidad recibida no es válida.");
             }
 
             const alreadyReceived = Number(requestItem.receivedQuantity || 0);
@@ -236,18 +273,17 @@ export async function POST(request, { params }) {
             const remainingToReceive = alreadyDispatched - alreadyReceived;
 
             if (receivedQuantity > remainingToReceive) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        message: "La cantidad recibida no puede exceder la pendiente por recibir.",
-                    },
-                    { status: 400 }
-                );
+                throw new Error("La cantidad recibida no puede exceder la pendiente por recibir.");
             }
 
             if (receivedQuantity === 0) {
                 continue;
             }
+
+            const stock = await getOrCreateStock(requestItem.productId, requestDoc.destinationLocation);
+            stock.quantity = Number(stock.quantity || 0) + receivedQuantity;
+            stock.lastMovementAt = receivedAt;
+            await stock.save({ session });
 
             requestItem.receivedQuantity = alreadyReceived + receivedQuantity;
 
@@ -258,45 +294,60 @@ export async function POST(request, { params }) {
         }
 
         if (!receiptLogItems.length) {
+            await session.abortTransaction();
+            session.endSession();
             return NextResponse.json(
-                { success: false, message: "Debes registrar al menos una cantidad mayor a cero." },
+                {
+                    success: false,
+                    message: isReturnRequest
+                        ? "Debes confirmar al menos una cantidad mayor a cero de la devolución."
+                        : "Debes registrar al menos una cantidad mayor a cero.",
+                },
                 { status: 400 }
             );
         }
 
         requestDoc.receipts.push({
-            receivedBy,
+            receivedBy: user.id,
             receivedAt,
             notes,
             items: receiptLogItems,
         });
 
         requestDoc.notes = notes || requestDoc.notes;
-
         requestDoc.recalculateStatus();
 
         requestDoc.addActivity({
             type: "receive",
-            performedBy: receivedBy,
+            performedBy: user.id,
             performedAt: receivedAt,
-            title: "Recepción registrada",
-            description: notes || "Se registró una recepción para la solicitud.",
+            title: isReturnRequest ? "Devolución recibida" : "Recepción registrada",
+            description: notes || (isReturnRequest
+                ? "Bodega confirmó la recepción de la devolución."
+                : "Se registró una recepción para la solicitud."),
             items: receiptLogItems,
         });
 
-        await requestDoc.save();
+        await requestDoc.save({ session });
+        await session.commitTransaction();
+        session.endSession();
 
         const populated = await getRequestById(requestDoc._id);
 
         return NextResponse.json(
             {
                 success: true,
-                message: "Recepción registrada correctamente.",
+                message: isReturnRequest
+                    ? "Devolución recibida correctamente."
+                    : "Recepción registrada correctamente.",
                 data: normalizeRequestDocument(populated),
             },
             { status: 200 }
         );
     } catch (error) {
+        await session.abortTransaction().catch(() => {});
+        session.endSession();
+
         console.error("POST /api/requests/[id]/receive error:", error);
 
         return NextResponse.json(

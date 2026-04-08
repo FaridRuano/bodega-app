@@ -11,6 +11,7 @@ const routeTitles = {
   "/dashboard/movements": { eyebrow: "Auditoría", title: "Movimientos" },
   "/dashboard/config": { eyebrow: "Sistema", title: "Configuración" },
   "/dashboard/config/users": { eyebrow: "Sistema", title: "Usuarios" },
+  "/dashboard/config/productionsheets": { eyebrow: "Sistema", title: "Fichas de produccion" },
   "/dashboard/config/categories": { eyebrow: "Sistema", title: "Categorías" },
   "/dashboard/requests": { eyebrow: "Módulo", title: "Solicitudes" },
   "/dashboard/production": { eyebrow: "Módulo", title: "Producción" },

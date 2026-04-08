@@ -1,6 +1,6 @@
 .headerRow {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
@@ -8,23 +8,34 @@
 }
 
 .statsGroup {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
-    flex-wrap: wrap;
     flex: 1;
+    min-width: min(100%, 540px);
 }
 
 .statCard {
-    min-width: 180px;
-    padding: 14px 16px;
-    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    padding: 10px 16px;
+    border-radius: 18px;
     border: 1px solid var(--border-subtle);
-    background: var(--surface-primary);
-    box-shadow: var(--shadow-sm);
-
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        var(--surface-primary);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    text-align: start;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
+    cursor: pointer;
+
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
 }
 
 .warningCard {
@@ -36,21 +47,27 @@
 }
 
 .statLabel {
+    position: relative;
+    margin: 0;
     font-size: 13px;
-    color: var(--text-secondary);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-muted);
 }
 
 .statValue {
-    font-size: 28px;
-    line-height: 1;
+    position: relative;
+    margin: 0;
+    font-size: 18px;
     font-weight: 700;
+    line-height: 1;
     color: var(--text-primary);
 }
 
 .searchBox {
-    min-width: 280px;
+    min-width: min(100%, 280px);
     max-width: 360px;
-    width: 100%;
+    width: min(100%, 360px);
     padding: 0 14px;
     height: 46px;
 
@@ -98,7 +115,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.9fr) auto;
     gap: 16px;
-    align-items: center;
+    align-items: start;
 }
 
 .productInfo {
@@ -159,6 +176,7 @@
     gap: 10px;
     flex-wrap: wrap;
     justify-content: flex-end;
+    align-self: center;
 }
 
 .statusBadge {
@@ -204,39 +222,77 @@
 @media (max-width: 1080px) {
     .productCard {
         grid-template-columns: 1fr;
+        gap: 14px;
     }
 
     .actions {
         justify-content: flex-start;
+        align-self: stretch;
     }
 }
 
 @media (max-width: 768px) {
+    .headerRow {
+        gap: 14px;
+    }
+
+    .statsGroup {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        min-width: 0;
+    }
+
     .searchBox {
-        max-width: unset;
+        max-width: none;
+        width: 100%;
     }
 
     .stockSummary {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .statCard {
-        min-width: 150px;
+        min-width: 0;
+        padding: 12px 14px;
+    }
+
+    .productCard {
+        padding: 14px;
+    }
+
+    .stockBlock {
+        padding: 10px;
+    }
+
+    .stockBlock strong {
+        font-size: 18px;
     }
 }
 
 @media (max-width: 640px) {
     .statsGroup {
         width: 100%;
+        grid-template-columns: 1fr;
     }
 
-    .statCard {
-        flex: 1 1 160px;
+    .productTitleRow {
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .productMeta {
+        margin-top: 6px;
+        line-height: 1.45;
+    }
+
+    .stockSummary {
+        grid-template-columns: 1fr;
     }
 
     .actions {
         flex-direction: column;
         align-items: stretch;
+        gap: 8px;
     }
 
     .actions :global(.btn) {

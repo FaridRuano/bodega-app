@@ -199,6 +199,7 @@ export async function GET(request) {
         const type = searchParams.get("type") || "";
         const category = searchParams.get("category") || "";
         const isActive = parseBoolean(searchParams.get("isActive"));
+        const hasPagination = searchParams.has("page") || searchParams.has("limit");
         const page = parsePositiveNumber(searchParams.get("page"), 1);
         const limit = parsePositiveNumber(searchParams.get("limit"), 10);
         const sortBy = searchParams.get("sortBy") || "updatedAt";
@@ -237,19 +238,22 @@ export async function GET(request) {
 
         const skip = (page - 1) * limit;
 
-        const [templates, total] = await Promise.all([
+        const [templates, total, active, inactive, cutting] = await Promise.all([
             ProductionTemplate.find(filters)
                 .select(
                     "code name description category type baseUnit expectedYield expectedWaste defaultDestination allowsMultipleOutputs requiresWasteRecord allowRealOutputAdjustment notes isActive inputs outputs createdBy updatedBy createdAt updatedAt"
                 )
                 .sort({ [finalSortBy]: sortOrder })
-                .skip(skip)
-                .limit(limit)
+                .skip(hasPagination ? skip : 0)
+                .limit(hasPagination ? limit : 1000)
                 .populate("category", "name")
                 .populate("createdBy", "username email")
                 .populate("updatedBy", "username email")
                 .lean(),
             ProductionTemplate.countDocuments(filters),
+            ProductionTemplate.countDocuments({ ...filters, isActive: true }),
+            ProductionTemplate.countDocuments({ ...filters, isActive: false }),
+            ProductionTemplate.countDocuments({ ...filters, type: "cutting" }),
         ]);
 
 
@@ -259,9 +263,15 @@ export async function GET(request) {
                 data: templates.map(formatTemplateListItem),
                 pagination: {
                     page,
-                    limit,
+                    limit: hasPagination ? limit : templates.length,
                     total,
-                    pages: Math.ceil(total / limit),
+                    pages: hasPagination ? Math.max(Math.ceil(total / limit), 1) : 1,
+                },
+                summary: {
+                    total,
+                    active,
+                    inactive,
+                    cutting,
                 },
             },
             { status: 200 }

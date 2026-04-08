@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import Product from "@models/Product";
 import Category from "@models/Category";
 import InventoryStock from "@models/InventoryStock";
+import { parsePositiveNumber } from "@libs/apiUtils";
 
 async function buildInventoryMap(productIds = []) {
     if (!productIds.length) return new Map();
@@ -87,18 +89,79 @@ async function generateProductCode() {
     throw new Error("No se pudo generar un código único para el producto.");
 }
 
-export async function GET() {
+function buildSearchFilter(search) {
+    const normalized = String(search || "").trim();
+    if (!normalized) return null;
+
+    const regex = new RegExp(normalized, "i");
+
+    return {
+        $or: [
+            { name: regex },
+            { code: regex },
+            { description: regex },
+        ],
+    };
+}
+
+export async function GET(request) {
     try {
+        const { response } = await requireAuthenticatedUser();
+        if (response) return response;
+
         await dbConnect();
 
-        const products = await Product.find({})
-            .populate({
-                path: "categoryId",
-                model: Category,
-                select: "name slug isActive",
-            })
-            .sort({ createdAt: -1 })
-            .lean();
+        const { searchParams } = new URL(request.url);
+        const hasPagination = searchParams.has("page") || searchParams.has("limit");
+        const page = parsePositiveNumber(searchParams.get("page"), 1);
+        const limit = Math.min(parsePositiveNumber(searchParams.get("limit"), 10), 100);
+        const search = searchParams.get("search") || "";
+        const categoryId = String(searchParams.get("categoryId") || "").trim();
+        const status = String(searchParams.get("status") || "").trim();
+        const productType = String(searchParams.get("productType") || "").trim();
+
+        const filters = [];
+        const searchFilter = buildSearchFilter(search);
+
+        if (searchFilter) {
+            filters.push(searchFilter);
+        }
+
+        if (categoryId) {
+            filters.push({ categoryId });
+        }
+
+        if (status === "active") {
+            filters.push({ isActive: true });
+        }
+
+        if (status === "inactive") {
+            filters.push({ isActive: false });
+        }
+
+        if (productType) {
+            filters.push({ productType });
+        }
+
+        const query = filters.length ? { $and: filters } : {};
+        const skip = (page - 1) * limit;
+
+        const [products, total, activeProducts] = await Promise.all([
+            Product.find(query)
+                .populate({
+                    path: "categoryId",
+                    model: Category,
+                    select: "name slug isActive",
+                })
+                .sort({ createdAt: -1 })
+                .skip(hasPagination ? skip : 0)
+                .limit(hasPagination ? limit : 1000)
+                .lean(),
+            Product.countDocuments(query),
+            Product.countDocuments({
+                ...(filters.length ? { $and: [...filters.filter((item) => !("isActive" in item)), { isActive: true }] } : { isActive: true }),
+            }),
+        ]);
 
         const normalizedProducts = products.map((product) => ({
             ...product,
@@ -117,6 +180,16 @@ export async function GET() {
             {
                 success: true,
                 data,
+                meta: {
+                    page,
+                    limit: hasPagination ? limit : data.length,
+                    total,
+                    pages: hasPagination ? Math.max(Math.ceil(total / limit), 1) : 1,
+                },
+                summary: {
+                    totalProducts: total,
+                    activeProducts,
+                },
             },
             { status: 200 }
         );
@@ -135,6 +208,9 @@ export async function GET() {
 
 export async function POST(request) {
     try {
+        const { response } = await requireUserRole(["admin"]);
+        if (response) return response;
+
         await dbConnect();
 
         const body = await request.json();

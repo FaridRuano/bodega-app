@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 
+import Product from "@models/Product";
 import { auth } from "@auth";
 import dbConnect from "@libs/mongodb";
 import ProductionTemplate from "@models/ProductionTemplate";
