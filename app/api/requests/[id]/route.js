@@ -282,10 +282,13 @@ export async function PATCH(request, { params }) {
         const productMap = new Map(
             products.map((product) => [String(product._id), product])
         );
-        const stocks = await InventoryStock.find({
-            productId: { $in: productIds },
-            location: requestDoc.sourceLocation,
-        }).lean();
+        const shouldValidateSourceStock = requestDoc.requestType === "return";
+        const stocks = shouldValidateSourceStock
+            ? await InventoryStock.find({
+                productId: { $in: productIds },
+                location: requestDoc.sourceLocation,
+            }).lean()
+            : [];
         const stockMap = new Map(stocks.map((stock) => [String(stock.productId), stock]));
 
         requestDoc.items = rawItems.map((item) => {
@@ -309,7 +312,7 @@ export async function PATCH(request, { params }) {
                 );
             }
 
-            if (requestedQuantity > available) {
+            if (shouldValidateSourceStock && requestedQuantity > available) {
                 throw new Error(
                     `La cantidad solicitada de ${product.name} supera el stock disponible en ${requestDoc.sourceLocation === "warehouse" ? "bodega" : "cocina"}.`
                 );

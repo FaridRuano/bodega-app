@@ -271,7 +271,6 @@
     line-height: 1.5;
     color: var(--text-secondary);
 }
-
 .emptyState {
     padding: 36px 20px;
     border-radius: 18px;
@@ -337,6 +336,7 @@
     }
 
     .filtersGroup {
+        width: 100%;
         display: grid;
         grid-template-columns: 1fr 1fr;
         align-items: stretch;

@@ -349,14 +349,6 @@ export default function ProductionTemplateReviewModal({
                 <div className="modal-footer">
                     <button
                         type="button"
-                        className="btn btn-secondary"
-                        onClick={onClose}
-                    >
-                        Cerrar
-                    </button>
-
-                    <button
-                        type="button"
                         className="btn btn-neutral"
                         onClick={onEdit}
                         disabled={loading}

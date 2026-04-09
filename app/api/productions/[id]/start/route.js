@@ -229,11 +229,12 @@ export async function POST(_request, { params }) {
         }
 
         if (error?.message?.startsWith("__INSUFFICIENT_STOCK__")) {
-            const [, productName, requiredQuantity, availableQuantity] =
-                error.message.split("__");
+            const [, , productName] = error.message.split("__");
 
             return badRequest(
-                `No hay suficiente stock en cocina para "${productName}". Requerido: ${requiredQuantity}. Disponible: ${availableQuantity}.`
+                productName
+                    ? `Stock insuficiente en cocina para ${productName}.`
+                    : "Stock insuficiente en cocina para iniciar la producción."
             );
         }
 

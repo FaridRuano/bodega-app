@@ -41,14 +41,12 @@ function buildPersonLabel(user) {
   return fullName || user.username || user.email || "Sin responsable";
 }
 
-function getLatestRequestActivity(request) {
-  const activityLog = [...(request.activityLog || [])].sort((a, b) => {
+function getSortedRequestActivities(request) {
+  return [...(request.activityLog || [])].sort((a, b) => {
     const first = new Date(a?.performedAt || 0).getTime();
     const second = new Date(b?.performedAt || 0).getTime();
     return second - first;
   });
-
-  return activityLog[0] || null;
 }
 
 function getRequestActionLabel(activity, request) {
@@ -119,34 +117,66 @@ function buildProductionPreview(production) {
 }
 
 function buildHistoryItems(requests, productions) {
-  const requestItems = (requests || []).map((request) => {
-    const latestActivity = getLatestRequestActivity(request);
+  const requestItems = (requests || []).flatMap((request) => {
+    const activities = getSortedRequestActivities(request);
 
-    return {
-      id: request._id,
+    if (!activities.length) {
+      return [{
+        id: request._id,
+        kind: "request",
+        code: request.requestNumber || "Solicitud sin número",
+        title: getPurposeLabel(request.justification) || request.justification || "Solicitud operativa",
+        statusLabel: getRequestStatusLabel(request.status),
+        date: request.requestedAt || request.createdAt,
+        actionLabel: "Solicitud creada",
+        actorLabel: buildPersonLabel(request.requestedBy),
+        route: {
+          from: getLocationLabel(request.sourceLocation, "Bodega"),
+          to: getLocationLabel(request.destinationLocation, "Cocina"),
+        },
+        preview: buildRequestPreview(request),
+        note: request.notes || request.statusReason || "",
+        href: `/dashboard/requests?search=${encodeURIComponent(request.requestNumber || "")}`,
+        searchText: [
+          request.requestNumber,
+          request.justification,
+          request.notes,
+          request.statusReason,
+          request.requestedBy?.username,
+          request.requestedBy?.email,
+          ...(request.items || []).flatMap((item) => [item.product?.name, item.product?.code]),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase(),
+      }];
+    }
+
+    return activities.map((activity) => ({
+      id: `${request._id}-${activity._id || activity.performedAt || activity.type}`,
       kind: "request",
       code: request.requestNumber || "Solicitud sin número",
       title: getPurposeLabel(request.justification) || request.justification || "Solicitud operativa",
       statusLabel: getRequestStatusLabel(request.status),
-      date: latestActivity?.performedAt || request.requestedAt || request.createdAt,
-      actionLabel: getRequestActionLabel(latestActivity, request),
-      actorLabel: buildPersonLabel(latestActivity?.performedBy || request.requestedBy),
+      date: activity?.performedAt || request.requestedAt || request.createdAt,
+      actionLabel: getRequestActionLabel(activity, request),
+      actorLabel: buildPersonLabel(activity?.performedBy || request.requestedBy),
       route: {
         from: getLocationLabel(request.sourceLocation, "Bodega"),
         to: getLocationLabel(request.destinationLocation, "Cocina"),
       },
       preview: buildRequestPreview(request),
-      note: latestActivity?.description || request.notes || request.statusReason || "",
+      note: activity?.description || request.notes || request.statusReason || "",
       href: `/dashboard/requests?search=${encodeURIComponent(request.requestNumber || "")}`,
       searchText: [
         request.requestNumber,
         request.justification,
         request.notes,
         request.statusReason,
-        latestActivity?.title,
-        latestActivity?.description,
-        latestActivity?.performedBy?.username,
-        latestActivity?.performedBy?.email,
+        activity?.title,
+        activity?.description,
+        activity?.performedBy?.username,
+        activity?.performedBy?.email,
         request.requestedBy?.username,
         request.requestedBy?.email,
         ...(request.items || []).flatMap((item) => [item.product?.name, item.product?.code]),
@@ -154,7 +184,7 @@ function buildHistoryItems(requests, productions) {
         .filter(Boolean)
         .join(" ")
         .toLowerCase(),
-    };
+    }));
   });
 
   const productionItems = (productions || []).map((production) => ({

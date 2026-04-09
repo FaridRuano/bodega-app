@@ -368,10 +368,13 @@ export async function POST(request) {
         const productMap = new Map(
             products.map((product) => [String(product._id), product])
         );
-        const stocks = await InventoryStock.find({
-            productId: { $in: productIds },
-            location: sourceLocation,
-        }).lean();
+        const shouldValidateSourceStock = requestType === "return";
+        const stocks = shouldValidateSourceStock
+            ? await InventoryStock.find({
+                productId: { $in: productIds },
+                location: sourceLocation,
+            }).lean()
+            : [];
         const stockMap = new Map(stocks.map((stock) => [String(stock.productId), stock]));
 
         const items = rawItems.map((item) => {
@@ -396,7 +399,7 @@ export async function POST(request) {
                 );
             }
 
-            if (requestedQuantity > available) {
+            if (shouldValidateSourceStock && requestedQuantity > available) {
                 throw new Error(
                     `La cantidad solicitada de ${product.name} supera el stock disponible en ${sourceLocation === "warehouse" ? "bodega" : "cocina"}.`
                 );

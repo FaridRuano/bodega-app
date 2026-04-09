@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { getUnitLabel } from "@libs/constants/units";
 import styles from "./page.module.scss";
 import AutocompleteSelect from "@components/production/AutoCompleteSelect/AutoCompleteSelect";
+import DialogModal from "@components/shared/DialogModal/DialogModal";
 
 const TEMPLATE_TYPE_LABELS = {
     transformation: "Transformación",
@@ -36,15 +37,35 @@ export default function NewProductionPage() {
     const [selectedTemplateOption, setSelectedTemplateOption] = useState(null);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
-
     const [form, setForm] = useState({
         productionQuantity: "",
         notes: "",
     });
-
     const [submitMode, setSubmitMode] = useState("create");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [dialogState, setDialogState] = useState({
+        open: false,
+        title: "",
+        message: "",
+        variant: "warning",
+    });
+
+    function openDialog(title, message, variant = "warning") {
+        setDialogState({
+            open: true,
+            title,
+            message,
+            variant,
+        });
+    }
+
+    function closeDialog() {
+        setDialogState((prev) => ({
+            ...prev,
+            open: false,
+        }));
+    }
 
     async function fetchTemplateOptions(query) {
         const params = new URLSearchParams();
@@ -141,17 +162,17 @@ export default function NewProductionPage() {
         event.preventDefault();
 
         if (!selectedTemplateId) {
-            setErrorMessage("Debes seleccionar una ficha de producción.");
+            openDialog("Falta información", "Debes seleccionar una ficha de producción.", "warning");
             return;
         }
 
         if (!form.productionQuantity || Number(form.productionQuantity) <= 0) {
-            setErrorMessage("La cantidad a producir debe ser mayor a 0.");
+            openDialog("Falta información", "La cantidad a producir debe ser mayor a 0.", "warning");
             return;
         }
 
         if (!selectedTemplate?.baseUnit) {
-            setErrorMessage("La ficha seleccionada no tiene una unidad base válida.");
+            openDialog("Ficha inválida", "La ficha seleccionada no tiene una unidad base válida.", "warning");
             return;
         }
 
@@ -181,17 +202,23 @@ export default function NewProductionPage() {
             const result = await response.json();
 
             if (!response.ok || !result?.ok) {
-                throw new Error(
-                    result?.message || "No se pudo crear la producción."
+                openDialog(
+                    "No se pudo iniciar la producción",
+                    result?.message || "No se pudo crear la producción.",
+                    "warning"
                 );
+                return;
             }
 
             const createdId = result?.data?._id;
 
             if (!createdId) {
-                throw new Error(
-                    "La producción fue creada, pero no se recibió su identificador."
+                openDialog(
+                    "Producción incompleta",
+                    "La producción fue creada, pero no se recibió su identificador.",
+                    "warning"
                 );
+                return;
             }
 
             if (isDraftMode) {
@@ -202,8 +229,10 @@ export default function NewProductionPage() {
             router.push(`/dashboard/production/${createdId}`);
         } catch (error) {
             console.error("[NEW_PRODUCTION_CREATE_ERROR]", error);
-            setErrorMessage(
-                error?.message || "No se pudo crear la producción."
+            openDialog(
+                "Error inesperado",
+                error?.message || "No se pudo crear la producción.",
+                "warning"
             );
         } finally {
             setIsSubmitting(false);
@@ -552,6 +581,16 @@ export default function NewProductionPage() {
                     </div>
                 </aside>
             </form>
+
+            <DialogModal
+                open={dialogState.open}
+                title={dialogState.title}
+                message={dialogState.message}
+                variant={dialogState.variant}
+                confirmText="Aceptar"
+                onConfirm={closeDialog}
+                onClose={closeDialog}
+            />
         </div>
     );
 }

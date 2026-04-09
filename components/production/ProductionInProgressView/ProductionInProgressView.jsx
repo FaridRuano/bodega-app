@@ -62,6 +62,16 @@ function createWasteRow() {
     };
 }
 
+function isByproductItem(item) {
+    if (!item || item.isWaste) return false;
+    return Boolean(item.isByProduct) || !Boolean(item.isMain);
+}
+
+function isMainOutputItem(item) {
+    if (!item || item.isWaste) return false;
+    return !isByproductItem(item);
+}
+
 function mapOutputRows(items = [], fallbackIsByProduct = false) {
     return items.length
         ? items.map((item) => ({
@@ -78,6 +88,25 @@ function mapOutputRows(items = [], fallbackIsByProduct = false) {
             notes: item.notes || "",
         }))
         : [];
+}
+
+function buildTemplateOutputRows(templateOutputs = [], byproduct = false, defaultDestination = "warehouse") {
+    return (templateOutputs || [])
+        .filter((item) => byproduct ? isByproductItem(item) : isMainOutputItem(item))
+        .map((item) => ({
+            productId: item.productId?._id || item.productId || "",
+            productNameSnapshot: item.productNameSnapshot || item.productId?.name || "",
+            productCodeSnapshot: item.productCodeSnapshot || item.productId?.code || "",
+            unitSnapshot: item.unitSnapshot || item.unit || item.productId?.unit || "unit",
+            quantity:
+                item.quantity !== null && item.quantity !== undefined
+                    ? String(item.quantity)
+                    : "",
+            destinationLocation: item.destinationLocation || defaultDestination || "warehouse",
+            isMain: Boolean(item.isMain),
+            isByProduct: byproduct || Boolean(item.isByProduct),
+            notes: item.notes || "",
+        }));
 }
 
 function mapWasteRows(items = []) {
@@ -149,19 +178,42 @@ export default function ProductionInProgressView({
     );
 
     useEffect(() => {
+        const defaultDestination =
+            production?.templateSnapshot?.defaultDestination === "none"
+                ? "kitchen"
+                : production?.templateSnapshot?.defaultDestination ||
+                production?.productionTemplateId?.defaultDestination ||
+                "warehouse";
+
+        const templateOutputRows = buildTemplateOutputRows(
+            production?.productionTemplateId?.outputs || [],
+            false,
+            defaultDestination
+        );
+
+        const templateByproductRows = buildTemplateOutputRows(
+            production?.productionTemplateId?.outputs || [],
+            true,
+            defaultDestination
+        );
+
         setNotes(production?.notes || "");
         setOutputs(
             mapOutputRows(
                 production?.outputs?.length
                     ? production.outputs
-                    : (production?.expectedOutputs || []).filter((item) => !item.isByProduct)
+                    : (production?.expectedOutputs?.length
+                        ? (production.expectedOutputs || []).filter((item) => isMainOutputItem(item))
+                        : templateOutputRows)
             )
         );
         setByproducts(
             mapOutputRows(
                 production?.byproducts?.length
                     ? production.byproducts
-                    : (production?.expectedOutputs || []).filter((item) => item.isByProduct),
+                    : (production?.expectedOutputs?.length
+                        ? (production.expectedOutputs || []).filter((item) => isByproductItem(item))
+                        : templateByproductRows),
                 true
             )
         );
@@ -217,31 +269,39 @@ export default function ProductionInProgressView({
             }));
     }
 
+    function buildSavePayload() {
+        return {
+            notes,
+            outputs: sanitizeOutputRows(outputs, false),
+            byproducts: sanitizeOutputRows(byproducts, true),
+            waste: sanitizeWasteRows(waste),
+        };
+    }
+
+    async function persistProgressChanges() {
+        const response = await fetch(`/api/productions/${production._id}`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(buildSavePayload()),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result?.ok) {
+            throw new Error(result?.message || "No se pudo guardar la producci?n.");
+        }
+
+        return result;
+    }
+
     async function handleSave() {
         try {
             setIsSaving(true);
-
-            const response = await fetch(`/api/productions/${production._id}`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    notes,
-                    outputs: sanitizeOutputRows(outputs, false),
-                    byproducts: sanitizeOutputRows(byproducts, true),
-                    waste: sanitizeWasteRows(waste),
-                }),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok || !result?.ok) {
-                throw new Error(result?.message || "No se pudo guardar la producción.");
-            }
-
+            await persistProgressChanges();
             await refreshProduction();
-            openDialog("Cambios guardados", "La producción fue actualizada.", "success");
+            openDialog("Cambios guardados", "La producci?n fue actualizada.", "success");
         } catch (error) {
             console.error("[PRODUCTION_IN_PROGRESS_SAVE_ERROR]", error);
             openDialog(
@@ -257,13 +317,15 @@ export default function ProductionInProgressView({
     async function handleComplete() {
         try {
             setIsCompleting(true);
+            await persistProgressChanges();
+
             const response = await fetch(`/api/productions/${production._id}/complete`, {
                 method: "POST",
             });
             const result = await response.json();
 
             if (!response.ok || !result?.ok) {
-                throw new Error(result?.message || "No se pudo completar la producción.");
+                throw new Error(result?.message || "No se pudo completar la producci?n.");
             }
 
             setConfirmState("");
@@ -273,7 +335,7 @@ export default function ProductionInProgressView({
             setConfirmState("");
             openDialog(
                 "No se pudo completar",
-                error?.message || "No se pudo completar la producción.",
+                error?.message || "No se pudo completar la producci?n.",
                 "danger"
             );
         } finally {
@@ -571,14 +633,13 @@ export default function ProductionInProgressView({
                 {renderOutputSection("Resultados reales", outputs, setOutputs, false)}
                 {renderOutputSection("Subproductos", byproducts, setByproducts, true)}
 
-                <section className={styles.card}>
+                {production?.templateSnapshot?.requiresWasteRecord ? (
+                    <section className={styles.card}>
                     <div className={styles.sectionHeader}>
                         <div>
                             <h2 className={styles.sectionTitle}>Merma y desperdicio</h2>
                             <p className={styles.sectionDescription}>
-                                {production?.templateSnapshot?.requiresWasteRecord
-                                    ? "Debes registrar al menos una fila antes de completar."
-                                    : "Opcional para esta ficha."}
+                                Debes registrar al menos una fila antes de completar.
                             </p>
                         </div>
 
@@ -737,7 +798,8 @@ export default function ProductionInProgressView({
                             ))
                         )}
                     </div>
-                </section>
+                    </section>
+                ) : null}
 
                 <section className={styles.card}>
                     <div className={styles.sectionHeader}>

@@ -43,6 +43,20 @@ function groupItemsByProductAndLocation(items = [], getLocation) {
     }));
 }
 
+function buildFallbackRows(items = [], predicate = () => true) {
+    return (items || [])
+        .filter((item) => predicate(item) && Number(item.quantity || 0) > 0)
+        .map((item) => ({
+            productId: item.productId,
+            unitSnapshot: item.unitSnapshot,
+            quantity: Number(item.quantity || 0),
+            destinationLocation: item.destinationLocation || "warehouse",
+            isMain: Boolean(item.isMain),
+            isByProduct: Boolean(item.isByProduct),
+            notes: item.notes || "",
+        }));
+}
+
 export async function POST(_request, { params }) {
     const session = await mongoose.startSession();
 
@@ -83,12 +97,27 @@ export async function POST(_request, { params }) {
                 "La producción debe tener insumos consumidos antes de completarse."
             );
         }
+        const outputRows =
+            Array.isArray(production.outputs) && production.outputs.length > 0
+                ? production.outputs
+                : buildFallbackRows(
+                    production.expectedOutputs,
+                    (item) => !item.isByProduct
+                );
 
-        if (!Array.isArray(production.outputs) || production.outputs.length === 0) {
+        const byproductRows =
+            Array.isArray(production.byproducts) && production.byproducts.length > 0
+                ? production.byproducts
+                : buildFallbackRows(
+                    production.expectedOutputs,
+                    (item) => item.isByProduct
+                );
+
+        if (!Array.isArray(outputRows) || outputRows.length === 0) {
             await session.abortTransaction();
             session.endSession();
             return badRequest(
-                "La producción debe tener resultados reales antes de completarse."
+                "Debes registrar al menos un resultado para completar."
             );
         }
 
@@ -104,12 +133,12 @@ export async function POST(_request, { params }) {
         }
 
         const groupedOutputs = groupItemsByProductAndLocation(
-            production.outputs,
+            outputRows,
             (item) => item.destinationLocation || "warehouse"
         );
 
         const groupedByproducts = groupItemsByProductAndLocation(
-            production.byproducts || [],
+            byproductRows,
             (item) => item.destinationLocation || "warehouse"
         );
 
@@ -243,6 +272,12 @@ export async function POST(_request, { params }) {
 
         production.status = "completed";
         production.completedAt = movementDate;
+        production.outputs = outputRows;
+        production.byproducts = byproductRows;
+        production.outputs = outputRows;
+        production.byproducts = byproductRows;
+        production.outputs = outputRows;
+        production.byproducts = byproductRows;
 
         if (!production.startedAt) {
             production.startedAt = movementDate;

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -30,11 +30,11 @@ function formatNumber(value) {
 }
 
 function formatDate(value) {
-    if (!value) return "—";
+    if (!value) return "â€”";
 
     const date = new Date(value);
 
-    if (Number.isNaN(date.getTime())) return "—";
+    if (Number.isNaN(date.getTime())) return "â€”";
 
     return new Intl.DateTimeFormat("es-EC", {
         dateStyle: "medium",
@@ -178,7 +178,7 @@ export default function ProductionDraftView({
                 title: "No se pudo guardar",
                 message:
                     error?.message || "No se pudo actualizar el borrador.",
-                variant: "danger",
+                variant: "warning",
             });
         } finally {
             setIsSaving(false);
@@ -221,9 +221,15 @@ export default function ProductionDraftView({
             const result = await response.json();
 
             if (!response.ok || !result?.ok) {
-                throw new Error(
-                    result?.message || "No se pudo iniciar la producción."
-                );
+                setShowStartModal(false);
+                openDialog({
+                    title: "No se puede iniciar",
+                    message:
+                        result?.message ||
+                        "Stock insuficiente en cocina para iniciar la producci?n.",
+                    variant: "warning",
+                });
+                return;
             }
 
             setShowStartModal(false);
@@ -232,11 +238,11 @@ export default function ProductionDraftView({
             console.error("[PRODUCTION_DRAFT_START_ERROR]", error);
             setShowStartModal(false);
             openDialog({
-                title: "No se pudo iniciar la producción",
+                title: "No se pudo iniciar",
                 message:
                     error?.message ||
-                    "Ocurrió un error al validar inventario e iniciar la producción.",
-                variant: "danger",
+                    "Ocurri? un error al iniciar la producci?n.",
+                variant: "warning",
             });
         } finally {
             setIsStarting(false);
@@ -271,7 +277,7 @@ export default function ProductionDraftView({
                 title: "No se pudo eliminar",
                 message:
                     error?.message || "No se pudo eliminar el borrador.",
-                variant: "danger",
+                variant: "warning",
             });
         } finally {
             setIsDeleting(false);
@@ -383,7 +389,7 @@ export default function ProductionDraftView({
                                 <div>
                                     <h2 className={styles.sectionTitle}>Información general</h2>
                                     <p className={styles.sectionDescription}>
-                                        Datos base del borrador y de la ficha de producción asociada.
+                                        Datos base del borrador y de la ficha de produccin asociada.
                                     </p>
                                 </div>
                             </div>
@@ -395,7 +401,7 @@ export default function ProductionDraftView({
                                         <span className={styles.summaryValue}>
                                             {production?.productionTemplateId?.name ||
                                                 production?.templateSnapshot?.name ||
-                                                "—"}
+                                                "―"}
                                         </span>
                                     </div>
 
@@ -404,7 +410,7 @@ export default function ProductionDraftView({
                                         <span className={styles.summaryValue}>
                                             {production?.productionTemplateId?.code ||
                                                 production?.templateSnapshot?.code ||
-                                                "—"}
+                                                "―"}
                                         </span>
                                     </div>
 
@@ -419,13 +425,13 @@ export default function ProductionDraftView({
                                     </div>
 
                                     <div className={styles.summaryItem}>
-                                        <span className={styles.summaryLabel}>Ubicación</span>
+                                        <span className={styles.summaryLabel}>UbicaciÃ³n</span>
                                         <span className={styles.summaryValue}>
                                             {production?.location === "kitchen"
                                                 ? "Cocina"
                                                 : production?.location === "warehouse"
                                                     ? "Bodega"
-                                                    : production?.location || "—"}
+                                                    : production?.location || "â€”"}
                                         </span>
                                     </div>
 
@@ -436,7 +442,7 @@ export default function ProductionDraftView({
                                                 ? `${production.performedBy.firstName || ""} ${production.performedBy.lastName || ""}`.trim() ||
                                                 production.performedBy.username ||
                                                 "Usuario"
-                                                : "—"}
+                                                : "―”"}
                                         </span>
                                     </div>
 
@@ -451,7 +457,7 @@ export default function ProductionDraftView({
                                     <div className={styles.summaryItem}>
                                         <span className={styles.summaryLabel}>Cantidad objetivo</span>
                                         <span className={styles.summaryValue}>
-                                            {form.targetQuantity ? formatNumber(form.targetQuantity) : "—"}
+                                            {form.targetQuantity ? formatNumber(form.targetQuantity) : "―”"}
                                         </span>
                                     </div>
 
@@ -694,10 +700,10 @@ export default function ProductionDraftView({
                                 <AlertTriangle size={18} />
                                 <div>
                                     <strong className={styles.warningTitle}>
-                                        Qué pasa al iniciar
+                                        QuÃ© pasa al iniciar
                                     </strong>
                                     <p className={styles.warningText}>
-                                        Al pasar a en proceso, el sistema validará inventario en cocina, descontará automáticamente los insumos y registrará los movimientos correspondientes.
+                                        Al pasar a en proceso, el sistema validará inventario en cocina, descontará automáticamente los insumos y registrarán los movimientos correspondientes.
                                     </p>
                                 </div>
                             </div>
@@ -709,7 +715,7 @@ export default function ProductionDraftView({
             <ConfirmModal
                 open={showStartModal}
                 title="Pasar producción a en proceso"
-                description="Se validará el inventario de cocina y se descontarán automáticamente los insumos esperados. Esta acción iniciará la ejecución de la producción."
+                description="Se validará el inventario de cocina y se descontarán automáticamente los insumos esperados. Esta acción iniciarán la ejecución de la producción."
                 confirmLabel="Sí, iniciar producción"
                 cancelLabel="Volver"
                 variant="warning"
@@ -748,3 +754,4 @@ export default function ProductionDraftView({
         </>
     );
 }
+

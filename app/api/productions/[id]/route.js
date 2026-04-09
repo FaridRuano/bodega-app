@@ -27,6 +27,59 @@ import {
     normalizeText,
 } from "@libs/apiUtils";
 
+function buildExpectedOutputsFromTemplate(production) {
+    const templateOutputs = production?.productionTemplateId?.outputs || [];
+    const factor = Number(production?.targetQuantity || 0);
+
+    if (!templateOutputs.length || factor <= 0) {
+        return Array.isArray(production?.expectedOutputs) ? production.expectedOutputs : [];
+    }
+
+    return templateOutputs
+        .filter((item) => !item.isWaste)
+        .map((item) => {
+            const quantity =
+                item.quantity == null
+                    ? null
+                    : scaleProductionQuantity(item.quantity, factor);
+
+            return {
+                productId: item.productId?._id || item.productId || null,
+                productCodeSnapshot: item.productCodeSnapshot || item.productId?.code || "",
+                productNameSnapshot: item.productNameSnapshot || item.productId?.name || "",
+                productTypeSnapshot: item.productTypeSnapshot || item.productId?.productType || "",
+                unitSnapshot: item.unitSnapshot || item.unit || item.productId?.unit || "",
+                quantity,
+                destinationLocation:
+                    production?.templateSnapshot?.defaultDestination === "none"
+                        ? "kitchen"
+                        : production?.templateSnapshot?.defaultDestination ||
+                        production?.productionTemplateId?.defaultDestination ||
+                        "kitchen",
+                isMain: Boolean(item.isMain),
+                isByProduct: Boolean(item.isByProduct),
+                notes: item.notes || "",
+            };
+        });
+}
+
+function shouldRefreshExpectedOutputs(production) {
+    const current = Array.isArray(production?.expectedOutputs) ? production.expectedOutputs : [];
+    const templateOutputs = production?.productionTemplateId?.outputs || [];
+
+    if (!templateOutputs.length) return false;
+    if (!current.length) return true;
+
+    const currentByproducts = current.filter((item) => Boolean(item?.isByProduct));
+    const templateByproducts = templateOutputs.filter((item) => !item?.isWaste && Boolean(item?.isByProduct));
+
+    if (templateByproducts.length > 0 && currentByproducts.length === 0) {
+        return true;
+    }
+
+    return current.every((item) => Number(item?.quantity || 0) <= 0);
+}
+
 export async function GET(_request, { params }) {
     try {
         await dbConnect();
@@ -44,12 +97,23 @@ export async function GET(_request, { params }) {
 
         const production = await Production.findById(id)
             .populate("performedBy", "firstName lastName username role")
-            .populate("productionTemplateId", "name code type baseUnit")
+            .populate({
+                path: "productionTemplateId",
+                select: "name code type baseUnit outputs requiresWasteRecord defaultDestination",
+                populate: {
+                    path: "outputs.productId",
+                    select: "name code unit",
+                },
+            })
             .populate("relatedRequestId", "requestNumber status")
             .lean();
 
         if (!production) {
             return notFound("Producción no encontrada.");
+        }
+
+        if (shouldRefreshExpectedOutputs(production)) {
+            production.expectedOutputs = buildExpectedOutputsFromTemplate(production);
         }
 
         return okResponse(production, "Producción obtenida correctamente.");
@@ -154,16 +218,6 @@ export async function PATCH(request, { params }) {
         }
 
         if (typeof outputs !== "undefined") {
-            if (
-                production.templateSnapshot?.allowRealOutputAdjustment === false &&
-                Array.isArray(outputs) &&
-                outputs.length > 0
-            ) {
-                return badRequest(
-                    "La ficha de producción no permite ajustar los resultados reales."
-                );
-            }
-
             const validatedOutputs = await buildValidatedProductionItems(outputs, {
                 allowDestination: true,
             });
@@ -273,20 +327,26 @@ export async function PATCH(request, { params }) {
             production.expectedOutputs = template.outputs
                 .filter((item) => !item.isWaste)
                 .map((item) => {
+                    const quantity =
+                        item.quantity == null
+                            ? null
+                            : scaleProductionQuantity(item.quantity, factor);
+
+                    if (!Number.isFinite(quantity) || quantity <= 0) {
+                        return null;
+                    }
+
                     const product = productMap.get(String(item.productId));
 
                     if (!product) {
-                        throw new Error("Uno de los productos de salida no existe o está inactivo.");
+                        throw new Error("Uno de los productos de salida no existe o est? inactivo.");
                     }
 
                     return buildProductionItemSnapshot(
                         product,
                         {
                             ...item,
-                            quantity:
-                                item.quantity == null
-                                    ? 0
-                                    : scaleProductionQuantity(item.quantity, factor),
+                            quantity,
                         },
                         {
                             destinationLocation:
@@ -297,14 +357,23 @@ export async function PATCH(request, { params }) {
                             isByProduct: Boolean(item.isByProduct),
                         }
                     );
-                });
+                })
+                .filter(Boolean);
+
         }
 
         await production.save();
 
         const updated = await Production.findById(production._id)
             .populate("performedBy", "firstName lastName username role")
-            .populate("productionTemplateId", "name code type baseUnit")
+            .populate({
+                path: "productionTemplateId",
+                select: "name code type baseUnit outputs requiresWasteRecord defaultDestination",
+                populate: {
+                    path: "outputs.productId",
+                    select: "name code unit",
+                },
+            })
             .populate("relatedRequestId", "requestNumber status")
             .lean();
 

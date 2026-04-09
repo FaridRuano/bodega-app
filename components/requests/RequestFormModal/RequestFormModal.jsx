@@ -43,7 +43,13 @@ export default function RequestFormModal({
         }).length;
     }, [formData.items]);
 
+    const shouldValidateSourceStock = formData.requestType === "return";
+
     const hasInventoryOverflow = useMemo(() => {
+        if (!shouldValidateSourceStock) {
+            return false;
+        }
+
         return (formData.items || []).some((item) => {
             const selectedProduct = products.find((product) => product._id === item.productId);
             if (!selectedProduct) return false;
@@ -55,7 +61,7 @@ export default function RequestFormModal({
 
             return Number.isFinite(quantity) && quantity > maxAvailable;
         });
-    }, [formData.items, formData.sourceLocation, products]);
+    }, [formData.items, formData.sourceLocation, products, shouldValidateSourceStock]);
 
     const sourceLocationLabel =
         formData.sourceLocation === "warehouse" ? "bodega" : "cocina";
@@ -182,7 +188,7 @@ export default function RequestFormModal({
                                             <div className="form-field">
                                                 <div className={styles.quantityLabelRow}>
                                                     <label className="form-label">Cantidad</label>
-                                                    {selectedProduct ? (
+                                                    {selectedProduct && shouldValidateSourceStock ? (
                                                         <span className={styles.stockHint}>
                                                             Máx. {maxAvailable}
                                                         </span>
@@ -191,7 +197,11 @@ export default function RequestFormModal({
                                                 <input
                                                     type="number"
                                                     min="0"
-                                                    max={selectedProduct ? maxAvailable : undefined}
+                                                    max={
+                                                        selectedProduct && shouldValidateSourceStock
+                                                            ? maxAvailable
+                                                            : undefined
+                                                    }
                                                     step="0.01"
                                                     className="form-input"
                                                     value={item.requestedQuantity}

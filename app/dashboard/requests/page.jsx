@@ -451,6 +451,7 @@ export default function RequestsPage() {
         notes: item.notes || "",
       }))
       .filter((item) => item.productId && item.requestedQuantity > 0);
+    const shouldValidateSourceStock = formData.requestType === "return";
     const sourceInventoryKey =
       formData.sourceLocation === "warehouse" ? "warehouse" : "kitchen";
 
@@ -472,20 +473,22 @@ export default function RequestsPage() {
       return;
     }
 
-    const invalidByInventory = cleanedItems.find((item) => {
-      const product = products.find((productItem) => productItem._id === item.productId);
-      const available = Number(product?.inventory?.[sourceInventoryKey] || 0);
-      return Number(item.requestedQuantity || 0) > available;
-    });
-
-    if (invalidByInventory) {
-      const product = products.find((productItem) => productItem._id === invalidByInventory.productId);
-      openDialogModal({
-        title: "Cantidad no disponible",
-        message: `La cantidad de ${product?.name || "este producto"} supera el stock disponible en ${sourceInventoryKey === "warehouse" ? "bodega" : "cocina"}.`,
-        variant: "warning",
+    if (shouldValidateSourceStock) {
+      const invalidByInventory = cleanedItems.find((item) => {
+        const product = products.find((productItem) => productItem._id === item.productId);
+        const available = Number(product?.inventory?.[sourceInventoryKey] || 0);
+        return Number(item.requestedQuantity || 0) > available;
       });
-      return;
+
+      if (invalidByInventory) {
+        const product = products.find((productItem) => productItem._id === invalidByInventory.productId);
+        openDialogModal({
+          title: "Cantidad no disponible",
+          message: `La cantidad de ${product?.name || "este producto"} supera el stock disponible en ${sourceInventoryKey === "warehouse" ? "bodega" : "cocina"}.`,
+          variant: "warning",
+        });
+        return;
+      }
     }
 
     try {
@@ -761,7 +764,12 @@ export default function RequestsPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo procesar la operaciÃƒÂ³n.");
+        openDialogModal({
+          title: "No se pudo procesar la operación",
+          message: result.message || "Intenta nuevamente.",
+          variant: "danger",
+        });
+        return;
       }
 
       closeFulfillmentModal();
@@ -770,7 +778,7 @@ export default function RequestsPage() {
     } catch (error) {
       console.error(error);
       openDialogModal({
-        title: "No se pudo procesar la operaciÃƒÂ³n",
+        title: "No se pudo procesar la operación",
         message: error.message || "Intenta nuevamente.",
         variant: "danger",
       });

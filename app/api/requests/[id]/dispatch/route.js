@@ -19,6 +19,24 @@ function normalizeNullableText(value = "") {
     return normalizeText(value) || "";
 }
 
+function isHandledDispatchError(message = "") {
+    return [
+        "La solicitud no existe.",
+        "Solo cocina o administración pueden despachar devoluciones.",
+        "Solo bodega o administración pueden despachar solicitudes.",
+        "Solo se pueden despachar devoluciones pendientes o parciales.",
+        "Solo se pueden despachar solicitudes aprobadas o parcialmente atendidas.",
+        "Uno de los items a despachar no es válido.",
+        "Hay items repetidos en el despacho.",
+        "La cantidad despachada no es válida.",
+        "No puedes despachar más de la cantidad pendiente por devolver.",
+        "No puedes despachar más de la cantidad pendiente aprobada.",
+        "Stock insuficiente para completar el despacho.",
+        "Debes despachar al menos una cantidad mayor a cero para la devolución.",
+        "Debes despachar al menos una cantidad mayor a cero.",
+    ].includes(message);
+}
+
 function mapMovementItems(items = []) {
     return (items || []).map((item) => ({
         requestItemId: item.requestItemId || null,
@@ -376,7 +394,9 @@ export async function POST(request, { params }) {
         await session.abortTransaction().catch(() => {});
         session.endSession();
 
-        console.error("POST /api/requests/[id]/dispatch error:", error);
+        if (!isHandledDispatchError(error?.message)) {
+            console.error("POST /api/requests/[id]/dispatch error:", error);
+        }
 
         return NextResponse.json(
             { success: false, message: error.message || "No se pudo registrar el despacho." },
