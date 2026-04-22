@@ -17,6 +17,7 @@ export const MOVEMENT_REFERENCE_TYPES = [
     "purchase_entry",
     "request",
     "production",
+    "daily_control",
     "manual_adjustment",
     "system",
 ];

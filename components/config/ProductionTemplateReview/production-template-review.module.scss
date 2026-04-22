@@ -1,53 +1,39 @@
 .modalContainer {
-    width: min(980px, 100%);
+    width: min(880px, 100%);
 }
 
 .modalBody {
-    max-height: calc(100vh - 210px);
+    max-height: calc(100vh - 200px);
     overflow-y: auto;
     padding-right: 4px;
+    gap: 12px;
 }
 
-.heroSection {
-    padding: 18px;
+.topBlock {
+    min-width: 0;
+}
+
+.topCopy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.summaryPanel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px;
     border: 1px solid var(--border-subtle);
     border-radius: 18px;
     background: var(--bg-subtle);
 }
 
-.heroMain {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.heroTitle {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.heroDescription,
-.heroDescriptionMuted {
-    margin: 0;
-    font-size: 0.95rem;
-    line-height: 1.6;
-}
-
-.heroDescription {
-    color: var(--text-primary);
-}
-
-.heroDescriptionMuted {
-    color: var(--text-secondary);
-}
-
 .section {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding: 18px;
+    gap: 12px;
+    padding: 14px;
     border: 1px solid var(--border-subtle);
     border-radius: 18px;
     background: var(--surface-primary);
@@ -57,34 +43,34 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
 }
 
 .sectionTitle {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.98rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
-.metaGrid {
+.metaRows {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 10px;
 }
 
 .metaItem {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 14px;
+    gap: 4px;
+    padding: 10px 12px;
     border-radius: 14px;
     background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
 }
 
 .metaLabel {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -92,33 +78,17 @@
 }
 
 .metaValue {
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.4;
     color: var(--text-primary);
     word-break: break-word;
-}
-
-.toggleSummaryGrid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.toggleSummaryCard {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 14px;
-    border-radius: 14px;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-subtle);
 }
 
 .notesBlock {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 14px;
+    gap: 6px;
+    padding: 10px 12px;
     border-radius: 14px;
     background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
@@ -126,8 +96,8 @@
 
 .notesText {
     margin: 0;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.5;
     color: var(--text-primary);
     white-space: pre-wrap;
 }
@@ -135,44 +105,35 @@
 .listGroup {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .itemCard {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px;
-    border-radius: 16px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
     border: 1px solid var(--border-subtle);
     background: var(--bg-subtle);
 }
 
-.itemHeader {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
+.itemMain {
+    min-width: 0;
 }
 
 .itemTitle {
     margin: 0;
-    font-size: 0.96rem;
+    font-size: 0.94rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .itemSubtitle {
-    margin: 4px 0 0;
-    font-size: 0.9rem;
+    margin: 3px 0 0;
+    font-size: 0.86rem;
     color: var(--text-secondary);
-}
-
-.itemNotes {
-    margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    color: var(--text-primary);
 }
 
 .badgesRow {
@@ -187,12 +148,11 @@
 .counterBadge,
 .primaryBadge,
 .mainBadge,
-.wasteBadge,
 .byProductBadge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 28px;
+    min-height: 26px;
     padding: 0 10px;
     border-radius: 999px;
     font-size: 12px;
@@ -227,11 +187,6 @@
     color: var(--info);
 }
 
-.wasteBadge {
-    background: var(--danger-soft);
-    color: var(--danger);
-}
-
 .byProductBadge {
     background: var(--warning-soft);
     color: var(--warning);
@@ -239,31 +194,43 @@
 
 .emptyText {
     margin: 0;
-    padding: 16px;
+    padding: 12px;
     border-radius: 14px;
     background: var(--bg-subtle);
     border: 1px dashed var(--border-subtle);
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 13px;
+}
+
+.footer {
+    gap: 8px;
 }
 
 @media (max-width: 900px) {
-
-    .metaGrid,
-    .toggleSummaryGrid {
-        grid-template-columns: 1fr;
+    .summaryPanel,
+    .metaRows {
+        grid-template-columns: 1fr 1fr;
     }
 }
 
 @media (max-width: 640px) {
-
-    .itemHeader,
-    .sectionHeader {
-        flex-direction: column;
-        align-items: stretch;
+    .summaryPanel,
+    .metaRows {
+        grid-template-columns: 1fr;
     }
 
-    .badgesRow {
-        justify-content: flex-start;
+    .itemCard,
+    .sectionHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .footer {
+        flex-direction: column-reverse;
+    }
+
+    .footer :global(.miniAction) {
+        width: 100%;
+        justify-content: center;
     }
 }

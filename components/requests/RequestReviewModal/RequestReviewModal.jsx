@@ -112,11 +112,11 @@ export default function RequestReviewModal({
 
                         <div>
                             <h2 className="modal-title">
-                                {isApprove ? "Aprobar solicitud" : "Rechazar solicitud"}
+                                {isApprove ? "Procesar solicitud" : "Rechazar solicitud"}
                             </h2>
                             <p className="modal-description">
                                 {isApprove
-                                    ? "Define las cantidades aprobadas para cada producto."
+                                    ? "Define las cantidades que avanzan al proceso para cada producto."
                                     : "Indica el motivo del rechazo."}
                             </p>
                         </div>
@@ -173,7 +173,7 @@ export default function RequestReviewModal({
 
                                                 <div className="form-field">
                                                     <label className="form-label">
-                                                        Aprobado
+                                                        En proceso
                                                     </label>
                                                     <input
                                                         type="number"
@@ -200,7 +200,7 @@ export default function RequestReviewModal({
 
                                 {!hasAtLeastOneApprovedItem ? (
                                     <p className={styles.errorText}>
-                                        Debes aprobar al menos una cantidad mayor a cero.
+                                        Debes definir al menos una cantidad mayor a cero.
                                     </p>
                                 ) : null}
                             </div>
@@ -244,7 +244,7 @@ export default function RequestReviewModal({
                                 {isSubmitting
                                     ? "Procesando..."
                                     : isApprove
-                                        ? "Aprobar"
+                                        ? "Procesar"
                                         : "Rechazar"}
                             </button>
                         </div>

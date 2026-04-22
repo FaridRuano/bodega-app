@@ -6,57 +6,45 @@ import {
     ArrowLeft,
     CheckCircle2,
     LoaderCircle,
-    Plus,
     Save,
-    Trash2,
     XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import ProductAutocomplete from "@components/shared/ProductAutocomplete/ProductAutoComplete";
+
 import ConfirmModal from "@components/shared/ConfirmModal/ConfirmModal";
 import DialogModal from "@components/shared/DialogModal/DialogModal";
-import { getUnitLabel, PRODUCT_UNIT_OPTIONS } from "@libs/constants/units";
+import { getUnitLabel } from "@libs/constants/units";
 import { getProductionTypeLabel } from "@libs/constants/productionTypes";
 import styles from "./production-progress-view.module.scss";
 
-function formatNumber(value) {
+function formatNumber(value, maximumFractionDigits = 2) {
     return new Intl.NumberFormat("es-EC", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
+        maximumFractionDigits,
     }).format(Number(value || 0));
+}
+
+function formatSignedNumber(value) {
+    const numeric = Number(value || 0);
+    const prefix = numeric > 0 ? "+" : "";
+    return `${prefix}${formatNumber(numeric, 3)}`;
 }
 
 function formatDate(value) {
     if (!value) return "Sin fecha";
+
     return new Intl.DateTimeFormat("es-EC", {
         dateStyle: "medium",
         timeStyle: "short",
     }).format(new Date(value));
 }
 
-function createOutputRow() {
-    return {
-        productId: "",
-        productNameSnapshot: "",
-        productCodeSnapshot: "",
-        unitSnapshot: "unit",
-        quantity: "",
-        destinationLocation: "warehouse",
-        isMain: false,
-        isByProduct: false,
-        notes: "",
-    };
-}
-
 function createWasteRow() {
     return {
-        type: "merma",
+        type: "desperdicio",
         quantity: "",
         unitSnapshot: "kg",
         originKind: "process",
-        originProductId: "",
-        originNameSnapshot: "",
-        originUnitSnapshot: "",
         sourceLocation: "kitchen",
         notes: "",
     };
@@ -73,26 +61,35 @@ function isMainOutputItem(item) {
 }
 
 function mapOutputRows(items = [], fallbackIsByProduct = false) {
-    return items.length
-        ? items.map((item) => ({
-            productId: item.productId?._id || item.productId || "",
-            productNameSnapshot:
-                item.productNameSnapshot || item.productId?.name || "",
-            productCodeSnapshot:
-                item.productCodeSnapshot || item.productId?.code || "",
-            unitSnapshot: item.unitSnapshot || item.productId?.unit || "unit",
-            quantity: String(item.quantity ?? ""),
-            destinationLocation: item.destinationLocation || "warehouse",
-            isMain: Boolean(item.isMain),
-            isByProduct: fallbackIsByProduct || Boolean(item.isByProduct),
-            notes: item.notes || "",
-        }))
-        : [];
+    if (!items.length) return [];
+
+    return items.map((item) => ({
+        productId: item.productId?._id || item.productId || "",
+        productNameSnapshot: item.productNameSnapshot || item.productId?.name || "",
+        productCodeSnapshot: item.productCodeSnapshot || item.productId?.code || "",
+        unitSnapshot: item.unitSnapshot || item.productId?.unit || "unit",
+        quantity:
+            item.quantity !== null && item.quantity !== undefined
+                ? String(item.quantity)
+                : "",
+        recordedWeight:
+            item.recordedWeight !== null && item.recordedWeight !== undefined
+                ? String(item.recordedWeight)
+                : "",
+        destinationLocation: item.destinationLocation || "kitchen",
+        isMain: Boolean(item.isMain),
+        isByProduct: fallbackIsByProduct || Boolean(item.isByProduct),
+        notes: item.notes || "",
+    }));
 }
 
-function buildTemplateOutputRows(templateOutputs = [], byproduct = false, defaultDestination = "warehouse") {
+function buildTemplateOutputRows(
+    templateOutputs = [],
+    byproduct = false,
+    defaultDestination = "kitchen"
+) {
     return (templateOutputs || [])
-        .filter((item) => byproduct ? isByproductItem(item) : isMainOutputItem(item))
+        .filter((item) => (byproduct ? isByproductItem(item) : isMainOutputItem(item)))
         .map((item) => ({
             productId: item.productId?._id || item.productId || "",
             productNameSnapshot: item.productNameSnapshot || item.productId?.name || "",
@@ -102,7 +99,11 @@ function buildTemplateOutputRows(templateOutputs = [], byproduct = false, defaul
                 item.quantity !== null && item.quantity !== undefined
                     ? String(item.quantity)
                     : "",
-            destinationLocation: item.destinationLocation || defaultDestination || "warehouse",
+            recordedWeight:
+                item.recordedWeight !== null && item.recordedWeight !== undefined
+                    ? String(item.recordedWeight)
+                    : "",
+            destinationLocation: "kitchen",
             isMain: Boolean(item.isMain),
             isByProduct: byproduct || Boolean(item.isByProduct),
             notes: item.notes || "",
@@ -110,46 +111,130 @@ function buildTemplateOutputRows(templateOutputs = [], byproduct = false, defaul
 }
 
 function mapWasteRows(items = []) {
-    return items.length
-        ? items.map((item) => ({
-            type: item.type || "merma",
-            quantity: String(item.quantity ?? ""),
-            unitSnapshot: item.unitSnapshot || "kg",
-            originKind: item.originKind || "process",
-            originProductId: item.originProductId?._id || item.originProductId || "",
-            originNameSnapshot:
-                item.originNameSnapshot || item.originProductId?.name || "",
-            originUnitSnapshot:
-                item.originUnitSnapshot || item.originProductId?.unit || "",
-            sourceLocation: item.sourceLocation || "kitchen",
-            notes: item.notes || "",
-        }))
-        : [];
+    if (!items.length) return [];
+
+    return items.map((item) => ({
+        type: item.type || "desperdicio",
+        quantity: String(item.quantity ?? ""),
+        unitSnapshot: item.unitSnapshot || "kg",
+        originKind: item.originKind || "process",
+        sourceLocation: item.sourceLocation || "kitchen",
+        notes: item.notes || "",
+    }));
 }
 
-function buildWasteOriginOptions(production) {
-    const inputOptions = (production?.inputs || []).map((item) => ({
-        value: String(item.productId?._id || item.productId || ""),
-        label: item.productNameSnapshot || "Producto",
-        unit: item.unitSnapshot || "",
+function normalizePositiveNumber(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeNonNegativeNumber(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function normalizeResultRows(rows = []) {
+    if (!rows.length) return [];
+
+    if (rows.length === 1) {
+        return [
+            {
+                ...rows[0],
+                isMain: true,
+                isByProduct: false,
+            },
+        ];
+    }
+
+    let mainIndex = rows.findIndex(
+        (item) => Boolean(item.isMain) && !Boolean(item.isByProduct)
+    );
+
+    if (mainIndex === -1) {
+        mainIndex = rows.findIndex((item) => !Boolean(item.isByProduct));
+    }
+
+    if (mainIndex === -1) {
+        mainIndex = 0;
+    }
+
+    return rows.map((item, index) => ({
+        ...item,
+        isMain: index === mainIndex,
+        isByProduct: index !== mainIndex,
     }));
+}
 
-    const outputOptions = (production?.outputs || []).map((item) => ({
-        value: String(item.productId?._id || item.productId || ""),
-        label: item.productNameSnapshot || "Producto",
-        unit: item.unitSnapshot || "",
-    }));
+function pickInitialResults({
+    persistedResults,
+    expectedResults,
+    templateResults,
+}) {
+    if (
+        persistedResults.length > 0 &&
+        (expectedResults.length === 0 ||
+            persistedResults.length === expectedResults.length)
+    ) {
+        return persistedResults;
+    }
 
-    const unique = new Map();
+    if (expectedResults.length > 0) {
+        return expectedResults;
+    }
 
-    [...inputOptions, ...outputOptions].forEach((item) => {
-        if (!item.value) return;
-        if (!unique.has(item.value)) {
-            unique.set(item.value, item);
-        }
-    });
+    return templateResults;
+}
 
-    return Array.from(unique.values());
+function buildWeightPreview({
+    results,
+    waste,
+    targetQuantity,
+    requiresWeightControl,
+}) {
+    if (!requiresWeightControl) {
+        return {
+            targetWeight: null,
+            recordedTotalWeight: null,
+            differenceWeight: null,
+            differencePercent: null,
+        };
+    }
+
+    const outputWeight = results.reduce((sum, item) => {
+        const quantity = normalizePositiveNumber(item.quantity);
+        if (!quantity) return sum;
+
+        const weight =
+            item.unitSnapshot === "kg"
+                ? quantity
+                : normalizePositiveNumber(item.recordedWeight);
+
+        return sum + (weight || 0);
+    }, 0);
+
+    const wasteWeight = waste.reduce((sum, item) => {
+        const quantity = normalizePositiveNumber(item.quantity);
+        return sum + (quantity || 0);
+    }, 0);
+
+    const targetWeight = Number(targetQuantity || 0);
+    const recordedTotalWeight = Number((outputWeight + wasteWeight).toFixed(6));
+    const differenceWeight = Number((recordedTotalWeight - targetWeight).toFixed(6));
+    const differencePercent =
+        targetWeight > 0
+            ? Number(((differenceWeight / targetWeight) * 100).toFixed(2))
+            : null;
+
+    return {
+        targetWeight: targetWeight || null,
+        recordedTotalWeight: recordedTotalWeight || null,
+        differenceWeight: Number.isFinite(differenceWeight)
+            ? differenceWeight
+            : null,
+        differencePercent,
+    };
 }
 
 export default function ProductionInProgressView({
@@ -157,9 +242,9 @@ export default function ProductionInProgressView({
     refreshProduction,
 }) {
     const router = useRouter();
+
     const [notes, setNotes] = useState("");
-    const [outputs, setOutputs] = useState([]);
-    const [byproducts, setByproducts] = useState([]);
+    const [results, setResults] = useState([]);
     const [waste, setWaste] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isCompleting, setIsCompleting] = useState(false);
@@ -172,63 +257,90 @@ export default function ProductionInProgressView({
         variant: "info",
     });
 
-    const wasteOriginOptions = useMemo(
-        () => buildWasteOriginOptions(production),
-        [production]
+    const requiresWeightControl = Boolean(
+        production?.templateSnapshot?.requiresWeightControl
+    );
+
+    const weightPreview = useMemo(
+        () =>
+            buildWeightPreview({
+                results,
+                waste,
+                targetQuantity: production?.targetQuantity,
+                requiresWeightControl,
+            }),
+        [results, waste, production?.targetQuantity, requiresWeightControl]
     );
 
     useEffect(() => {
-        const defaultDestination =
-            production?.templateSnapshot?.defaultDestination === "none"
-                ? "kitchen"
-                : production?.templateSnapshot?.defaultDestination ||
-                production?.productionTemplateId?.defaultDestination ||
-                "warehouse";
+        const defaultDestination = "kitchen";
 
-        const templateOutputRows = buildTemplateOutputRows(
-            production?.productionTemplateId?.outputs || [],
-            false,
-            defaultDestination
+        const persistedResults = normalizeResultRows([
+            ...mapOutputRows(production?.outputs || []),
+            ...mapOutputRows(production?.byproducts || [], true),
+        ]);
+
+        const expectedResults = normalizeResultRows(
+            mapOutputRows(production?.expectedOutputs || [])
         );
 
-        const templateByproductRows = buildTemplateOutputRows(
-            production?.productionTemplateId?.outputs || [],
-            true,
-            defaultDestination
-        );
+        const templateResults = normalizeResultRows([
+            ...buildTemplateOutputRows(
+                production?.productionTemplateId?.outputs || [],
+                false,
+                defaultDestination
+            ),
+            ...buildTemplateOutputRows(
+                production?.productionTemplateId?.outputs || [],
+                true,
+                defaultDestination
+            ),
+        ]);
+
+        const mappedWaste = mapWasteRows(production?.waste || []);
 
         setNotes(production?.notes || "");
-        setOutputs(
-            mapOutputRows(
-                production?.outputs?.length
-                    ? production.outputs
-                    : (production?.expectedOutputs?.length
-                        ? (production.expectedOutputs || []).filter((item) => isMainOutputItem(item))
-                        : templateOutputRows)
-            )
+        setResults(
+            pickInitialResults({
+                persistedResults,
+                expectedResults,
+                templateResults,
+            })
         );
-        setByproducts(
-            mapOutputRows(
-                production?.byproducts?.length
-                    ? production.byproducts
-                    : (production?.expectedOutputs?.length
-                        ? (production.expectedOutputs || []).filter((item) => isByproductItem(item))
-                        : templateByproductRows),
-                true
-            )
+        setWaste(
+            production?.templateSnapshot?.requiresWasteRecord
+                ? [mappedWaste[0] || createWasteRow()]
+                : mappedWaste
         );
-        setWaste(mapWasteRows(production?.waste || []));
     }, [production]);
 
     const hasMissingWaste =
-        production?.templateSnapshot?.requiresWasteRecord && waste.length === 0;
+        production?.templateSnapshot?.requiresWasteRecord &&
+        !normalizePositiveNumber(waste[0]?.quantity);
 
-    const canComplete = useMemo(() => {
-        return (
-            outputs.some((item) => item.productId && Number(item.quantity || 0) > 0) &&
-            !hasMissingWaste
-        );
-    }, [outputs, hasMissingWaste]);
+    const hasMissingRecordedWeights = useMemo(() => {
+        if (!requiresWeightControl) return false;
+
+        return results.some((item) => {
+            const quantity = normalizePositiveNumber(item.quantity);
+            if (!quantity) return false;
+            if (item.unitSnapshot === "kg") return false;
+            return !normalizePositiveNumber(item.recordedWeight);
+        });
+    }, [results, requiresWeightControl]);
+
+    const canComplete = useMemo(
+        () =>
+            results.some(
+                (item) =>
+                    item.productId &&
+                    item.isMain &&
+                    normalizePositiveNumber(item.quantity)
+            ) &&
+            !hasMissingWaste &&
+            !hasMissingRecordedWeights,
+        [results, hasMissingWaste, hasMissingRecordedWeights]
+    );
 
     function openDialog(title, message, variant = "info") {
         setDialogState({
@@ -239,41 +351,50 @@ export default function ProductionInProgressView({
         });
     }
 
-    function sanitizeOutputRows(rows, forcedByproduct = false) {
-        return rows
-            .filter((item) => item.productId && Number(item.quantity || 0) > 0)
-            .map((item) => ({
-                productId: item.productId,
-                unitSnapshot: item.unitSnapshot,
-                quantity: Number(item.quantity),
-                destinationLocation: item.destinationLocation || "warehouse",
-                isMain: forcedByproduct ? false : Boolean(item.isMain),
-                isByProduct: forcedByproduct ? true : Boolean(item.isByProduct),
-                notes: item.notes || "",
-            }));
+    function sanitizeResultRows(rows) {
+        return normalizeResultRows(
+            rows
+                .filter((item) => item.productId)
+                .map((item) => ({
+                    productId: item.productId,
+                    unitSnapshot: item.unitSnapshot,
+                    quantity: normalizeNonNegativeNumber(item.quantity) ?? 0,
+                    recordedWeight: normalizePositiveNumber(item.recordedWeight),
+                    destinationLocation: "kitchen",
+                    isMain: Boolean(item.isMain),
+                    isByProduct: Boolean(item.isByProduct),
+                    notes: item.notes || "",
+                }))
+        );
     }
 
     function sanitizeWasteRows(rows) {
-        return rows
-            .filter((item) => Number(item.quantity || 0) > 0)
-            .map((item) => ({
-                type: item.type || "merma",
-                quantity: Number(item.quantity),
-                unitSnapshot: item.unitSnapshot || "kg",
-                originKind: item.originKind || "process",
-                originProductId: item.originProductId || null,
-                originNameSnapshot: item.originNameSnapshot || "",
-                originUnitSnapshot: item.originUnitSnapshot || null,
-                sourceLocation: item.sourceLocation || "kitchen",
-                notes: item.notes || "",
-            }));
+        const wasteItem = rows[0];
+        const quantity = normalizePositiveNumber(wasteItem?.quantity);
+
+        if (!quantity) return [];
+
+        return [
+            {
+                type: "desperdicio",
+                quantity,
+                unitSnapshot: "kg",
+                originKind: "process",
+                originProductId: null,
+                originNameSnapshot: "",
+                originUnitSnapshot: null,
+                sourceLocation: production?.location || "kitchen",
+                notes: "",
+            },
+        ];
     }
 
     function buildSavePayload() {
+        const sanitizedResults = sanitizeResultRows(results);
+
         return {
             notes,
-            outputs: sanitizeOutputRows(outputs, false),
-            byproducts: sanitizeOutputRows(byproducts, true),
+            results: sanitizedResults,
             waste: sanitizeWasteRows(waste),
         };
     }
@@ -290,7 +411,7 @@ export default function ProductionInProgressView({
         const result = await response.json();
 
         if (!response.ok || !result?.ok) {
-            throw new Error(result?.message || "No se pudo guardar la producci?n.");
+            throw new Error(result?.message || "No se pudo guardar la produccion.");
         }
 
         return result;
@@ -301,9 +422,12 @@ export default function ProductionInProgressView({
             setIsSaving(true);
             await persistProgressChanges();
             await refreshProduction();
-            openDialog("Cambios guardados", "La producci?n fue actualizada.", "success");
+            openDialog(
+                "Cambios guardados",
+                "La produccion fue actualizada.",
+                "success"
+            );
         } catch (error) {
-            console.error("[PRODUCTION_IN_PROGRESS_SAVE_ERROR]", error);
             openDialog(
                 "No se pudo guardar",
                 error?.message || "No se pudieron guardar los cambios.",
@@ -317,25 +441,28 @@ export default function ProductionInProgressView({
     async function handleComplete() {
         try {
             setIsCompleting(true);
-            await persistProgressChanges();
-
             const response = await fetch(`/api/productions/${production._id}/complete`, {
                 method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(buildSavePayload()),
             });
             const result = await response.json();
 
             if (!response.ok || !result?.ok) {
-                throw new Error(result?.message || "No se pudo completar la producci?n.");
+                throw new Error(
+                    result?.message || "No se pudo completar la produccion."
+                );
             }
 
             setConfirmState("");
             await refreshProduction();
         } catch (error) {
-            console.error("[PRODUCTION_IN_PROGRESS_COMPLETE_ERROR]", error);
             setConfirmState("");
             openDialog(
                 "No se pudo completar",
-                error?.message || "No se pudo completar la producci?n.",
+                error?.message || "No se pudo completar la produccion.",
                 "danger"
             );
         } finally {
@@ -352,17 +479,18 @@ export default function ProductionInProgressView({
             const result = await response.json();
 
             if (!response.ok || !result?.ok) {
-                throw new Error(result?.message || "No se pudo cancelar la producción.");
+                throw new Error(
+                    result?.message || "No se pudo cancelar la produccion."
+                );
             }
 
             setConfirmState("");
             await refreshProduction();
         } catch (error) {
-            console.error("[PRODUCTION_IN_PROGRESS_CANCEL_ERROR]", error);
             setConfirmState("");
             openDialog(
                 "No se pudo cancelar",
-                error?.message || "No se pudo cancelar la producción.",
+                error?.message || "No se pudo cancelar la produccion.",
                 "danger"
             );
         } finally {
@@ -370,141 +498,120 @@ export default function ProductionInProgressView({
         }
     }
 
-    function updateRows(setter, index, patch) {
-        setter((prev) =>
-            prev.map((row, rowIndex) =>
-                rowIndex === index ? { ...row, ...patch } : row
+    function updateResultRow(index, patch) {
+        setResults((prev) =>
+            normalizeResultRows(
+                prev.map((row, rowIndex) =>
+                    rowIndex === index ? { ...row, ...patch } : row
+                )
             )
         );
     }
 
-    function removeRow(setter, index) {
-        setter((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
-    }
-
-    function renderAutocompleteRow(item, setter, index) {
+    function renderResultProduct(item) {
         return (
-            <ProductAutocomplete
-                value={item.productId}
-                selectedProduct={
-                    item.productId
-                        ? {
-                            _id: item.productId,
-                            name: item.productNameSnapshot,
-                            code: item.productCodeSnapshot,
-                            unit: item.unitSnapshot,
-                        }
-                        : null
-                }
-                onChange={(product) =>
-                    updateRows(setter, index, {
-                        productId: product?._id || "",
-                        productNameSnapshot: product?.name || "",
-                        productCodeSnapshot: product?.code || "",
-                        unitSnapshot: product?.unit || "unit",
-                    })
-                }
-            />
+            <div className={styles.readonlyField}>
+                <span>{item.productNameSnapshot || "Producto sin definir"}</span>
+            </div>
         );
     }
 
-    function renderOutputSection(title, rows, setter, byproduct = false) {
+    function renderOutputSection() {
         return (
             <section className={styles.card}>
                 <div className={styles.sectionHeader}>
                     <div>
-                        <h2 className={styles.sectionTitle}>{title}</h2>
+                        <h2 className={styles.sectionTitle}>Resultados reales</h2>
                         <p className={styles.sectionDescription}>
-                            Registra cantidades reales y destino.
+                            Registra cantidades y pesos de los resultados definidos
+                            por la ficha. Todos quedan en cocina.
                         </p>
                     </div>
-
-                    <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setter((prev) => [...prev, createOutputRow()])}
-                    >
-                        <Plus size={16} />
-                        Agregar
-                    </button>
                 </div>
 
                 <div className={styles.rows}>
-                    {rows.length === 0 ? (
+                    {results.length === 0 ? (
                         <div className={styles.emptyState}>No hay registros cargados.</div>
                     ) : (
-                        rows.map((item, index) => (
-                            <div key={`${title}-${index}`} className={styles.rowCard}>
+                        results.map((item, index) => (
+                            <div key={`result-${index}`} className={styles.rowCard}>
                                 <div className={styles.rowGrid}>
                                     <div className={styles.field}>
                                         <label className={styles.label}>Producto</label>
-                                        {renderAutocompleteRow(item, setter, index)}
+                                        {renderResultProduct(item)}
                                     </div>
 
                                     <div className={styles.field}>
                                         <label className={styles.label}>Cantidad</label>
-                                        <input
-                                            className={styles.input}
-                                            type="number"
-                                            min="0"
-                                            step="0.0001"
-                                            value={item.quantity}
-                                            onChange={(event) =>
-                                                updateRows(setter, index, {
-                                                    quantity: event.target.value,
-                                                })
-                                            }
-                                        />
+                                        <div className={styles.fieldShell}>
+                                            <input
+                                                className="form-input"
+                                                type="number"
+                                                min="0"
+                                                step="0.0001"
+                                                value={item.quantity}
+                                                onChange={(event) =>
+                                                    updateResultRow(index, {
+                                                        quantity: event.target.value,
+                                                    })
+                                                }
+                                            />
+                                        </div>
                                     </div>
 
                                     <div className={styles.field}>
-                                        <label className={styles.label}>Destino</label>
-                                        <select
-                                            className={styles.input}
-                                            value={item.destinationLocation}
-                                            onChange={(event) =>
-                                                updateRows(setter, index, {
-                                                    destinationLocation: event.target.value,
-                                                })
-                                            }
-                                        >
-                                            <option value="warehouse">Bodega</option>
-                                            <option value="kitchen">Cocina</option>
-                                        </select>
+                                        <label className={styles.label}>
+                                            {requiresWeightControl &&
+                                                item.unitSnapshot !== "kg"
+                                                ? "Peso real (kg)"
+                                                : "Unidad"}
+                                        </label>
+                                        {requiresWeightControl &&
+                                            item.unitSnapshot !== "kg" ? (
+                                            <div className={styles.fieldShell}>
+                                                <input
+                                                    className="form-input"
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.0001"
+                                                    value={item.recordedWeight}
+                                                    onChange={(event) =>
+                                                        updateResultRow(index, {
+                                                            recordedWeight: event.target.value,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className={styles.readonlyField}>
+                                                <span>{getUnitLabel(item.unitSnapshot)}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
                                 <div className={styles.rowFooter}>
-                                    <span className={styles.meta}>
-                                        <span className={styles.metaLabel}>Unidad:</span> {getUnitLabel(item.unitSnapshot)}
-                                    </span>
-
-                                    {!byproduct ? (
-                                        <label
-                                            className={`${styles.flagToggle} ${item.isMain ? styles.flagToggleActive : ""
-                                                }`}
+                                    {results.length > 1 ? (
+                                        item.isMain ? (
+                                            <span
+                                                className={`${styles.flagToggle} ${styles.flagToggleActive}`}
+                                            >
+                                                <span>Principal</span>
+                                            </span>
+                                        ) : (
+                                            <span
+                                                className={`${styles.flagToggle} ${styles.flagToggleSecondary}`}
+                                            >
+                                                <span>Subproducto</span>
+                                            </span>
+                                        )
+                                    ) : (
+                                        <span
+                                            className={`${styles.flagToggle} ${styles.flagToggleActive}`}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(item.isMain)}
-                                                onChange={(event) =>
-                                                    updateRows(setter, index, {
-                                                        isMain: event.target.checked,
-                                                    })
-                                                }
-                                            />
                                             <span>Principal</span>
-                                        </label>
-                                    ) : null}
-
-                                    <button
-                                        type="button"
-                                        className="btn btn-danger"
-                                        onClick={() => removeRow(setter, index)}
-                                    >
-                                        <Trash2 size={14} />
-                                        Quitar
-                                    </button>
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         ))
@@ -516,12 +623,12 @@ export default function ProductionInProgressView({
 
     return (
         <>
-            <div className={styles.page}>
+            <div className="page">
                 <div className={styles.header}>
                     <div>
                         <button
                             type="button"
-                            className={`btn btn-secondary ${styles.backButton}`}
+                            className={`miniAction ${styles.backButton}`}
                             onClick={() => router.push("/dashboard/production")}
                         >
                             <ArrowLeft size={16} />
@@ -532,8 +639,10 @@ export default function ProductionInProgressView({
                             <h1 className={styles.title}>{production.productionNumber}</h1>
                             <p className={styles.subtitle}>
                                 {getProductionTypeLabel(
-                                    production?.templateSnapshot?.type || production?.productionType
-                                )} · Iniciada el {formatDate(production?.startedAt)}
+                                    production?.templateSnapshot?.type ||
+                                    production?.productionType
+                                )}{" "}
+                                · Iniciada el {formatDate(production?.startedAt)}
                             </p>
                         </div>
                     </div>
@@ -541,7 +650,7 @@ export default function ProductionInProgressView({
                     <div className={styles.headerActions}>
                         <button
                             type="button"
-                            className="btn btn-secondary"
+                            className="miniAction"
                             onClick={handleSave}
                             disabled={isSaving || isCompleting || isCancelling}
                         >
@@ -560,9 +669,11 @@ export default function ProductionInProgressView({
 
                         <button
                             type="button"
-                            className="btn btn-primary"
+                            className="miniAction miniActionPrimary"
                             onClick={() => setConfirmState("complete")}
-                            disabled={!canComplete || isSaving || isCompleting || isCancelling}
+                            disabled={
+                                !canComplete || isSaving || isCompleting || isCancelling
+                            }
                         >
                             <CheckCircle2 size={16} />
                             Completar
@@ -570,7 +681,7 @@ export default function ProductionInProgressView({
 
                         <button
                             type="button"
-                            className="btn btn-danger"
+                            className="miniAction miniActionDanger"
                             onClick={() => setConfirmState("cancel")}
                             disabled={isSaving || isCompleting || isCancelling}
                         >
@@ -585,30 +696,65 @@ export default function ProductionInProgressView({
                         <span className={styles.summaryLabel}>Ficha</span>
                         <strong>{production?.templateSnapshot?.name || "Sin ficha"}</strong>
                     </div>
+
                     <div className={styles.summaryCard}>
                         <span className={styles.summaryLabel}>Objetivo</span>
                         <strong>
-                            {formatNumber(production?.targetQuantity)} {getUnitLabel(production?.targetUnit)}
+                            {formatNumber(production?.targetQuantity, 3)}{" "}
+                            {getUnitLabel(production?.targetUnit)}
                         </strong>
                     </div>
+
                     <div className={styles.summaryCard}>
-                        <span className={styles.summaryLabel}>Insumos consumidos</span>
-                        <strong>{production?.inputs?.length || 0}</strong>
-                    </div>
-                    <div className={styles.summaryCard}>
-                        <span className={styles.summaryLabel}>Merma requerida</span>
+                        <span className={styles.summaryLabel}>Desperdicio requerido</span>
                         <strong>
-                            {production?.templateSnapshot?.requiresWasteRecord ? "Sí" : "No"}
+                            {production?.templateSnapshot?.requiresWasteRecord
+                                ? "Si"
+                                : "No"}
                         </strong>
+                    </div>
+
+                    <div className={styles.summaryCard}>
+                        <span className={styles.summaryLabel}>Control de gramaje</span>
+                        <strong>{requiresWeightControl ? "Activo" : "No"}</strong>
                     </div>
                 </div>
+
+                {requiresWeightControl ? (
+                    <div className={styles.summaryGrid}>
+                        <div className={styles.summaryCard}>
+                            <span className={styles.summaryLabel}>Peso objetivo</span>
+                            <strong>{formatNumber(weightPreview.targetWeight, 3)} kg</strong>
+                        </div>
+                        <div className={styles.summaryCard}>
+                            <span className={styles.summaryLabel}>Peso registrado</span>
+                            <strong>
+                                {formatNumber(weightPreview.recordedTotalWeight, 3)} kg
+                            </strong>
+                        </div>
+                        <div className={styles.summaryCard}>
+                            <span className={styles.summaryLabel}>Diferencia</span>
+                            <strong>
+                                {formatSignedNumber(weightPreview.differenceWeight)} kg
+                            </strong>
+                        </div>
+                        <div className={styles.summaryCard}>
+                            <span className={styles.summaryLabel}>Desvio</span>
+                            <strong>
+                                {weightPreview.differencePercent === null
+                                    ? "0"
+                                    : formatSignedNumber(weightPreview.differencePercent)}%
+                            </strong>
+                        </div>
+                    </div>
+                ) : null}
 
                 <section className={styles.card}>
                     <div className={styles.sectionHeader}>
                         <div>
                             <h2 className={styles.sectionTitle}>Insumos consumidos</h2>
                             <p className={styles.sectionDescription}>
-                                Ya descontados de inventario al iniciar la producción.
+                                Ya descontados de inventario al iniciar la produccion.
                             </p>
                         </div>
                     </div>
@@ -619,185 +765,78 @@ export default function ProductionInProgressView({
                                 <div>
                                     <strong>{item.productNameSnapshot}</strong>
                                     <p className={styles.meta}>
-                                        {item.productCodeSnapshot || "Sin código"}
+                                        {item.productCodeSnapshot || "Sin codigo"}
                                     </p>
                                 </div>
                                 <strong>
-                                    {formatNumber(item.quantity)} {getUnitLabel(item.unitSnapshot)}
+                                    {formatNumber(item.quantity, 3)}{" "}
+                                    {getUnitLabel(item.unitSnapshot)}
                                 </strong>
                             </div>
                         ))}
                     </div>
                 </section>
 
-                {renderOutputSection("Resultados reales", outputs, setOutputs, false)}
-                {renderOutputSection("Subproductos", byproducts, setByproducts, true)}
+                {hasMissingRecordedWeights ? (
+                    <div className={styles.warningBox}>
+                        <AlertTriangle size={16} />
+                        Falta registrar el peso real de los resultados cuando la ficha
+                        controla gramaje.
+                    </div>
+                ) : null}
+
+                {renderOutputSection()}
 
                 {production?.templateSnapshot?.requiresWasteRecord ? (
                     <section className={styles.card}>
-                    <div className={styles.sectionHeader}>
-                        <div>
-                            <h2 className={styles.sectionTitle}>Merma y desperdicio</h2>
-                            <p className={styles.sectionDescription}>
-                                Debes registrar al menos una fila antes de completar.
-                            </p>
+                        <div className={styles.sectionHeader}>
+                            <div>
+                                <h2 className={styles.sectionTitle}>Desperdicio real</h2>
+                                <p className={styles.sectionDescription}>
+                                    Registra el peso total de lo que ya no se pudo
+                                    aprovechar en esta produccion.
+                                </p>
+                            </div>
                         </div>
 
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => setWaste((prev) => [...prev, createWasteRow()])}
-                        >
-                            <Plus size={16} />
-                            Agregar
-                        </button>
-                    </div>
+                        {hasMissingWaste ? (
+                            <div className={styles.warningBox}>
+                                <AlertTriangle size={16} />
+                                Debes registrar el desperdicio total antes de completar.
+                            </div>
+                        ) : null}
 
-                    {hasMissingWaste ? (
-                        <div className={styles.warningBox}>
-                            <AlertTriangle size={16} />
-                            Debes registrar merma o desperdicio antes de completar.
-                        </div>
-                    ) : null}
-
-                    <div className={styles.rows}>
-                        {waste.length === 0 ? (
-                            <div className={styles.emptyState}>No hay merma registrada.</div>
-                        ) : (
-                            waste.map((item, index) => (
-                                <div key={`waste-${index}`} className={styles.rowCard}>
-                                    <div className={styles.rowGrid}>
-                                        <div className={styles.field}>
-                                            <label className={styles.label}>Origen</label>
-                                            <select
-                                                className={styles.input}
-                                                value={item.originKind}
-                                                onChange={(event) =>
-                                                    updateRows(setWaste, index, {
-                                                        originKind: event.target.value,
-                                                        originProductId:
-                                                            event.target.value === "process"
-                                                                ? ""
-                                                                : item.originProductId,
-                                                        originNameSnapshot:
-                                                            event.target.value === "process"
-                                                                ? ""
-                                                                : item.originNameSnapshot,
-                                                        originUnitSnapshot:
-                                                            event.target.value === "process"
-                                                                ? ""
-                                                                : item.originUnitSnapshot,
-                                                    })
-                                                }
-                                            >
-                                                <option value="process">Proceso general</option>
-                                                <option value="input">Insumo</option>
-                                                <option value="output">Resultado</option>
-                                            </select>
-                                        </div>
-
-                                        {item.originKind !== "process" ? (
-                                            <div className={styles.field}>
-                                                <label className={styles.label}>Producto origen</label>
-                                                <select
-                                                    className={styles.input}
-                                                    value={item.originProductId}
-                                                    onChange={(event) => {
-                                                        const selected = wasteOriginOptions.find(
-                                                            (option) => option.value === event.target.value
-                                                        );
-
-                                                        updateRows(setWaste, index, {
-                                                            originProductId: selected?.value || "",
-                                                            originNameSnapshot: selected?.label || "",
-                                                            originUnitSnapshot: selected?.unit || "",
-                                                        });
-                                                    }}
-                                                >
-                                                    <option value="">Selecciona una opción</option>
-                                                    {wasteOriginOptions.map((option) => (
-                                                        <option key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                        <div className={styles.rows}>
+                            <div className={styles.rowCard}>
+                                <div className={styles.rowGrid}>
+                                    <div className={styles.field}>
+                                        <label className={styles.label}>
+                                            Cantidad de desperdicio
+                                        </label>
+                                        <div className={styles.inlineField}>
+                                            <div className={styles.fieldShell}>
+                                                <input
+                                                    className="form-input"
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.0001"
+                                                    value={waste[0]?.quantity || ""}
+                                                    onChange={(event) =>
+                                                        setWaste((prev) => [
+                                                            {
+                                                                ...(prev[0] || createWasteRow()),
+                                                                quantity: event.target.value,
+                                                            },
+                                                        ])
+                                                    }
+                                                />
                                             </div>
-                                        ) : null}
-
-                                        <div className={styles.field}>
-                                            <label className={styles.label}>Tipo</label>
-                                            <select
-                                                className={styles.input}
-                                                value={item.type}
-                                                onChange={(event) =>
-                                                    updateRows(setWaste, index, {
-                                                        type: event.target.value,
-                                                    })
-                                                }
-                                            >
-                                                <option value="merma">Merma</option>
-                                                <option value="desperdicio">Desperdicio</option>
-                                            </select>
+                                            <span className={styles.inlineUnit}>kg</span>
                                         </div>
-
-                                        <div className={styles.field}>
-                                            <label className={styles.label}>Cantidad</label>
-                                            <input
-                                                className={styles.input}
-                                                type="number"
-                                                min="0"
-                                                step="0.0001"
-                                                value={item.quantity}
-                                                onChange={(event) =>
-                                                    updateRows(setWaste, index, {
-                                                        quantity: event.target.value,
-                                                    })
-                                                }
-                                            />
-                                        </div>
-
-                                        <div className={styles.field}>
-                                            <label className={styles.label}>Unidad</label>
-                                            <select
-                                                className={styles.input}
-                                                value={item.unitSnapshot}
-                                                onChange={(event) =>
-                                                    updateRows(setWaste, index, {
-                                                        unitSnapshot: event.target.value,
-                                                    })
-                                                }
-                                            >
-                                                {PRODUCT_UNIT_OPTIONS.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.rowFooter}>
-                                        <span className={styles.meta}>
-                                            {item.originKind === "process"
-                                                ? <><span className={styles.metaLabel}>Origen:</span>Proceso General</>
-                                                : item.originNameSnapshot
-                                                    ? <><span className={styles.metaLabel}>Origen:</span>${item.originNameSnapshot}</>
-                                                    : <><span className={styles.metaLabel}>Origen:</span>Sin Definir</> }
-                                        </span>
-
-                                        <button
-                                            type="button"
-                                            className="btn btn-danger"
-                                            onClick={() => removeRow(setWaste, index)}
-                                        >
-                                            <Trash2 size={14} />
-                                            Quitar
-                                        </button>
                                     </div>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            </div>
+                        </div>
                     </section>
                 ) : null}
 
@@ -809,19 +848,19 @@ export default function ProductionInProgressView({
                     </div>
 
                     <textarea
-                        className={styles.textarea}
+                        className={`form-textarea ${styles.textarea}`}
                         value={notes}
                         onChange={(event) => setNotes(event.target.value)}
-                        placeholder="Observaciones de la ejecución"
+                        placeholder="Observaciones de la ejecucion"
                     />
                 </section>
             </div>
 
             <ConfirmModal
                 open={confirmState === "complete"}
-                title="Completar producción"
-                description="Se registrarán los movimientos finales de salida e inventario. Verifica resultados y merma antes de continuar."
-                confirmLabel="Completar producción"
+                title="Completar produccion"
+                description="Se registraran los resultados finales y el desperdicio total de la produccion. Verifica cantidades y pesos reales antes de continuar."
+                confirmLabel="Completar produccion"
                 cancelLabel="Volver"
                 variant="warning"
                 isSubmitting={isCompleting}
@@ -831,9 +870,9 @@ export default function ProductionInProgressView({
 
             <ConfirmModal
                 open={confirmState === "cancel"}
-                title="Cancelar producción"
-                description="Se devolverán los insumos consumidos al inventario de cocina y la producción quedará cancelada."
-                confirmLabel="Cancelar producción"
+                title="Cancelar produccion"
+                description="Se devolveran los insumos consumidos al inventario de cocina y la produccion quedara cancelada."
+                confirmLabel="Cancelar produccion"
                 cancelLabel="Volver"
                 variant="danger"
                 isSubmitting={isCancelling}
@@ -848,8 +887,12 @@ export default function ProductionInProgressView({
                 variant={dialogState.variant}
                 confirmText="Aceptar"
                 showCancel={false}
-                onConfirm={() => setDialogState((prev) => ({ ...prev, open: false }))}
-                onClose={() => setDialogState((prev) => ({ ...prev, open: false }))}
+                onConfirm={() =>
+                    setDialogState((prev) => ({ ...prev, open: false }))
+                }
+                onClose={() =>
+                    setDialogState((prev) => ({ ...prev, open: false }))
+                }
             />
         </>
     );

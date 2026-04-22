@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { ArrowRightLeft, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./page.module.scss";
@@ -33,13 +33,13 @@ function createEmptyRequestItem() {
   };
 }
 
-function createInitialFormData(requestType = "production") {
-  const isReturnRequest = requestType === "return";
+function createInitialFormData(destinationLocation = "warehouse", operationalLocation = "kitchen") {
+  const isReturnRequest = destinationLocation === "warehouse";
 
   return {
-    requestType,
-    sourceLocation: isReturnRequest ? "kitchen" : "warehouse",
-    destinationLocation: isReturnRequest ? "warehouse" : "kitchen",
+    requestType: isReturnRequest ? "return" : "operation",
+    sourceLocation: operationalLocation,
+    destinationLocation,
     requestPurpose: isReturnRequest ? "return_to_warehouse" : "",
     notes: "",
     items: [createEmptyRequestItem()],
@@ -65,6 +65,7 @@ function getRequestStatusClass(status) {
     case "pending":
       return styles.statusPending;
     case "approved":
+    case "processing":
       return styles.statusApproved;
     case "partially_fulfilled":
       return styles.statusPartial;
@@ -297,6 +298,10 @@ export default function RequestsPage() {
         request.requestedBy?.name?.toLowerCase().includes(query) ||
         request.requestedBy?.username?.toLowerCase().includes(query) ||
         request.requestedBy?.email?.toLowerCase().includes(query) ||
+        getLocationLabel(request.sourceLocation)?.toLowerCase().includes(query) ||
+        getLocationLabel(request.destinationLocation)?.toLowerCase().includes(query) ||
+        getRequestStatusLabel(request.status)?.toLowerCase().includes(query) ||
+        getRequestTypeLabel(request.requestType)?.toLowerCase().includes(query) ||
         request.notes?.toLowerCase().includes(query) ||
         request.justification?.toLowerCase().includes(query);
 
@@ -313,7 +318,7 @@ export default function RequestsPage() {
     return {
       total: requestsByType.length,
       pending: requestsByType.filter((r) => r.status === "pending").length,
-      approved: requestsByType.filter((r) => r.status === "approved").length,
+      processing: requestsByType.filter((r) => ["approved", "processing"].includes(r.status)).length,
       partiallyFulfilled: requestsByType.filter(
         (r) => r.status === "partially_fulfilled"
       ).length,
@@ -323,13 +328,54 @@ export default function RequestsPage() {
     };
   }, [requestsByType]);
 
+  function getOperationalLocation() {
+    return currentUser?.role === "lounge" ? "lounge" : "kitchen";
+  }
+
+  function getDestinationOptions() {
+    const operationalLocation = getOperationalLocation();
+
+    if (operationalLocation === "lounge") {
+      return [
+        { value: "warehouse", label: "Bodega" },
+        { value: "kitchen", label: "Cocina" },
+      ];
+    }
+
+    return [
+      { value: "warehouse", label: "Bodega" },
+      { value: "lounge", label: "Salon" },
+    ];
+  }
+
+  const destinationOptions = getDestinationOptions();
+  const canCreateRequests = ["kitchen", "lounge"].includes(currentUser?.role);
+  const isAdmin = currentUser?.role === "admin";
+  const heroEyebrow = isAdmin ? "Auditoria" : "Operacion";
+  const heroTitle = isAdmin ? "Auditoria de solicitudes" : "Solicitudes internas";
+  const heroDescription = isAdmin
+    ? "Revisa todas las solicitudes realizadas, su estado operativo y el historial completo de cada una."
+    : "Gestiona movimientos entre cocina, salón y bodega con un flujo más claro.";
+  const searchPlaceholder = isAdmin
+    ? "Buscar por número, usuario, destino o nota"
+    : "Buscar por número, usuario o nota";
+  const sectionHeading = isAdmin ? "Panel general" : "Mis solicitudes";
+  const sectionIntro = isAdmin
+    ? "Vista general de todas las solicitudes internas registradas en la operación."
+    : "Revisa tus solicitudes activas y el avance de cada movimiento.";
+
   function resetFormState() {
-    setFormData(createInitialFormData());
+    setFormData(createInitialFormData("warehouse", getOperationalLocation()));
   }
 
   function openCreateModal() {
     setFormData(
-      createInitialFormData(requestTypeFilter === "return" ? "return" : "production")
+      createInitialFormData(
+        requestTypeFilter === "operation"
+          ? (getOperationalLocation() === "lounge" ? "kitchen" : "lounge")
+          : "warehouse",
+        getOperationalLocation()
+      )
     );
     setFormModal({
       open: true,
@@ -341,8 +387,8 @@ export default function RequestsPage() {
     if (!selectedRequest) return;
 
     setFormData({
-      requestType: selectedRequest.requestType || "production",
-      sourceLocation: selectedRequest.sourceLocation || "warehouse",
+      requestType: selectedRequest.requestType || "operation",
+      sourceLocation: selectedRequest.sourceLocation || getOperationalLocation(),
       destinationLocation: selectedRequest.destinationLocation || "kitchen",
       requestPurpose: selectedRequest.justification || "",
       notes: selectedRequest.notes || "",
@@ -394,6 +440,16 @@ export default function RequestsPage() {
 
     setFormData((prev) => ({
       ...prev,
+      requestType:
+        name === "destinationLocation"
+          ? (value === "warehouse" ? "return" : "operation")
+          : prev.requestType,
+      requestPurpose:
+        name === "destinationLocation"
+          ? (value === "warehouse"
+            ? (prev.requestPurpose === "return_to_warehouse" ? prev.requestPurpose : "return_to_warehouse")
+            : (prev.requestPurpose === "return_to_warehouse" ? "" : prev.requestPurpose))
+          : prev.requestPurpose,
       [name]: value,
     }));
   }
@@ -452,8 +508,7 @@ export default function RequestsPage() {
       }))
       .filter((item) => item.productId && item.requestedQuantity > 0);
     const shouldValidateSourceStock = formData.requestType === "return";
-    const sourceInventoryKey =
-      formData.sourceLocation === "warehouse" ? "warehouse" : "kitchen";
+    const sourceInventoryKey = formData.sourceLocation || "warehouse";
 
     if (!formData.requestPurpose) {
       openDialogModal({
@@ -484,7 +539,7 @@ export default function RequestsPage() {
         const product = products.find((productItem) => productItem._id === invalidByInventory.productId);
         openDialogModal({
           title: "Cantidad no disponible",
-          message: `La cantidad de ${product?.name || "este producto"} supera el stock disponible en ${sourceInventoryKey === "warehouse" ? "bodega" : "cocina"}.`,
+          message: `La cantidad de ${product?.name || "este producto"} supera el stock disponible en ${getLocationLabel(sourceInventoryKey).toLowerCase()}.`,
           variant: "warning",
         });
         return;
@@ -839,95 +894,89 @@ export default function RequestsPage() {
 
   return (
     <>
-      <div className={styles.headerRow}>
-        <div className={styles.statsGroup}>
-          <button
-            type="button"
-            onClick={() => setStatusFilter("all")}
-            className={`${styles.statCard} ${statusFilter === "all" ? styles.activeCard : ""
-              }`}
-          >
-            <span className={styles.statLabel}>Total solicitudes</span>
-            <strong className={styles.statValue}>
-              {localSummary.total || 0}
-            </strong>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter("pending")}
-            className={`${styles.statCard} ${styles.warningCard} ${statusFilter === "pending" ? styles.activeCard : ""
-              }`}
-          >
-            <span className={styles.statLabel}>Pendientes</span>
-            <strong className={styles.statValue}>
-              {localSummary.pending || 0}
-            </strong>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter("approved")}
-            className={`${styles.statCard} ${styles.infoCard} ${statusFilter === "approved" ? styles.activeCard : ""
-              }`}
-          >
-            <span className={styles.statLabel}>Aprobadas</span>
-            <strong className={styles.statValue}>
-              {localSummary.approved || 0}
-            </strong>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter("fulfilled")}
-            className={`${styles.statCard} ${styles.successCard} ${statusFilter === "fulfilled" ? styles.activeCard : ""
-              }`}
-          >
-            <span className={styles.statLabel}>Completadas</span>
-            <strong className={styles.statValue}>
-              {localSummary.fulfilled || 0}
-            </strong>
-          </button>
+      <section className={`hero fadeScaleIn ${styles.heroShell}`}>
+        <div className="heroCopy">
+          <span className="eyebrow">{heroEyebrow}</span>
+          <h1 className="title">{heroTitle}</h1>
+          <p className="description">{heroDescription}</p>
         </div>
 
-        {["admin", "kitchen"].includes(currentUser?.role) ? (
+        <div className={styles.heroStats}>
+          <button
+            type="button"
+            className={`compactStat ${styles.heroStatButton} ${statusFilter === "all" ? styles.heroStatActive : ""}`}
+            onClick={() => setStatusFilter("all")}
+          >
+            <span>Solicitudes <strong>{localSummary.total || 0}</strong></span>
+          </button>
+          <button
+            type="button"
+            className={`compactStat heroStatWarning ${styles.heroStatButton} ${statusFilter === "pending" ? styles.heroStatActive : ""}`}
+            onClick={() => setStatusFilter("pending")}
+          >
+            <span>Pendientes <strong>{localSummary.pending || 0}</strong></span>
+          </button>
+          <button
+            type="button"
+            className={`compactStat heroStatInfo ${styles.heroStatButton} ${statusFilter === "processing" ? styles.heroStatActive : ""}`}
+            onClick={() => setStatusFilter("processing")}
+          >
+            <span>En proceso <strong>{localSummary.processing || 0}</strong></span>
+          </button>
+          <button
+            type="button"
+            className={`compactStat heroStatSuccess ${styles.heroStatButton} ${statusFilter === "fulfilled" ? styles.heroStatActive : ""}`}
+            onClick={() => setStatusFilter("fulfilled")}
+          >
+            <span>Completadas <strong>{localSummary.fulfilled || 0}</strong></span>
+          </button>
+        </div>
+      </section>
+
+      {canCreateRequests ? (
+        <div className={styles.headerRow}>
           <div className={styles.actionGroup}>
             <button
               type="button"
-              className="btn btn-secondary"
+              className="miniAction"
               onClick={() => {
-                setRequestTypeFilter("production");
-                setFormData(createInitialFormData("production"));
+                setRequestTypeFilter("return");
+                setFormData(createInitialFormData("warehouse", getOperationalLocation()));
                 setFormModal({ open: true, mode: "create" });
               }}
             >
-              <Plus size={16} />
-              Nueva solicitud
+              <Plus size={14} />
+              Nueva transferencia
             </button>
 
             <button
               type="button"
-              className="btn btn-primary"
+              className="miniAction miniActionPrimary"
               onClick={() => {
-                setRequestTypeFilter("return");
-                setFormData(createInitialFormData("return"));
+                setRequestTypeFilter("operation");
+                setFormData(createInitialFormData(getOperationalLocation() === "lounge" ? "kitchen" : "lounge", getOperationalLocation()));
                 setFormModal({ open: true, mode: "create" });
               }}
             >
-              <Plus size={16} />
-              Nueva devolución
+              <Plus size={14} />
+              Nueva solicitud
             </button>
           </div>
-        ) : null}
+        </div>
+      ) : null}
+
+      <div className={`${styles.sectionIntro} fadeSlideIn delayOne`}>
+        <strong>{sectionHeading}</strong>
+        <span>{sectionIntro}</span>
       </div>
 
-      <div className={styles.toolbar}>
-        <div className={styles.searchBox}>
+      <div className={`${styles.toolbar} fadeSlideIn delayTwo`}>
+        <div className={`searchField ${styles.searchBox}`}>
           <Search size={16} />
           <input
             type="text"
-            className={styles.searchInput}
-            placeholder="Buscar por número, usuario o nota"
+            className="searchInput"
+            placeholder={searchPlaceholder}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -936,28 +985,28 @@ export default function RequestsPage() {
         <div className={styles.filtersGroup}>
           <button
             type="button"
-            className={`btn ${requestTypeFilter === "all" ? "btn-primary" : "btn-secondary"}`}
+            className={`miniAction ${requestTypeFilter === "all" ? "miniActionPrimary" : ""}`}
             onClick={() => setRequestTypeFilter("all")}
           >
             Todas
           </button>
           <button
             type="button"
-            className={`btn ${requestTypeFilter === "return" ? "btn-primary" : "btn-secondary"}`}
+            className={`miniAction ${requestTypeFilter === "return" ? "miniActionPrimary" : ""}`}
             onClick={() => setRequestTypeFilter("return")}
           >
             Transferencias
           </button>
           <button
             type="button"
-            className={`btn ${requestTypeFilter === "production" ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setRequestTypeFilter("production")}
+            className={`miniAction ${requestTypeFilter === "operation" ? "miniActionPrimary" : ""}`}
+            onClick={() => setRequestTypeFilter("operation")}
           >
-            Producción
+            Internas
           </button>
           <button
             type="button"
-            className="btn btn-secondary"
+            className="miniAction"
             onClick={fetchRequests}
           >
             Actualizar
@@ -965,19 +1014,22 @@ export default function RequestsPage() {
         </div>
       </div>
 
-      <div className={styles.listSection}>
+      <div className={`${styles.listSection} fadeSlideIn delayThree`}>
         {isLoading ? (
-          <div className={styles.emptyState}>Cargando solicitudes...</div>
+          <div className={`${styles.emptyState} fadeScaleIn`}>Cargando solicitudes...</div>
         ) : filteredRequests.length === 0 ? (
-          <div className={styles.emptyState}>
-            No se encontraron solicitudes para mostrar.
+          <div className={`${styles.emptyState} fadeScaleIn`}>
+            {isAdmin
+              ? "No hay solicitudes registradas para auditar con estos filtros."
+              : "No se encontraron solicitudes para mostrar."}
           </div>
         ) : (
           <div className={styles.requestList}>
-            {paginatedRequests.map((request) => (
+            {paginatedRequests.map((request, index) => (
               <article
                 key={request._id}
-                className={styles.requestCard}
+                className={`${styles.requestCard} fadeScaleIn`}
+                style={{ animationDelay: `${Math.min(index, 8) * 0.03}s` }}
                 onClick={() => openDetailsModal(request)}
               >
                 <div className={styles.cardHeader}>
@@ -1057,6 +1109,7 @@ export default function RequestsPage() {
         open={formModal.open}
         mode={formModal.mode}
         formData={formData}
+        destinationOptions={destinationOptions}
         onChange={handleFormChange}
         onItemChange={handleFormItemChange}
         onAddItem={handleAddFormItem}
@@ -1119,3 +1172,4 @@ export default function RequestsPage() {
     </>
   );
 }
+

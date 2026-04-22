@@ -10,6 +10,7 @@ export const REQUEST_TYPES = [
 export const REQUEST_STATUSES = [
     "pending",
     "approved",
+    "processing",
     "partially_fulfilled",
     "fulfilled",
     "cancelled",
@@ -473,7 +474,7 @@ requestSchema.methods.recalculateStatus = function () {
         return this.status;
     }
 
-    this.status = "approved";
+    this.status = "processing";
     return this.status;
 };
 

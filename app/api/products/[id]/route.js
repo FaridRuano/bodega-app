@@ -21,6 +21,7 @@ async function buildInventorySummary(productId) {
         reserved: 0,
         warehouse: 0,
         kitchen: 0,
+        lounge: 0,
     };
 
     for (const stock of stocks) {
@@ -42,6 +43,10 @@ async function buildInventorySummary(productId) {
         if (stock.location === "kitchen") {
             summary.kitchen += quantity;
         }
+
+        if (stock.location === "lounge") {
+            summary.lounge += quantity;
+        }
     }
 
     return summary;
@@ -54,6 +59,16 @@ function normalizeProduct(product, inventory) {
         categoryName: product.categoryId?.name || "",
         inventory,
     };
+}
+
+function hasInvalidStockThresholds(minStock, reorderPoint) {
+    const normalizedMinStock = Number(minStock) || 0;
+    const normalizedReorderPoint = Number(reorderPoint) || 0;
+
+    return (
+        normalizedMinStock === normalizedReorderPoint &&
+        normalizedMinStock !== 0
+    );
 }
 
 export async function GET(_, { params }) {
@@ -146,6 +161,8 @@ export async function PATCH(request, { params }) {
             storageType,
             tracksStock,
             allowsProduction,
+            requiresWeightControl,
+            requiresDailyControl,
             minStock,
             reorderPoint,
             isActive,
@@ -233,12 +250,41 @@ export async function PATCH(request, { params }) {
             product.allowsProduction = allowsProduction;
         }
 
+        if (typeof requiresWeightControl === "boolean") {
+            product.requiresWeightControl = requiresWeightControl;
+        }
+
+        if (typeof requiresDailyControl === "boolean") {
+            product.requiresDailyControl = requiresDailyControl;
+        }
+
         if (typeof minStock !== "undefined") {
             product.minStock = Number(minStock) || 0;
         }
 
         if (typeof reorderPoint !== "undefined") {
             product.reorderPoint = Number(reorderPoint) || 0;
+        }
+
+        if (
+            typeof minStock !== "undefined" ||
+            typeof reorderPoint !== "undefined"
+        ) {
+            if (
+                hasInvalidStockThresholds(
+                    product.minStock,
+                    product.reorderPoint
+                )
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "El punto de reposicion no puede ser igual a la alerta de stock bajo, salvo que ambos sean 0.",
+                    },
+                    { status: 400 }
+                );
+            }
         }
 
         if (typeof isActive === "boolean") {

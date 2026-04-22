@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
+import { slugify } from "@libs/slugify";
 import dbConnect from "@libs/mongodb";
 import Category from "@models/Category";
+import ProductFamily from "@models/ProductFamily";
 
 export async function GET() {
   try {
@@ -12,6 +14,7 @@ export async function GET() {
     await dbConnect();
 
     const categories = await Category.find({})
+      .populate("familyId", "name slug description")
       .sort({ sortOrder: 1, name: 1 })
       .lean();
 
@@ -28,7 +31,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        message: "No se pudieron obtener las categorías.",
+        message: "No se pudieron obtener las categorí­as.",
       },
       { status: 500 }
     );
@@ -43,35 +46,66 @@ export async function POST(request) {
     await dbConnect();
 
     const body = await request.json();
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const description = body?.description?.trim?.() || "";
+    const sortOrder = Number(body?.sortOrder) || 0;
+    const isActive =
+      typeof body?.isActive === "boolean" ? body.isActive : true;
+    const familyId =
+      typeof body?.familyId === "string" ? body.familyId.trim() : body?.familyId;
 
-    const {
-      name,
-      description = "",
-      sortOrder = 0,
-      isActive = true,
-    } = body;
-
-    if (!name || !name.trim()) {
+    if (!name) {
       return NextResponse.json(
         {
           success: false,
-          message: "El nombre de la categoría es obligatorio.",
+          message: "El nombre de la categorí­a es obligatorio.",
         },
         { status: 400 }
       );
     }
 
+    const duplicatedCategory = await Category.findOne({ slug: slugify(name) }).lean();
+
+    if (duplicatedCategory) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Ya existe una categorí­a con ese nombre.",
+        },
+        { status: 409 }
+      );
+    }
+
+    let family = null;
+
+    if (familyId) {
+      family = await ProductFamily.findById(familyId).lean();
+
+      if (!family) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "La familia seleccionada no existe.",
+          },
+          { status: 404 }
+        );
+      }
+    }
+
     const category = await Category.create({
-      name: name.trim(),
-      description: description?.trim?.() || "",
-      sortOrder: Number(sortOrder) || 0,
-      isActive: Boolean(isActive),
+      name,
+      description,
+      familyId: family?._id || null,
+      sortOrder,
+      isActive,
     });
+
+    await category.populate("familyId", "name slug description");
 
     return NextResponse.json(
       {
         success: true,
-        message: "Categoría creada correctamente.",
+        message: "Categorí­a creada correctamente.",
         data: category,
       },
       { status: 201 }
@@ -83,7 +117,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Ya existe una categoría con ese nombre o slug.",
+          message: "Ya existe una categorí­a con ese nombre.",
         },
         { status: 409 }
       );
@@ -92,7 +126,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        message: "No se pudo crear la categoría.",
+        message: "No se pudo crear la categorí­a.",
       },
       { status: 500 }
     );

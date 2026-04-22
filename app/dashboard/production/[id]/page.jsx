@@ -57,8 +57,8 @@ export default function ProductionDetailPage() {
 
     if (isLoading) {
         return (
-            <div className={styles.page}>
-                <div className={styles.centerState}>
+            <div className="page">
+                <div className={`${styles.centerState} fadeScaleIn`}>
                     <LoaderCircle className={`${styles.stateIcon} ${styles.spin}`} />
                     <p className={styles.stateTitle}>Cargando producción...</p>
                     <p className={styles.stateDescription}>
@@ -71,8 +71,8 @@ export default function ProductionDetailPage() {
 
     if (!production) {
         return (
-            <div className={styles.page}>
-                <div className={styles.centerState}>
+            <div className="page">
+                <div className={`${styles.centerState} fadeScaleIn`}>
                     <AlertTriangle className={styles.stateIcon} />
                     <p className={styles.stateTitle}>
                         No se pudo cargar la producción
@@ -132,8 +132,8 @@ export default function ProductionDetailPage() {
     }
 
     return (
-        <div className={styles.page}>
-            <div className={styles.centerState}>
+        <div className="page">
+            <div className={`${styles.centerState} fadeScaleIn`}>
                 <AlertTriangle className={styles.stateIcon} />
                 <p className={styles.stateTitle}>Estado de producción no soportado</p>
                 <p className={styles.stateDescription}>

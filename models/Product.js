@@ -1,14 +1,7 @@
 import { Schema, model, models } from "mongoose";
 import { slugify } from "@libs/slugify";
 import { PRODUCT_UNITS } from "@libs/constants/units";
-
-
-export const PRODUCT_TYPES = [
-    "raw_material",
-    "processed",
-    "prepared",
-    "supply",
-];
+import { PRODUCT_TYPES } from "@libs/constants/productTypes";
 
 export const STORAGE_TYPES = [
     "ambient",
@@ -74,6 +67,14 @@ const productSchema = new Schema(
             default: true,
         },
         allowsProduction: {
+            type: Boolean,
+            default: false,
+        },
+        requiresWeightControl: {
+            type: Boolean,
+            default: false,
+        },
+        requiresDailyControl: {
             type: Boolean,
             default: false,
         },

@@ -2,9 +2,11 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
 import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
+import { slugify } from "@libs/slugify";
 import dbConnect from "@libs/mongodb";
 import Category from "@models/Category";
 import Product from "@models/Product";
+import ProductFamily from "@models/ProductFamily";
 
 function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id);
@@ -23,13 +25,15 @@ export async function GET(_, context) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "ID de categoría inválido.",
+                    message: "ID de categorí­a inválido.",
                 },
                 { status: 400 }
             );
         }
 
-        const category = await Category.findById(id).lean();
+        const category = await Category.findById(id)
+            .populate("familyId", "name slug description")
+            .lean();
 
         if (!category) {
             return NextResponse.json(
@@ -74,21 +78,13 @@ export async function PATCH(request, context) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "ID de categoría inválido.",
+                    message: "ID de categorí­a inválido.",
                 },
                 { status: 400 }
             );
         }
 
         const body = await request.json();
-
-        const {
-            name,
-            description,
-            sortOrder,
-            isActive,
-        } = body;
-
         const category = await Category.findById(id);
 
         if (!category) {
@@ -101,8 +97,10 @@ export async function PATCH(request, context) {
             );
         }
 
-        if (typeof name === "string") {
-            if (!name.trim()) {
+        if (typeof body?.name === "string") {
+            const trimmedName = body.name.trim();
+
+            if (!trimmedName) {
                 return NextResponse.json(
                     {
                         success: false,
@@ -112,23 +110,62 @@ export async function PATCH(request, context) {
                 );
             }
 
-            category.name = name.trim();
+            const duplicatedCategory = await Category.findOne({
+                slug: slugify(trimmedName),
+                _id: { $ne: id },
+            }).lean();
+
+            if (duplicatedCategory) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Ya existe una categoría con ese nombre.",
+                    },
+                    { status: 409 }
+                );
+            }
+
+            category.name = trimmedName;
             category.slug = undefined;
         }
 
-        if (typeof description === "string") {
-            category.description = description.trim();
+        if (typeof body?.description === "string") {
+            category.description = body.description.trim();
         }
 
-        if (typeof sortOrder !== "undefined") {
-            category.sortOrder = Number(sortOrder) || 0;
+        if (typeof body?.sortOrder !== "undefined") {
+            category.sortOrder = Number(body.sortOrder) || 0;
         }
 
-        if (typeof isActive === "boolean") {
-            category.isActive = isActive;
+        if (typeof body?.isActive === "boolean") {
+            category.isActive = body.isActive;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(body, "familyId")) {
+            const familyId =
+                typeof body.familyId === "string" ? body.familyId.trim() : body.familyId;
+
+            if (!familyId) {
+                category.familyId = null;
+            } else {
+                const family = await ProductFamily.findById(familyId).lean();
+
+                if (!family) {
+                    return NextResponse.json(
+                        {
+                            success: false,
+                            message: "La familia seleccionada no existe.",
+                        },
+                        { status: 404 }
+                    );
+                }
+
+                category.familyId = family._id;
+            }
         }
 
         await category.save();
+        await category.populate("familyId", "name slug description");
 
         return NextResponse.json(
             {
@@ -145,7 +182,7 @@ export async function PATCH(request, context) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Ya existe una categoría con ese nombre o slug.",
+                    message: "Ya existe una categoría con ese nombre.",
                 },
                 { status: 409 }
             );
@@ -174,7 +211,7 @@ export async function DELETE(_, context) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "ID de categoría inválido.",
+                    message: "ID de categorí­a inválido.",
                 },
                 { status: 400 }
             );

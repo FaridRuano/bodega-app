@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
 import dbConnect from "@libs/mongodb";
 import Product from "@models/Product";
@@ -6,6 +7,10 @@ import Category from "@models/Category";
 import InventoryStock from "@models/InventoryStock";
 import { parsePositiveNumber } from "@libs/apiUtils";
 import { STOCK_LOCATIONS } from "@models/InventoryStock";
+import {
+    PURCHASE_PRODUCT_TYPES,
+    isPurchaseEligibleProductType,
+} from "@libs/constants/productTypes";
 
 function getDefaultInventory() {
     return {
@@ -14,6 +19,7 @@ function getDefaultInventory() {
         reserved: 0,
         warehouse: 0,
         kitchen: 0,
+        lounge: 0,
     };
 }
 
@@ -52,6 +58,10 @@ async function buildInventoryMap(productIds = []) {
 
         if (stock.location === "kitchen") {
             current.kitchen += quantity;
+        }
+
+        if (stock.location === "lounge") {
+            current.lounge += quantity;
         }
     }
 
@@ -101,6 +111,8 @@ function normalizeProduct(product, inventoryMap) {
         storageType: product.storageType,
         tracksStock: product.tracksStock,
         allowsProduction: product.allowsProduction,
+        requiresWeightControl: product.requiresWeightControl,
+        requiresDailyControl: product.requiresDailyControl,
         minStock: Number(product.minStock || 0),
         reorderPoint: Number(product.reorderPoint || 0),
         isActive: product.isActive,
@@ -142,6 +154,21 @@ function normalizeLocation(value) {
     return STOCK_LOCATIONS.includes(normalized) ? normalized : null;
 }
 
+function normalizeAlertFilter(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+
+    if (["low", "warning", "out", "attention"].includes(normalized)) {
+        return normalized;
+    }
+
+    return null;
+}
+
+function normalizeProductTypeFilter(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    return normalized || null;
+}
+
 export async function GET(request) {
     try {
         await dbConnect();
@@ -152,8 +179,38 @@ export async function GET(request) {
         const limit = Math.min(parsePositiveNumber(searchParams.get("limit"), 10), 100);
         const search = searchParams.get("search") || "";
         const location = normalizeLocation(searchParams.get("location"));
+        const alert = normalizeAlertFilter(searchParams.get("alert"));
+        const inStockOnly = searchParams.get("inStockOnly") === "true";
+        const activeOnly = searchParams.get("activeOnly") === "true";
+        const purchaseEligibleOnly = searchParams.get("purchaseEligible") === "true";
+        const categoryId = String(searchParams.get("categoryId") || "").trim();
+        const familyId = String(searchParams.get("familyId") || "").trim();
+        const productType = normalizeProductTypeFilter(searchParams.get("productType"));
 
         const query = buildSearchFilter(search) || {};
+
+        if (activeOnly) {
+            query.isActive = true;
+        }
+
+        if (purchaseEligibleOnly) {
+            query.productType = { $in: PURCHASE_PRODUCT_TYPES };
+        } else if (productType) {
+            query.productType = productType;
+        }
+
+        if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
+            query.categoryId = categoryId;
+        } else if (familyId && mongoose.Types.ObjectId.isValid(familyId)) {
+            const familyCategories = await Category.find({ familyId })
+                .select("_id")
+                .lean();
+
+            query.categoryId = {
+                $in: familyCategories.map((category) => category._id),
+            };
+        }
+
         const skip = (page - 1) * limit;
 
         const [products, total] = await Promise.all([
@@ -174,35 +231,75 @@ export async function GET(request) {
             products.map((product) => product._id)
         );
 
-        const data = products.map((product) =>
+        const normalizedProducts = products.map((product) =>
             normalizeProduct(product, inventoryMap)
         );
 
+        const filteredData = normalizedProducts.filter((product) => {
+            if (purchaseEligibleOnly && !isPurchaseEligibleProductType(product.productType)) {
+                return false;
+            }
+
+            if (location && inStockOnly) {
+                const quantity = Number(product.inventory?.[location] || 0);
+                if (quantity <= 0) {
+                    return false;
+                }
+            }
+
+            if (alert === "low") {
+                return product.status === "low";
+            }
+
+            if (alert === "warning") {
+                return product.status === "warning";
+            }
+
+            if (alert === "out") {
+                const quantity = location
+                    ? Number(product.inventory?.[location] || 0)
+                    : Number(product.inventory?.total || 0);
+
+                return quantity <= 0;
+            }
+
+            if (alert === "attention") {
+                return ["low", "warning"].includes(product.status);
+            }
+
+            return true;
+        });
+
+        const paginatedData = hasPagination
+            ? filteredData.slice(skip, skip + limit)
+            : filteredData;
+
         const summary = {
-            totalProducts: data.length,
-            activeProducts: data.filter((product) => product.isActive).length,
-            trackedProducts: data.filter((product) => product.tracksStock).length,
-            outOfStockProducts: data.filter((product) => {
+            totalProducts: normalizedProducts.length,
+            activeProducts: normalizedProducts.filter((product) => product.isActive).length,
+            trackedProducts: normalizedProducts.filter((product) => product.tracksStock).length,
+            outOfStockProducts: normalizedProducts.filter((product) => {
                 const quantity = location
                     ? Number(product.inventory?.[location] || 0)
                     : Number(product.inventory?.total || 0);
                 return quantity <= 0;
             }).length,
-            lowStockProducts: data.filter((product) => product.status === "low").length,
-            warningStockProducts: data.filter((product) => product.status === "warning").length,
+            lowStockProducts: normalizedProducts.filter((product) => product.status === "low").length,
+            warningStockProducts: normalizedProducts.filter((product) => product.status === "warning").length,
             selectedLocation: location,
+            selectedAlert: alert,
         };
 
         return NextResponse.json(
             {
                 success: true,
-                data,
+                data: paginatedData,
                 summary,
                 meta: {
                     page,
-                    limit: hasPagination ? limit : data.length,
-                    total,
-                    pages: hasPagination ? Math.max(Math.ceil(total / limit), 1) : 1,
+                    limit: hasPagination ? limit : filteredData.length,
+                    total: filteredData.length,
+                    pages: hasPagination ? Math.max(Math.ceil(filteredData.length / limit), 1) : 1,
                 },
             },
             { status: 200 }

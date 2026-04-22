@@ -20,13 +20,14 @@ async function buildInventoryMap(productIds = []) {
         const key = String(stock.productId);
 
         if (!inventoryMap.has(key)) {
-            inventoryMap.set(key, {
-                total: 0,
-                available: 0,
-                reserved: 0,
-                warehouse: 0,
-                kitchen: 0,
-            });
+                inventoryMap.set(key, {
+                    total: 0,
+                    available: 0,
+                    reserved: 0,
+                    warehouse: 0,
+                    kitchen: 0,
+                    lounge: 0,
+                });
         }
 
         const current = inventoryMap.get(key);
@@ -49,6 +50,10 @@ async function buildInventoryMap(productIds = []) {
         if (stock.location === "kitchen") {
             current.kitchen += quantity;
         }
+
+        if (stock.location === "lounge") {
+            current.lounge += quantity;
+        }
     }
 
     return inventoryMap;
@@ -66,6 +71,7 @@ function normalizeProduct(product, inventoryMap) {
             reserved: 0,
             warehouse: 0,
             kitchen: 0,
+            lounge: 0,
         },
     };
 }
@@ -102,6 +108,16 @@ function buildSearchFilter(search) {
             { description: regex },
         ],
     };
+}
+
+function hasInvalidStockThresholds(minStock, reorderPoint) {
+    const normalizedMinStock = Number(minStock) || 0;
+    const normalizedReorderPoint = Number(reorderPoint) || 0;
+
+    return (
+        normalizedMinStock === normalizedReorderPoint &&
+        normalizedMinStock !== 0
+    );
 }
 
 export async function GET(request) {
@@ -225,6 +241,8 @@ export async function POST(request) {
             storageType = "ambient",
             tracksStock = true,
             allowsProduction = false,
+            requiresWeightControl = false,
+            requiresDailyControl = false,
             minStock = 0,
             reorderPoint = 0,
             isActive = true,
@@ -250,6 +268,17 @@ export async function POST(request) {
                 {
                     success: false,
                     message: "La categoría es obligatoria.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (hasInvalidStockThresholds(minStock, reorderPoint)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "El punto de reposicion no puede ser igual a la alerta de stock bajo, salvo que ambos sean 0.",
                 },
                 { status: 400 }
             );
@@ -297,6 +326,8 @@ export async function POST(request) {
             storageType,
             tracksStock: Boolean(tracksStock),
             allowsProduction: Boolean(allowsProduction),
+            requiresWeightControl: Boolean(requiresWeightControl),
+            requiresDailyControl: Boolean(requiresDailyControl),
             minStock: Number(minStock) || 0,
             reorderPoint: Number(reorderPoint) || 0,
             isActive: Boolean(isActive),
@@ -321,6 +352,7 @@ export async function POST(request) {
                 reserved: 0,
                 warehouse: 0,
                 kitchen: 0,
+                lounge: 0,
             },
         };
 

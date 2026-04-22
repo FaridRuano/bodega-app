@@ -3,6 +3,7 @@ import { Schema, model, models } from "mongoose";
 export const STOCK_LOCATIONS = [
     "warehouse",
     "kitchen",
+    "lounge"
 ];
 
 const inventoryStockSchema = new Schema(

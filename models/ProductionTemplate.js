@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { UNIT_VALUES } from "@libs/constants/units";
+import { UNIT_VALUES, PRODUCTION_BASE_UNITS } from "@libs/constants/units";
 import { PRODUCTION_TEMPLATE_TYPES } from "@libs/constants/productionTypes";
 
 const { Schema, model, models } = mongoose;
@@ -138,7 +138,7 @@ const productionTemplateSchema = new Schema(
             type: String,
             required: true,
             trim: true,
-            enum: UNIT_VALUES,
+            enum: PRODUCTION_BASE_UNITS,
         },
 
         expectedYield: {
@@ -166,6 +166,11 @@ const productionTemplateSchema = new Schema(
         },
 
         requiresWasteRecord: {
+            type: Boolean,
+            default: false,
+        },
+
+        requiresWeightControl: {
             type: Boolean,
             default: false,
         },
@@ -227,6 +232,8 @@ const productionTemplateSchema = new Schema(
 );
 
 productionTemplateSchema.pre("validate", function () {
+    this.defaultDestination = "kitchen";
+
     if (!this.inputs || this.inputs.length === 0) {
         throw new Error("La ficha debe incluir al menos un insumo.");
     }
@@ -240,6 +247,10 @@ productionTemplateSchema.pre("validate", function () {
 
     if (this.type === "cutting" && primaryInputs.length !== 1) {
         throw new Error("Las fichas de despiece deben tener exactamente un insumo principal.");
+    }
+
+    if (this.requiresWeightControl && this.baseUnit !== "kg") {
+        throw new Error("El control de gramaje solo aplica a fichas con unidad base en kilogramo.");
     }
 
     if (mainOutputs.length === 0) {

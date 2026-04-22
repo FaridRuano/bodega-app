@@ -1,0 +1,82 @@
+.fadeSlideIn {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fade-slide-in 0.45s ease forwards;
+}
+
+.fadeScaleIn {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    animation: fade-scale-in 0.38s ease forwards;
+}
+
+.shimmerBlock {
+    position: relative;
+    overflow: hidden;
+}
+
+.shimmerBlock::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.08),
+        transparent
+    );
+    animation: shimmer-sweep 1.4s ease-in-out infinite;
+}
+
+.pulseSoft {
+    animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+.delayOne {
+    animation-delay: 0.06s;
+}
+
+.delayTwo {
+    animation-delay: 0.12s;
+}
+
+.delayThree {
+    animation-delay: 0.18s;
+}
+
+.delayFour {
+    animation-delay: 0.24s;
+}
+
+
+@keyframes fade-slide-in {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-scale-in {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes shimmer-sweep {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes pulse-soft {
+    0%,
+    100% {
+        opacity: 0.75;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}

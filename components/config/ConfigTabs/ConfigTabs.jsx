@@ -12,8 +12,8 @@ const configItems = [
         href: "/dashboard/config",
     },
     {
-        label: "Categorías",
-        href: "/dashboard/config/categories",
+        label: "Jerarquía",
+        href: "/dashboard/config/hierarchy",
     },
     {
         label: "Usuarios",

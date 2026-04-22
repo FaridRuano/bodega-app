@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
+import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notifications";
 import Request from "@models/Request";
 import InventoryStock from "@models/InventoryStock";
 import InventoryMovement from "@models/InventoryMovement";
@@ -53,11 +54,13 @@ function normalizeRequestDocument(request) {
         returned: 0,
     };
 
+    const normalizedStatus = request.status === "approved" ? "processing" : request.status;
+
     return {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
-        status: request.status,
+        status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
 
@@ -157,7 +160,7 @@ export async function POST(request, { params }) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
         if (response) return response;
 
         await dbConnect();
@@ -194,9 +197,17 @@ export async function POST(request, { params }) {
         }
 
         const isReturnRequest = requestDoc.requestType === "return";
+        const sourceLocationRole =
+            requestDoc.sourceLocation === "kitchen"
+                ? "kitchen"
+                : requestDoc.sourceLocation === "lounge"
+                    ? "lounge"
+                    : requestDoc.sourceLocation === "warehouse"
+                        ? "warehouse"
+                        : "";
         const canDispatch = isReturnRequest
-            ? ["admin", "kitchen"].includes(user.role)
-            : ["admin", "warehouse"].includes(user.role);
+            ? ["admin", "kitchen", "lounge"].includes(user.role)
+            : ["admin", "warehouse"].includes(user.role) || user.role === sourceLocationRole;
 
         if (!canDispatch) {
             await session.abortTransaction();
@@ -205,8 +216,7 @@ export async function POST(request, { params }) {
                 {
                     success: false,
                     message: isReturnRequest
-                        ? "Solo cocina o administración pueden despachar devoluciones."
-                        : "Solo bodega o administración pueden despachar solicitudes.",
+                        ? "Solo cocina, salon o administracion pueden despachar devoluciones." : "Solo la ubicacion origen, bodega o administracion pueden despachar solicitudes.",
                 },
                 { status: 403 }
             );
@@ -214,7 +224,7 @@ export async function POST(request, { params }) {
 
         const allowedStatuses = isReturnRequest
             ? ["pending", "partially_fulfilled"]
-            : ["approved", "partially_fulfilled"];
+            : ["approved", "processing", "partially_fulfilled"];
 
         if (!allowedStatuses.includes(requestDoc.status)) {
             await session.abortTransaction();
@@ -261,6 +271,7 @@ export async function POST(request, { params }) {
 
         const providedItemIds = new Set();
         const dispatchLogItems = [];
+        const receiptLogItems = [];
         const movementsToCreate = [];
         const dispatchedAt = new Date();
 
@@ -318,6 +329,25 @@ export async function POST(request, { params }) {
 
             requestItem.dispatchedQuantity = alreadyDispatched + dispatchQuantity;
 
+            if (isReturnRequest) {
+                const destinationStock = await getOrCreateStock(
+                    requestItem.productId,
+                    requestDoc.destinationLocation
+                );
+
+                destinationStock.quantity = Number(destinationStock.quantity || 0) + dispatchQuantity;
+                destinationStock.lastMovementAt = dispatchedAt;
+                await destinationStock.save({ session });
+
+                requestItem.receivedQuantity =
+                    Number(requestItem.receivedQuantity || 0) + dispatchQuantity;
+
+                receiptLogItems.push({
+                    requestItemId: requestItem._id,
+                    quantity: dispatchQuantity,
+                });
+            }
+
             dispatchLogItems.push({
                 requestItemId: requestItem._id,
                 quantity: dispatchQuantity,
@@ -358,6 +388,15 @@ export async function POST(request, { params }) {
             items: dispatchLogItems,
         });
 
+        if (isReturnRequest && receiptLogItems.length > 0) {
+            requestDoc.receipts.push({
+                receivedBy: user.id,
+                receivedAt: dispatchedAt,
+                notes,
+                items: receiptLogItems,
+            });
+        }
+
         requestDoc.notes = notes || requestDoc.notes;
         requestDoc.recalculateStatus();
 
@@ -372,11 +411,36 @@ export async function POST(request, { params }) {
             items: dispatchLogItems,
         });
 
+        if (isReturnRequest && receiptLogItems.length > 0) {
+            requestDoc.addActivity({
+                type: "receive",
+                performedBy: user.id,
+                performedAt: dispatchedAt,
+                title: "Ingreso en bodega registrado",
+                description: notes || "La devolucion quedo registrada en bodega sin confirmacion adicional.",
+                items: receiptLogItems,
+            });
+        }
+
         await requestDoc.save({ session });
         await InventoryMovement.create(movementsToCreate, { session });
 
         await session.commitTransaction();
         session.endSession();
+
+        if (!isReturnRequest) {
+            await createNotificationsForUsers([requestDoc.requestedBy], {
+                type: NOTIFICATION_TYPES.internal_request_dispatched,
+                title: "Transferencia despachada",
+                message: `${requestDoc.requestNumber} ya fue despachada y esta lista para recibir.`,
+                href: "/dashboard/receiving",
+                entityType: "request",
+                entityId: requestDoc._id,
+                priority: "high",
+            }).catch((notificationError) => {
+                console.error("internal request dispatched notification error:", notificationError);
+            });
+        }
 
         const populated = await getRequestById(requestDoc._id);
 
@@ -404,3 +468,4 @@ export async function POST(request, { params }) {
         );
     }
 }
+

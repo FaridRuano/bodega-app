@@ -50,12 +50,7 @@ function buildExpectedOutputsFromTemplate(production) {
                 productTypeSnapshot: item.productTypeSnapshot || item.productId?.productType || "",
                 unitSnapshot: item.unitSnapshot || item.unit || item.productId?.unit || "",
                 quantity,
-                destinationLocation:
-                    production?.templateSnapshot?.defaultDestination === "none"
-                        ? "kitchen"
-                        : production?.templateSnapshot?.defaultDestination ||
-                        production?.productionTemplateId?.defaultDestination ||
-                        "kitchen",
+                destinationLocation: "kitchen",
                 isMain: Boolean(item.isMain),
                 isByProduct: Boolean(item.isByProduct),
                 notes: item.notes || "",
@@ -80,6 +75,97 @@ function shouldRefreshExpectedOutputs(production) {
     return current.every((item) => Number(item?.quantity || 0) <= 0);
 }
 
+function mergeExecutionResultsWithExpected(
+    production,
+    incomingResults = []
+) {
+    const expectedOutputs = Array.isArray(production?.expectedOutputs)
+        ? production.expectedOutputs.filter((item) => !item?.isWaste)
+        : [];
+    const normalizedIncomingResults = Array.isArray(incomingResults)
+        ? incomingResults.map((item) => ({
+              ...item,
+              destinationLocation: "kitchen",
+              isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+              isByProduct: Boolean(item.isByProduct),
+          }))
+        : [];
+
+    if (!expectedOutputs.length) {
+        return {
+            outputs: normalizedIncomingResults
+                .filter((item) => !item.isByProduct)
+                .map((item) => ({
+                    ...item,
+                    destinationLocation: "kitchen",
+                })),
+            byproducts: normalizedIncomingResults
+                .filter((item) => item.isByProduct)
+                .map((item) => ({
+                    ...item,
+                    destinationLocation: "kitchen",
+                    isMain: false,
+                    isByProduct: true,
+                })),
+        };
+    }
+
+    const mergedResults = expectedOutputs.map((expectedItem) => {
+        const expectedId = String(expectedItem.productId);
+        const expectedIsByProduct = Boolean(expectedItem.isByProduct);
+        const matched = normalizedIncomingResults.find(
+            (item) =>
+                String(item.productId) === expectedId &&
+                Boolean(item.isByProduct) === expectedIsByProduct
+        );
+
+        return {
+            productId: expectedItem.productId,
+            productCodeSnapshot: expectedItem.productCodeSnapshot || "",
+            productNameSnapshot: expectedItem.productNameSnapshot || "",
+            productTypeSnapshot: expectedItem.productTypeSnapshot || "",
+            unitSnapshot: expectedItem.unitSnapshot,
+            quantity:
+                matched?.quantity === null || matched?.quantity === undefined
+                    ? 0
+                    : Number(matched.quantity),
+            recordedWeight:
+                matched?.recordedWeight === null ||
+                matched?.recordedWeight === undefined
+                    ? null
+                    : Number(matched.recordedWeight),
+            destinationLocation: "kitchen",
+            isMain: Boolean(expectedItem.isMain) && !expectedIsByProduct,
+            isByProduct: expectedIsByProduct,
+            notes: matched?.notes || expectedItem.notes || "",
+        };
+    });
+
+    const mergedKeys = new Set(
+        mergedResults.map(
+            (item) => `${String(item.productId)}::${Boolean(item.isByProduct)}`
+        )
+    );
+
+    const unmatchedIncomingResults = normalizedIncomingResults.filter((item) => {
+        const key = `${String(item.productId)}::${Boolean(item.isByProduct)}`;
+        return !mergedKeys.has(key);
+    });
+
+    return {
+        outputs: [...mergedResults, ...unmatchedIncomingResults].filter(
+            (item) => !item.isByProduct
+        ),
+        byproducts: [...mergedResults, ...unmatchedIncomingResults]
+            .filter((item) => item.isByProduct)
+            .map((item) => ({
+                ...item,
+                isMain: false,
+                isByProduct: true,
+            })),
+    };
+}
+
 export async function GET(_request, { params }) {
     try {
         await dbConnect();
@@ -99,7 +185,7 @@ export async function GET(_request, { params }) {
             .populate("performedBy", "firstName lastName username role")
             .populate({
                 path: "productionTemplateId",
-                select: "name code type baseUnit outputs requiresWasteRecord defaultDestination",
+                select: "name code type baseUnit outputs requiresWasteRecord requiresWeightControl defaultDestination",
                 populate: {
                     path: "outputs.productId",
                     select: "name code unit",
@@ -157,6 +243,7 @@ export async function PATCH(request, { params }) {
             targetUnit,
             relatedRequestId,
             inputs,
+            results,
             outputs,
             byproducts,
             waste,
@@ -217,26 +304,41 @@ export async function PATCH(request, { params }) {
             production.inputs = validatedInputs;
         }
 
-        if (typeof outputs !== "undefined") {
-            const validatedOutputs = await buildValidatedProductionItems(outputs, {
+        if (
+            typeof results !== "undefined" ||
+            typeof outputs !== "undefined" ||
+            typeof byproducts !== "undefined"
+        ) {
+            const rawResults =
+                typeof results !== "undefined"
+                    ? results
+                    : [
+                          ...(Array.isArray(outputs)
+                              ? outputs.map((item) => ({
+                                    ...item,
+                                    isByProduct: false,
+                                }))
+                              : []),
+                          ...(Array.isArray(byproducts)
+                              ? byproducts.map((item) => ({
+                                    ...item,
+                                    isMain: false,
+                                    isByProduct: true,
+                                }))
+                              : []),
+                      ];
+
+            const validatedResults = await buildValidatedProductionItems(rawResults, {
                 allowDestination: true,
             });
 
-            production.outputs = validatedOutputs;
-        }
-
-        if (typeof byproducts !== "undefined") {
-            const validatedByproducts = await buildValidatedProductionItems(
-                byproducts,
-                {
-                    allowDestination: true,
-                }
+            const mergedResults = mergeExecutionResultsWithExpected(
+                production,
+                validatedResults
             );
 
-            production.byproducts = validatedByproducts.map((item) => ({
-                ...item,
-                isByProduct: true,
-            }));
+            production.outputs = mergedResults.outputs;
+            production.byproducts = mergedResults.byproducts;
         }
 
         if (typeof waste !== "undefined") {
@@ -244,8 +346,6 @@ export async function PATCH(request, { params }) {
                 ? waste.filter(
                     (item) =>
                         item &&
-                        item.type &&
-                        item.unitSnapshot &&
                         item.quantity !== "" &&
                         item.quantity != null &&
                         Number(item.quantity) > 0
@@ -253,9 +353,9 @@ export async function PATCH(request, { params }) {
                 : [];
 
             production.waste = sanitizedWaste.map((item) => ({
-                type: item.type,
+                type: item.type || "desperdicio",
                 quantity: normalizeNumber(item.quantity),
-                unitSnapshot: item.unitSnapshot,
+                unitSnapshot: item.unitSnapshot || "kg",
                 originKind: item.originKind || "process",
                 originProductId:
                     item.originProductId && isValidObjectId(item.originProductId)
@@ -264,7 +364,7 @@ export async function PATCH(request, { params }) {
                 originCodeSnapshot: "",
                 originNameSnapshot: normalizeText(item.originNameSnapshot, 120),
                 originUnitSnapshot: item.originUnitSnapshot || null,
-                sourceLocation: item.sourceLocation || "kitchen",
+                sourceLocation: item.sourceLocation || production.location || "kitchen",
                 notes: normalizeText(item.notes, 250),
             }));
         }
@@ -349,10 +449,7 @@ export async function PATCH(request, { params }) {
                             quantity,
                         },
                         {
-                            destinationLocation:
-                                template.defaultDestination === "none"
-                                    ? "kitchen"
-                                    : template.defaultDestination,
+                            destinationLocation: "kitchen",
                             isMain: Boolean(item.isMain),
                             isByProduct: Boolean(item.isByProduct),
                         }
@@ -368,7 +465,7 @@ export async function PATCH(request, { params }) {
             .populate("performedBy", "firstName lastName username role")
             .populate({
                 path: "productionTemplateId",
-                select: "name code type baseUnit outputs requiresWasteRecord defaultDestination",
+                select: "name code type baseUnit outputs requiresWasteRecord requiresWeightControl defaultDestination",
                 populate: {
                     path: "outputs.productId",
                     select: "name code unit",

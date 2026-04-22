@@ -240,11 +240,11 @@ export default function NewProductionPage() {
     }
 
     return (
-        <div className={styles.page}>
-            <div className={styles.header}>
+        <div className="page">
+            <div className={`${styles.header} fadeSlideIn delayOne`}>
                 <button
                     type="button"
-                    className={`btn btn-secondary ${styles.backButton}`}
+                    className={`miniAction ${styles.backButton}`}
                     onClick={() => router.push("/dashboard/production")}
                 >
                     <ArrowLeft size={16} />
@@ -260,8 +260,8 @@ export default function NewProductionPage() {
             </div>
 
             <form className={styles.layout}>
-                <section className={styles.mainColumn}>
-                    <div className={styles.formCard}>
+                <section className={`${styles.mainColumn} fadeSlideIn delayTwo`}>
+                    <div className={`${styles.formCard} fadeScaleIn`}>
                         <div className={styles.sectionHeader}>
                             <div>
                                 <h2 className={styles.sectionTitle}>Configuración inicial</h2>
@@ -287,8 +287,8 @@ export default function NewProductionPage() {
                                 helperText="Escribe para buscar fichas activas."
                             />
 
-                            <div className={styles.fieldBlock}>
-                                <label className={styles.fieldLabel}>
+                            <div className="form-field">
+                                <label className="form-label">
                                     Cantidad a producir
                                 </label>
 
@@ -304,7 +304,7 @@ export default function NewProductionPage() {
                                                 productionQuantity: event.target.value,
                                             }))
                                         }
-                                        className={styles.fieldInput}
+                                        className={`form-input ${styles.fieldInput}`}
                                         placeholder="Ej: 10"
                                         disabled={isSubmitting}
                                     />
@@ -319,8 +319,8 @@ export default function NewProductionPage() {
                                 </span>
                             </div>
 
-                            <div className={`${styles.fieldBlock} ${styles.fullWidth}`}>
-                                <label className={styles.fieldLabel}>Notas</label>
+                            <div className={`form-field ${styles.fullWidth}`}>
+                                <label className="form-label">Notas</label>
                                 <textarea
                                     value={form.notes}
                                     onChange={(event) =>
@@ -329,7 +329,7 @@ export default function NewProductionPage() {
                                             notes: event.target.value,
                                         }))
                                     }
-                                    className={styles.fieldTextarea}
+                                    className={`form-textarea ${styles.fieldTextarea}`}
                                     placeholder="Observaciones iniciales para esta producción"
                                     disabled={isSubmitting}
                                 />
@@ -343,7 +343,7 @@ export default function NewProductionPage() {
                         ) : null}
                     </div>
 
-                    <div className={styles.formCard}>
+                    <div className={`${styles.formCard} fadeScaleIn`} style={{ animationDelay: "0.04s" }}>
                         <div className={styles.sectionHeader}>
                             <div>
                                 <h2 className={styles.sectionTitle}>Resumen de la ficha</h2>
@@ -500,8 +500,8 @@ export default function NewProductionPage() {
                     </div>
                 </section>
 
-                <aside className={styles.sideColumn}>
-                    <div className={styles.summaryCard}>
+                <aside className={`${styles.sideColumn} fadeSlideIn delayThree`}>
+                    <div className={`${styles.summaryCard} fadeScaleIn`}>
                         <div className={styles.sectionHeader}>
                             <div>
                                 <h2 className={styles.sectionTitle}>Resumen rápido</h2>
@@ -532,7 +532,7 @@ export default function NewProductionPage() {
                         <div className={styles.sideActions}>
                             <button
                                 type="button"
-                                className="btn btn-primary"
+                                className="miniAction miniActionPrimary"
                                 onClick={(event) => handleSubmit(event, "create")}
                                 disabled={!canSubmit}
                             >
@@ -551,7 +551,7 @@ export default function NewProductionPage() {
 
                             <button
                                 type="button"
-                                className="btn btn-secondary"
+                                className="miniAction miniActionSuccess"
                                 onClick={(event) => handleSubmit(event, "draft")}
                                 disabled={!canSubmit}
                             >
@@ -570,7 +570,7 @@ export default function NewProductionPage() {
 
                             <button
                                 type="button"
-                                className="btn btn-secondary"
+                                className="miniAction"
                                 onClick={() => router.push("/dashboard/production")}
                                 disabled={isSubmitting}
                             >

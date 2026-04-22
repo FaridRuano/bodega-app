@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
+import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notifications";
 import Request from "@models/Request";
 
 function isValidObjectId(value) {
@@ -206,6 +207,18 @@ export async function POST(request, { params }) {
         });
 
         await requestDoc.save();
+
+        await createNotificationsForUsers([requestDoc.requestedBy], {
+            type: NOTIFICATION_TYPES.internal_request_rejected,
+            title: "Transferencia rechazada",
+            message: `${requestDoc.requestNumber} fue rechazada y requiere revision.`,
+            href: "/dashboard/requests",
+            entityType: "request",
+            entityId: requestDoc._id,
+            priority: "normal",
+        }).catch((notificationError) => {
+            console.error("internal request rejected notification error:", notificationError);
+        });
 
         const populated = await getRequestById(requestDoc._id);
 

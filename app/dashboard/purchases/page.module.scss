@@ -1,0 +1,428 @@
+.heroShell {
+  margin-bottom: 6px;
+}
+
+.heroStats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.tabBar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tabBar :global(.miniAction) {
+  flex: 1 1 0;
+  width: auto;
+  justify-content: center;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.toolbarAction {
+  width: 100%;
+  justify-content: center;
+}
+
+.filterSelect {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
+  color: var(--text-primary);
+  padding: 0 36px 0 12px;
+  font-size: 13px;
+  outline: none;
+  appearance: none;
+}
+
+.executionGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
+  gap: 14px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-primary);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.panel:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.historyPanel {
+  cursor: pointer;
+}
+
+.historyPanel:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.panelTitle {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.requestList,
+.shoppingList,
+.batchList,
+.builderList,
+.summaryList {
+  display: grid;
+  gap: 10px;
+}
+
+.requestCard,
+.shoppingRow,
+.batchCard,
+.builderRow,
+.summaryCard {
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+}
+
+.requestCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.requestCard:hover,
+.requestCard:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--surface-secondary) 70%, var(--bg-subtle));
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.requestTop,
+.shoppingRow,
+.batchCard,
+.builderRowMain,
+.summaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.requestNumber {
+  color: var(--text-primary);
+}
+
+.requestMeta,
+.requestNote,
+.shoppingMain span,
+.shoppingMeta span,
+.batchBody span,
+.batchTop span,
+.builderProductInfo span,
+.summaryHint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.requestBody,
+.requestItems,
+.stockPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.requestActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.requestItemChip,
+.stockPills span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statusPending {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.statusDraft {
+  background: color-mix(in srgb, var(--surface-secondary) 88%, transparent);
+  color: var(--text-secondary);
+}
+
+.statusApproved {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.statusPartiallyPurchased {
+  background: color-mix(in srgb, var(--warning-soft) 78%, transparent);
+  color: var(--warning);
+}
+
+.statusCompleted {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.statusRejected,
+.statusCancelled {
+  background: color-mix(in srgb, var(--danger-soft) 78%, transparent);
+  color: var(--danger);
+}
+
+.shoppingRow,
+.batchCard,
+.builderRow {
+  padding: 12px;
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.batchCard {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  cursor: default;
+}
+
+.shoppingRow:hover,
+.batchCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--surface-secondary) 72%, var(--bg-subtle));
+  box-shadow: var(--shadow-sm);
+}
+
+.batchCard:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--surface-secondary) 72%, var(--bg-subtle));
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.shoppingMain,
+.batchBody,
+.builderProductInfo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shoppingMeta,
+.batchTop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+}
+
+.batchHeading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.batchTop {
+  justify-content: space-between;
+}
+
+.batchBody {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.batchActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.batchDispatchButton {
+  width: 100%;
+  justify-content: center;
+}
+
+.historyAction {
+  align-self: flex-start;
+}
+
+.historyHint {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.emptyState {
+  padding: 24px 18px;
+  border-radius: 14px;
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.modalToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(180px, 0.8fr));
+  gap: 10px;
+}
+
+.builderBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.86fr);
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.builderList {
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.builderSummary {
+  min-width: 0;
+}
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  position: sticky;
+  top: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+
+.summaryTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.summaryRow {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.summaryRow:last-child {
+  border-bottom: 0;
+}
+
+.summaryNote {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.builderRowSelected {
+  border-color: color-mix(in srgb, var(--brand-primary, var(--info)) 32%, var(--border-subtle));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-primary, var(--info)) 16%, transparent);
+}
+
+.builderInputs {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@media (max-width: 980px) {
+  .executionGrid,
+  .builderBody,
+  .modalToolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryCard {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .panelHeader,
+  .requestTop,
+  .shoppingRow,
+  .batchCard,
+  .builderRowMain,
+  .summaryRow,
+  .builderInputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .builderInputs {
+    grid-template-columns: 1fr;
+  }
+}

@@ -14,6 +14,9 @@ import {
     SlidersHorizontal,
     ClipboardList,
     History,
+    ShoppingCart,
+    PackageCheck,
+    ClipboardCheck,
     LogOut,
     X,
 } from "lucide-react";
@@ -34,6 +37,16 @@ const adminNavigationItems = [
         label: "Solicitudes",
         href: "/dashboard/requests",
         icon: ClipboardList,
+    },
+    {
+        label: "Compras",
+        href: "/dashboard/purchases",
+        icon: ShoppingCart,
+    },
+    {
+        label: "Control diario",
+        href: "/dashboard/daily-control",
+        icon: ClipboardCheck,
     },
     {
         label: "Producción",
@@ -70,7 +83,7 @@ const kitchenNavigationItems = [
     },
     {
         label: "Inventario",
-        href: "/dashboard/kitchen",
+        href: "/dashboard/inventory",
         icon: Boxes,
     },
     {
@@ -79,9 +92,62 @@ const kitchenNavigationItems = [
         icon: ClipboardList,
     },
     {
+        label: "Compras",
+        href: "/dashboard/purchases",
+        icon: ShoppingCart,
+    },
+    {
+        label: "Recibir",
+        href: "/dashboard/receiving",
+        icon: PackageCheck,
+    },
+    {
+        label: "Control diario",
+        href: "/dashboard/daily-control",
+        icon: ClipboardCheck,
+    },
+    {
         label: "Producción",
         href: "/dashboard/production",
         icon: Factory,
+    },
+    {
+        label: "Historial",
+        href: "/dashboard/history",
+        icon: History,
+    },
+];
+
+const loungeNavigationItems = [
+    {
+        label: "Resumen",
+        href: "/dashboard",
+        icon: LayoutGrid,
+    },
+    {
+        label: "Inventario",
+        href: "/dashboard/inventory",
+        icon: Boxes,
+    },
+    {
+        label: "Solicitudes",
+        href: "/dashboard/requests",
+        icon: ClipboardList,
+    },
+    {
+        label: "Compras",
+        href: "/dashboard/purchases",
+        icon: ShoppingCart,
+    },
+    {
+        label: "Recibir",
+        href: "/dashboard/receiving",
+        icon: PackageCheck,
+    },
+    {
+        label: "Control diario",
+        href: "/dashboard/daily-control",
+        icon: ClipboardCheck,
     },
     {
         label: "Historial",
@@ -100,6 +166,16 @@ const warehouseNavigationItems = [
         label: "Solicitudes",
         href: "/dashboard/requests",
         icon: ClipboardList,
+    },
+    {
+        label: "Compras",
+        href: "/dashboard/purchases",
+        icon: ShoppingCart,
+    },
+    {
+        label: "Recibir",
+        href: "/dashboard/receiving",
+        icon: PackageCheck,
     },
     {
         label: "Movimientos",
@@ -125,7 +201,8 @@ function getNavigationByRole(role) {
 
         case "warehouse":
             return warehouseNavigationItems;
-
+        case "lounge":
+            return loungeNavigationItems;
         case "admin":
         default:
             return adminNavigationItems;

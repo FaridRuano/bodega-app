@@ -1,7 +1,8 @@
 export const LOCATION_LABELS = {
     warehouse: "Bodega",
     kitchen: "Cocina",
-    production: "Producción",
+    lounge: "Salon",
+    production: "Produccion",
     system: "Sistema",
 };
 
@@ -12,20 +13,21 @@ export const MOVEMENT_TYPE_LABELS = {
     transfer: "Transferencia",
     request_dispatch: "Despacho de solicitud",
     request_return: "Retorno de solicitud",
-    production_consumption: "Consumo de producción",
-    production_output: "Salida de producción",
+    production_consumption: "Consumo de produccion",
+    production_output: "Salida de produccion",
     purchase_entry: "Ingreso por compra",
 };
 
 export const REQUEST_TYPE_LABELS = {
-    operation: "Operación",
-    production: "Producción",
-    return: "Devolución",
+    operation: "Operacion",
+    production: "Produccion",
+    return: "Devolucion",
 };
 
 export const REQUEST_STATUS_LABELS = {
     pending: "Pendiente",
-    approved: "Aprobada",
+    approved: "En proceso",
+    processing: "En proceso",
     partially_fulfilled: "Parcialmente atendida",
     fulfilled: "Completada",
     rejected: "Rechazada",
@@ -36,7 +38,8 @@ export const PRODUCT_TYPE_LABELS = {
     raw_material: "Materia prima",
     processed: "Procesado",
     prepared: "Preparado",
-    supply: "Insumo",
+    supply: "Insumos y empaques",
+    resale: "Producto para reventa",
 };
 
 export const STORAGE_TYPE_LABELS = {
@@ -48,7 +51,7 @@ export const STORAGE_TYPE_LABELS = {
 export const INVENTORY_STATUS_LABELS = {
     ok: "Disponible",
     low: "Stock bajo",
-    warning: "Reposición",
+    warning: "Reposicion",
     out: "Sin stock",
     inactive: "Inactivo",
     no_tracking: "Sin seguimiento",
@@ -57,12 +60,13 @@ export const INVENTORY_STATUS_LABELS = {
 export const REFERENCE_TYPE_LABELS = {
     purchase_entry: "Compra",
     request: "Solicitud",
-    production: "Producción",
+    production: "Produccion",
+    daily_control: "Control diario",
     manual_adjustment: "Ajuste manual",
     system: "Sistema",
 };
 
-export function getLabel(map, value, fallback = "—") {
+export function getLabel(map, value, fallback = "-") {
     if (!value) return fallback;
     return map[value] || value;
 }

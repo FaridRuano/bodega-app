@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 
-import { getUnitLabel, PRODUCT_UNIT_OPTIONS } from "@libs/constants/units";
+import { getUnitLabel, PRODUCTION_BASE_UNIT_OPTIONS } from "@libs/constants/units";
 import styles from "./production-template-modal.module.scss";
 import ProductAutocomplete from "@components/shared/ProductAutocomplete/ProductAutoComplete";
 
@@ -14,12 +14,6 @@ const TEMPLATE_TYPE_OPTIONS = [
     { value: "portioning", label: "Porcionado" },
 ];
 
-const DESTINATION_OPTIONS = [
-    { value: "kitchen", label: "Cocina" },
-    { value: "warehouse", label: "Bodega" },
-    { value: "none", label: "Sin destino por defecto" },
-];
-
 function createEmptyInput() {
     return {
         productId: "",
@@ -28,6 +22,7 @@ function createEmptyInput() {
         productName: "",
         productCode: "",
         unitLabel: "",
+        requiresWeightControl: false,
         isPrimary: false,
         notes: "",
     };
@@ -41,11 +36,58 @@ function createEmptyOutput() {
         productName: "",
         productCode: "",
         unitLabel: "",
-        isMain: false,
-        isWaste: false,
+        isMain: true,
         isByProduct: false,
         notes: "",
     };
+}
+
+function normalizeOutputs(outputs = []) {
+    if (!Array.isArray(outputs) || outputs.length === 0) {
+        return [createEmptyOutput()];
+    }
+
+    if (outputs.length === 1) {
+        return [
+            {
+                ...outputs[0],
+                isMain: true,
+                isByProduct: false,
+            },
+        ];
+    }
+
+    let hasMain = false;
+
+    return outputs.map((item, index) => {
+        if (item.isMain && !hasMain) {
+            hasMain = true;
+            return {
+                ...item,
+                isMain: true,
+            };
+        }
+
+        if (item.isMain && hasMain) {
+            return {
+                ...item,
+                isMain: false,
+            };
+        }
+
+        if (!hasMain && index === 0) {
+            hasMain = true;
+            return {
+                ...item,
+                isMain: true,
+            };
+        }
+
+        return {
+            ...item,
+            isMain: false,
+        };
+    });
 }
 
 
@@ -67,9 +109,10 @@ function buildInitialForm(initialData) {
                 initialData?.expectedWaste !== undefined
                 ? String(initialData.expectedWaste)
                 : "",
-        defaultDestination: initialData?.defaultDestination || "kitchen",
+        defaultDestination: "kitchen",
         allowsMultipleOutputs: Boolean(initialData?.allowsMultipleOutputs),
         requiresWasteRecord: Boolean(initialData?.requiresWasteRecord),
+        requiresWeightControl: Boolean(initialData?.requiresWeightControl),
         allowRealOutputAdjustment:
             initialData?.allowRealOutputAdjustment === undefined
                 ? true
@@ -90,6 +133,9 @@ function buildInitialForm(initialData) {
                             : "",
                     unit: item.unit || item.productId?.unit || "",
                     unitLabel: item.productId?.unitLabel || "",
+                    requiresWeightControl: Boolean(
+                        item.productId?.requiresWeightControl || item.requiresWeightControl
+                    ),
                     isPrimary: Boolean(item.isPrimary),
                     notes: item.notes || "",
                 }))
@@ -97,7 +143,7 @@ function buildInitialForm(initialData) {
 
         outputs:
             initialData?.outputs?.length > 0
-                ? initialData.outputs.map((item) => ({
+                ? normalizeOutputs(initialData.outputs.map((item) => ({
                     productId: item.productId?._id || item.productId || "",
                     productName: item.productId?.name || "",
                     productCode: item.productId?.code || "",
@@ -108,11 +154,10 @@ function buildInitialForm(initialData) {
                     unit: item.unit || item.productId?.unit || "",
                     unitLabel: item.productId?.unitLabel || "",
                     isMain: Boolean(item.isMain),
-                    isWaste: Boolean(item.isWaste),
                     isByProduct: Boolean(item.isByProduct),
                     notes: item.notes || "",
-                }))
-                : [createEmptyOutput()],
+                })))
+                : normalizeOutputs([createEmptyOutput()]),
     };
 }
 
@@ -124,6 +169,7 @@ export default function ProductionTemplateModal({
     initialData = null,
     loading = false,
     categories = [],
+    submitError = "",
 }) {
 
     const isEdit = mode === "edit";
@@ -135,7 +181,6 @@ export default function ProductionTemplateModal({
         const nextForm = buildInitialForm(initialData);
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(nextForm);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setInitialForm(nextForm);
     }, [initialData, mode, open]);
 
@@ -162,6 +207,10 @@ export default function ProductionTemplateModal({
 
                 if (name === "allowsMultipleOutputs" && !checked && prev.outputs.length > 1) {
                     nextForm.outputs = [prev.outputs[0]];
+                }
+
+                if (name === "requiresWeightControl" && checked) {
+                    nextForm.baseUnit = "kg";
                 }
 
                 return nextForm;
@@ -196,6 +245,10 @@ export default function ProductionTemplateModal({
 
         setForm((prev) => ({
             ...prev,
+            requiresWeightControl:
+                name === "baseUnit" && value !== "kg"
+                    ? false
+                    : prev.requiresWeightControl,
             [name]: value,
         }));
     }
@@ -259,14 +312,13 @@ export default function ProductionTemplateModal({
             nextOutputs[index] = {
                 ...current,
                 isMain: field === "isMain" ? checked : checked ? false : current.isMain,
-                isWaste: field === "isWaste" ? checked : checked ? false : current.isWaste,
                 isByProduct:
                     field === "isByProduct" ? checked : checked ? false : current.isByProduct,
             };
 
             return {
                 ...prev,
-                outputs: nextOutputs,
+                outputs: normalizeOutputs(nextOutputs),
             };
         });
     }
@@ -278,15 +330,16 @@ export default function ProductionTemplateModal({
                 productName: "",
                 productCode: "",
                 unit: "",
+                requiresWeightControl: false,
             };
         }
-        console.log(product);
 
         return {
             productId: product._id || "",
             productName: product.name || "",
             productCode: product.code || "",
             unit: product.unit || "",
+            requiresWeightControl: Boolean(product.requiresWeightControl),
         };
     }
 
@@ -316,7 +369,13 @@ export default function ProductionTemplateModal({
 
             return {
                 ...prev,
-                outputs: [...prev.outputs, createEmptyOutput()],
+                outputs: normalizeOutputs([
+                    ...prev.outputs,
+                    {
+                        ...createEmptyOutput(),
+                        isMain: false,
+                    },
+                ]),
             };
         });
     }
@@ -332,14 +391,41 @@ export default function ProductionTemplateModal({
     }
 
     function removeOutputRow(index) {
-        setForm((prev) => ({
-            ...prev,
-            outputs:
+        setForm((prev) => {
+            const nextOutputs =
                 prev.outputs.length > 1
                     ? prev.outputs.filter((_, itemIndex) => itemIndex !== index)
-                    : prev.outputs,
-        }));
+                    : prev.outputs;
+
+            return {
+                ...prev,
+                outputs: normalizeOutputs(nextOutputs),
+            };
+        });
     }
+
+    useEffect(() => {
+        const primaryInputs = form.inputs.filter((item) =>
+            form.type === "cutting" ? item.isPrimary : true
+        );
+        const shouldForceWeightControl = primaryInputs.some((item) =>
+            Boolean(item.requiresWeightControl)
+        );
+
+        if (!shouldForceWeightControl) return;
+
+        setForm((prev) => {
+            if (prev.requiresWeightControl && prev.baseUnit === "kg") {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                baseUnit: "kg",
+                requiresWeightControl: true,
+            };
+        });
+    }, [form.inputs, form.type, form.requiresWeightControl, form.baseUnit]);
 
     const isDirty = useMemo(() => {
         return JSON.stringify(form) !== JSON.stringify(initialForm);
@@ -395,6 +481,7 @@ export default function ProductionTemplateModal({
             ...form,
             expectedYield: form.expectedYield === "" ? null : Number(form.expectedYield),
             expectedWaste: form.expectedWaste === "" ? null : Number(form.expectedWaste),
+            requiresWeightControl: Boolean(form.requiresWeightControl),
             inputs: form.inputs.map((item) => ({
                 productId: item.productId,
                 quantity: Number(item.quantity),
@@ -402,12 +489,11 @@ export default function ProductionTemplateModal({
                 isPrimary: item.isPrimary,
                 notes: item.notes,
             })),
-            outputs: form.outputs.map((item) => ({
+            outputs: normalizeOutputs(form.outputs).map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity === "" ? null : Number(item.quantity),
                 unit: item.unit,
                 isMain: item.isMain,
-                isWaste: item.isWaste,
                 isByProduct: item.isByProduct,
                 notes: item.notes,
             })),
@@ -422,7 +508,7 @@ export default function ProductionTemplateModal({
                 className="modal-container modal-container--xl"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
+                <div className="modal-top">
                     <div>
                         <h3 className="modal-title">
                             {isEdit ? "Editar ficha de producción" : "Nueva ficha de producción"}
@@ -445,6 +531,7 @@ export default function ProductionTemplateModal({
                             <h4 className={styles.sectionTitle}>Información general</h4>
                         </div>
 
+                        <div className={styles.sectionPanel}>
                         <div className={styles.gridTwo}>
                             <div className="form-field">
                                 <label className="form-label">Código</label>
@@ -460,20 +547,22 @@ export default function ProductionTemplateModal({
 
                             <div className="form-field">
                                 <label className="form-label">Categoría</label>
-                                <select
-                                    name="category"
-                                    value={form.category}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                    disabled={loading}
-                                >
-                                    <option value="">Seleccionar</option>
-                                    {categories.map((category) => (
-                                        <option key={category._id} value={category._id}>
-                                            {category.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="selectWrap">
+                                    <select
+                                        name="category"
+                                        value={form.category}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        disabled={loading}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        {categories.map((category) => (
+                                            <option key={category._id} value={category._id}>
+                                                {category.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -501,6 +590,7 @@ export default function ProductionTemplateModal({
                                 disabled={loading}
                             />
                         </div>
+                        </div>
                     </section>
 
                     <section className={styles.section}>
@@ -508,58 +598,51 @@ export default function ProductionTemplateModal({
                             <h4 className={styles.sectionTitle}>Configuración</h4>
                         </div>
 
+                        <div className={styles.sectionPanel}>
                         <div className={styles.gridThree}>
                             <div className="form-field">
                                 <label className="form-label">Tipo</label>
-                                <select
-                                    name="type"
-                                    value={form.type}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                    disabled={loading}
-                                >
-                                    {TEMPLATE_TYPE_OPTIONS.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="selectWrap">
+                                    <select
+                                        name="type"
+                                        value={form.type}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        disabled={loading}
+                                    >
+                                        {TEMPLATE_TYPE_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
                             <div className="form-field">
                                 <label className="form-label">Unidad base</label>
-                                <select
-                                    name="baseUnit"
-                                    value={form.baseUnit}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                    required
-                                    disabled={loading}
-                                >
-                                    <option value="">Seleccionar</option>
-                                    {PRODUCT_UNIT_OPTIONS.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="selectWrap">
+                                    <select
+                                        name="baseUnit"
+                                        value={form.baseUnit}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        required
+                                        disabled={loading}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        {PRODUCTION_BASE_UNIT_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
                             <div className="form-field">
-                                <label className="form-label">Destino por defecto</label>
-                                <select
-                                    name="defaultDestination"
-                                    value={form.defaultDestination}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                    disabled={loading}
-                                >
-                                    {DESTINATION_OPTIONS.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                <label className="form-label">Destino</label>
+                                <span className="form-span">Cocina</span>
                             </div>
                         </div>
 
@@ -599,15 +682,14 @@ export default function ProductionTemplateModal({
                         </div>
 
                         <div className="switchGroup">
-                            <div className="form-switchRow">
-                                <div>
-                                    <p className="form-switchLabel">Múltiples resultados</p>
-                                    <p className="form-switchDescription">
+                            <label className="optionCard optionCard--simple">
+                                <span className="optionCopy">
+                                    <span className="optionTitle">Múltiples resultados</span>
+                                    <span className="optionHint">
                                         Permite varios productos de salida en la ficha.
-                                    </p>
-                                </div>
-
-                                <label className="switch">
+                                    </span>
+                                </span>
+                                <span className="optionSwitch">
                                     <input
                                         type="checkbox"
                                         name="allowsMultipleOutputs"
@@ -615,18 +697,16 @@ export default function ProductionTemplateModal({
                                         onChange={handleChange}
                                         disabled={loading}
                                     />
-                                    <span className="switch-slider" />
-                                </label>
-                            </div>
-                            <div className="form-switchRow">
-                                <div>
-                                    <p className="form-switchLabel">Registrar merma</p>
-                                    <p className="form-switchDescription">
-                                        Indica si la producción requiere registrar merma.
-                                    </p>
-                                </div>
-
-                                <label className="switch">
+                                </span>
+                            </label>
+                            <label className="optionCard optionCard--simple">
+                                <span className="optionCopy">
+                                    <span className="optionTitle">Registrar desperdicio</span>
+                                    <span className="optionHint">
+                                        Indica si la ejecución debe registrar desperdicio no aprovechable.
+                                    </span>
+                                </span>
+                                <span className="optionSwitch">
                                     <input
                                         type="checkbox"
                                         name="requiresWasteRecord"
@@ -634,19 +714,35 @@ export default function ProductionTemplateModal({
                                         onChange={handleChange}
                                         disabled={loading}
                                     />
-                                    <span className="switch-slider" />
-                                </label>
-                            </div>
+                                </span>
+                            </label>
 
-                            <div className="form-switchRow">
-                                <div>
-                                    <p className="form-switchLabel">Ajuste real permitido</p>
-                                    <p className="form-switchDescription">
-                                        Permite modificar las cantidades reales al producir.
-                                    </p>
-                                </div>
+                            <label className="optionCard optionCard--simple">
+                                <span className="optionCopy">
+                                    <span className="optionTitle">Control de gramaje</span>
+                                    <span className="optionHint">
+                                        Obliga a registrar pesos reales al completar la producción. Solo aplica a fichas en kilogramo.
+                                    </span>
+                                </span>
+                                <span className="optionSwitch">
+                                    <input
+                                        type="checkbox"
+                                        name="requiresWeightControl"
+                                        checked={form.requiresWeightControl}
+                                        onChange={handleChange}
+                                        disabled={loading}
+                                    />
+                                </span>
+                            </label>
 
-                                <label className="switch">
+                            <label className="optionCard optionCard--simple">
+                                <span className="optionCopy">
+                                    <span className="optionTitle">Ajuste real permitido</span>
+                                    <span className="optionHint">
+                                        Permite ajustar cantidades reales al ejecutar la ficha.
+                                    </span>
+                                </span>
+                                <span className="optionSwitch">
                                     <input
                                         type="checkbox"
                                         name="allowRealOutputAdjustment"
@@ -654,19 +750,17 @@ export default function ProductionTemplateModal({
                                         onChange={handleChange}
                                         disabled={loading}
                                     />
-                                    <span className="switch-slider" />
-                                </label>
-                            </div>
+                                </span>
+                            </label>
 
-                            <div className="form-switchRow">
-                                <div>
-                                    <p className="form-switchLabel">Ficha activa</p>
-                                    <p className="form-switchDescription">
+                            <label className="optionCard optionCard--simple">
+                                <span className="optionCopy">
+                                    <span className="optionTitle">Ficha activa</span>
+                                    <span className="optionHint">
                                         Disponible para uso en producción.
-                                    </p>
-                                </div>
-
-                                <label className="switch">
+                                    </span>
+                                </span>
+                                <span className="optionSwitch">
                                     <input
                                         type="checkbox"
                                         name="isActive"
@@ -674,9 +768,8 @@ export default function ProductionTemplateModal({
                                         onChange={handleChange}
                                         disabled={loading}
                                     />
-                                    <span className="switch-slider" />
-                                </label>
-                            </div>
+                                </span>
+                            </label>
                         </div>
 
                         <div className="form-field">
@@ -689,6 +782,7 @@ export default function ProductionTemplateModal({
                                 className="form-textarea"
                                 disabled={loading}
                             />
+                        </div>
                         </div>
                     </section>
 
@@ -703,15 +797,18 @@ export default function ProductionTemplateModal({
 
                             <button
                                 type="button"
-                                className={styles.addButton}
+                                className={`action-button action-button--neutral ${styles.addAction}`}
                                 onClick={addInputRow}
                                 disabled={loading}
                             >
-                                <Plus size={16} />
-                                Agregar insumo
+                                <span className="action-button__icon">
+                                    <Plus size={16} />
+                                </span>
+                                <span className="action-button__label">Agregar insumo</span>
                             </button>
                         </div>
 
+                        <div className={styles.sectionPanel}>
                         <div className={styles.rowsGroup}>
                             {form.inputs.map((item, index) => (
                                 <div key={`input-${index}`} className={styles.rowCard}>
@@ -791,6 +888,7 @@ export default function ProductionTemplateModal({
                                 </div>
                             ))}
                         </div>
+                        </div>
                     </section>
 
                     <section className={styles.section}>
@@ -804,16 +902,19 @@ export default function ProductionTemplateModal({
 
                             <button
                                 type="button"
-                                className={`${styles.addButton} ${!form.allowsMultipleOutputs || loading ? styles.addButtonDisabled : ""
+                                className={`action-button action-button--neutral ${styles.addAction} ${!form.allowsMultipleOutputs || loading ? styles.addButtonDisabled : ""
                                     }`}
                                 onClick={addOutputRow}
                                 disabled={loading || !form.allowsMultipleOutputs}
                             >
-                                <Plus size={16} />
-                                Agregar resultado
+                                <span className="action-button__icon">
+                                    <Plus size={16} />
+                                </span>
+                                <span className="action-button__label">Agregar resultado</span>
                             </button>
                         </div>
 
+                        <div className={styles.sectionPanel}>
                         <div className={styles.rowsGroup}>
                             {form.outputs.map((item, index) => (
                                 <div key={`output-${index}`} className={styles.rowCard}>
@@ -863,22 +964,24 @@ export default function ProductionTemplateModal({
                                                 onChange={(event) =>
                                                     handleOutputFlagChange(index, "isMain", event.target.checked)
                                                 }
-                                                disabled={loading}
+                                                disabled={loading || form.outputs.length === 1}
                                             />
                                             <span>Principal</span>
                                         </label>
 
-                                        <label className={`${styles.flagToggle} ${item.isByProduct ? styles.flagToggleWarning : ""}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={item.isByProduct}
-                                                onChange={(event) =>
-                                                    handleOutputFlagChange(index, "isByProduct", event.target.checked)
-                                                }
-                                                disabled={loading}
-                                            />
-                                            <span>Subproducto</span>
-                                        </label>
+                                        {form.outputs.length > 1 ? (
+                                            <label className={`${styles.flagToggle} ${item.isByProduct ? styles.flagToggleWarning : ""}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={item.isByProduct}
+                                                    onChange={(event) =>
+                                                        handleOutputFlagChange(index, "isByProduct", event.target.checked)
+                                                    }
+                                                    disabled={loading}
+                                                />
+                                                <span>Subproducto</span>
+                                            </label>
+                                        ) : null}
                                     </div>
 
                                     <div className={styles.rowFooter}>
@@ -907,12 +1010,19 @@ export default function ProductionTemplateModal({
                                 </div>
                             ))}
                         </div>
+                        </div>
                     </section>
+
+                    {submitError ? (
+                        <div className="form-error-message" role="alert">
+                            {submitError}
+                        </div>
+                    ) : null}
 
                     <div className="modal-footer">
                         <button
                             type="button"
-                            className="btn btn-secondary"
+                            className="miniAction"
                             onClick={onClose}
                             disabled={loading}
                         >
@@ -921,7 +1031,7 @@ export default function ProductionTemplateModal({
 
                         <button
                             type="submit"
-                            className="btn btn-primary"
+                            className="miniAction miniActionPrimary"
                             disabled={isDisabled}
                         >
                             {loading
@@ -938,3 +1048,4 @@ export default function ProductionTemplateModal({
         </div>
     );
 }
+

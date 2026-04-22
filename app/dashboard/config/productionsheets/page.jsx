@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-    Factory,
-    Filter,
-    Package2,
-    Plus,
-    RefreshCcw,
-    Search,
-    Settings2,
-} from "lucide-react";
+import { Factory, Plus, RefreshCcw, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./page.module.scss";
@@ -17,16 +9,19 @@ import ProductionTemplateReviewModal from "@components/config/ProductionTemplate
 import ProductionTemplateModal from "@components/config/ProductionTemplateModal/ProductionTemplateModal";
 import ConfirmModal from "@components/shared/ConfirmModal/ConfirmModal";
 import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
-import { PAGE_LIMITS } from "@libs/constants/pagination";
-import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+import {
+    buildSearchParams,
+    getPositiveIntParam,
+    getStringParam,
+} from "@libs/urlParams";
 
-const PAGE_SIZE = PAGE_LIMITS.productionTemplates;
+const PAGE_SIZE = 5;
 
 const TYPE_OPTIONS = [
     { value: "", label: "Todos los tipos" },
-    { value: "transformation", label: "Transformación" },
+    { value: "transformation", label: "Transformacion" },
     { value: "cutting", label: "Despiece" },
-    { value: "preparation", label: "Preparación" },
+    { value: "preparation", label: "Preparacion" },
     { value: "portioning", label: "Porcionado" },
 ];
 
@@ -37,11 +32,29 @@ const STATUS_OPTIONS = [
 ];
 
 const TYPE_LABELS = {
-    transformation: "Transformación",
+    transformation: "Transformacion",
     cutting: "Despiece",
-    preparation: "Preparación",
+    preparation: "Preparacion",
     portioning: "Porcionado",
 };
+
+function getFlowLabel(template) {
+    const inputsCount = template.inputs?.length || 0;
+    const outputsCount = template.outputs?.length || 0;
+
+    if (inputsCount === 1 && outputsCount === 1) {
+        return "1 insumo -> 1 resultado";
+    }
+
+    return `${inputsCount} insumos -> ${outputsCount} resultados`;
+}
+
+function getTemplateSubtitle(template) {
+    const typeLabel = TYPE_LABELS[template.type] || template.type || "Sin tipo";
+    const baseLabel = template.baseUnit === "kg" ? "Kilogramo" : "Unidad";
+
+    return `${typeLabel} · ${baseLabel}`;
+}
 
 export default function ProductionTemplatesPage() {
     const router = useRouter();
@@ -52,22 +65,37 @@ export default function ProductionTemplatesPage() {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState("");
-    const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
-    const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0, cutting: 0 });
-
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: PAGE_SIZE,
+        total: 0,
+        pages: 1,
+    });
+    const [summary, setSummary] = useState({
+        total: 0,
+        active: 0,
+        inactive: 0,
+        cutting: 0,
+    });
     const [filters, setFilters] = useState({
         search: getStringParam(searchParams, "search"),
         type: getStringParam(searchParams, "type"),
         isActive: getStringParam(searchParams, "isActive"),
     });
-    const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
-
+    const [page, setPage] = useState(() =>
+        getPositiveIntParam(searchParams, "page", 1)
+    );
+    const [categories, setCategories] = useState([]);
     const [createEditOpen, setCreateEditOpen] = useState(false);
     const [reviewOpen, setReviewOpen] = useState(false);
     const [modalMode, setModalMode] = useState("create");
     const [selectedTemplate, setSelectedTemplate] = useState(null);
-    const [categories, setCategories] = useState([]);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [submitError, setSubmitError] = useState("");
+
+    const hasActiveFilters = Boolean(
+        filters.search.trim() || filters.type || filters.isActive
+    );
 
     useEffect(() => {
         setPage(1);
@@ -82,7 +110,9 @@ export default function ProductionTemplatesPage() {
         });
 
         if (nextQuery !== searchParams.toString()) {
-            router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+            router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+                scroll: false,
+            });
         }
     }, [filters, page, pathname, router, searchParams]);
 
@@ -91,18 +121,22 @@ export default function ProductionTemplatesPage() {
             setLoading(true);
             setError("");
 
-            const params = new URLSearchParams();
-            params.set("page", String(page));
-            params.set("limit", String(PAGE_SIZE));
+            const params = new URLSearchParams({
+                page: String(page),
+                limit: String(PAGE_SIZE),
+            });
 
             if (filters.search.trim()) params.set("search", filters.search.trim());
             if (filters.type) params.set("type", filters.type);
             if (filters.isActive) params.set("isActive", filters.isActive);
 
-            const response = await fetch(`/api/production-templates?${params.toString()}`, {
-                method: "GET",
-                cache: "no-store",
-            });
+            const response = await fetch(
+                `/api/production-templates?${params.toString()}`,
+                {
+                    method: "GET",
+                    cache: "no-store",
+                }
+            );
 
             const result = await response.json();
 
@@ -124,7 +158,7 @@ export default function ProductionTemplatesPage() {
                 cutting: Number(result.summary?.cutting || 0),
             });
         } catch (err) {
-            setError(err.message || "Ocurrió un error al cargar las fichas.");
+            setError(err.message || "No se pudieron cargar las fichas.");
         } finally {
             setLoading(false);
         }
@@ -136,16 +170,17 @@ export default function ProductionTemplatesPage() {
                 method: "GET",
                 cache: "no-store",
             });
-
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                throw new Error(result.message || "No se pudieron obtener las categorías.");
+                throw new Error(
+                    result.message || "No se pudieron obtener las categorias."
+                );
             }
 
             setCategories(result.data || []);
         } catch (err) {
-            setError(err.message || "No se pudieron cargar las categorías.");
+            setError(err.message || "No se pudieron cargar las categorias.");
         }
     }
 
@@ -160,10 +195,7 @@ export default function ProductionTemplatesPage() {
 
     function handleFilterChange(event) {
         const { name, value } = event.target;
-        setFilters((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+        setFilters((prev) => ({ ...prev, [name]: value }));
     }
 
     function handleClearFilters() {
@@ -184,12 +216,12 @@ export default function ProductionTemplatesPage() {
                 method: "GET",
                 cache: "no-store",
             });
-
             const result = await response.json();
 
             if (!response.ok || !result.success) {
                 throw new Error(result.message || "No se pudo obtener la ficha.");
             }
+
             setSelectedTemplate(result.data);
             setReviewOpen(true);
         } catch (err) {
@@ -199,50 +231,36 @@ export default function ProductionTemplatesPage() {
         }
     }
 
-    function handleCloseCreateEdit() {
-        setCreateEditOpen(false);
-    }
-
-    function handleCloseReview() {
-        setReviewOpen(false);
-    }
-
-    function handleEditFromReview() {
-        setReviewOpen(false);
-        setModalMode("edit");
-        setCreateEditOpen(true);
-    }
-
     async function handleSubmitTemplate(payload) {
         try {
             setActionLoading(true);
             setError("");
+            setSubmitError("");
 
             const isEdit = modalMode === "edit" && selectedTemplate?._id;
-
             const response = await fetch(
                 isEdit
                     ? `/api/production-templates/${selectedTemplate._id}`
                     : "/api/production-templates",
                 {
                     method: isEdit ? "PUT" : "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
                 }
             );
-
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                throw new Error(result.message || "No se pudo guardar la ficha.");
+                setSubmitError(result.message || "No se pudo guardar la ficha.");
+                return;
             }
 
             setCreateEditOpen(false);
             setSelectedTemplate(result.data || null);
+            setSubmitError("");
             await fetchTemplates();
         } catch (err) {
+            setSubmitError("");
             setError(err.message || "No se pudo guardar la ficha.");
         } finally {
             setActionLoading(false);
@@ -260,32 +278,25 @@ export default function ProductionTemplatesPage() {
                 `/api/production-templates/${selectedTemplate._id}/status`,
                 {
                     method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         isActive: !selectedTemplate.isActive,
                     }),
                 }
             );
-
             const result = await response.json();
 
             if (!response.ok || !result.success) {
                 throw new Error(result.message || "No se pudo actualizar el estado.");
             }
-            handleCloseReview();
+
+            setReviewOpen(false);
             await fetchTemplates();
         } catch (err) {
             setError(err.message || "No se pudo actualizar el estado.");
         } finally {
             setActionLoading(false);
         }
-    }
-
-    function handleAskDeleteTemplate() {
-        if (!selectedTemplate?._id) return;
-        setConfirmDeleteOpen(true);
     }
 
     async function handleDeleteTemplate() {
@@ -295,10 +306,10 @@ export default function ProductionTemplatesPage() {
             setActionLoading(true);
             setError("");
 
-            const response = await fetch(`/api/production-templates/${selectedTemplate._id}`, {
-                method: "DELETE",
-            });
-
+            const response = await fetch(
+                `/api/production-templates/${selectedTemplate._id}`,
+                { method: "DELETE" }
+            );
             const result = await response.json();
 
             if (!response.ok || !result.success) {
@@ -318,136 +329,147 @@ export default function ProductionTemplatesPage() {
 
     return (
         <>
-            <section className={styles.page}>
-                <div className={styles.hero}>
-                    <div className={styles.heroContent}>
-                        <span className={styles.eyebrow}>Configuración</span>
-                        <h1 className={styles.title}>Fichas de producción</h1>
-                        <p className={styles.description}>
-                            Administra las fichas que definen insumos, resultados y
-                            configuraciones operativas para los procesos de producción.
+            <section className="page">
+                <section className={`hero fadeScaleIn ${styles.heroShell}`}>
+                    <div className="heroCopy">
+                        <span className="eyebrow">Configuracion</span>
+                        <h1 className="title">Fichas de produccion</h1>
+                        <p className="description">
+                            Define insumos, resultados, control de gramaje y el flujo
+                            operativo de cada proceso de cocina.
                         </p>
                     </div>
 
-                    <div className={styles.heroActions}>
+                    <div className={styles.heroStats}>
                         <button
                             type="button"
-                            className="btn btn-secondary"
+                            className={`compactStat ${styles.heroStatButton}`}
+                            onClick={handleClearFilters}
+                        >
+                            <span>
+                                Fichas <strong>{summary.total}</strong>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`compactStat heroStatSuccess ${styles.heroStatButton}`}
+                            onClick={() =>
+                                setFilters((prev) => ({ ...prev, isActive: "true" }))
+                            }
+                        >
+                            <span>
+                                Activas <strong>{summary.active}</strong>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`compactStat ${styles.heroStatButton}`}
+                            onClick={() =>
+                                setFilters((prev) => ({ ...prev, isActive: "false" }))
+                            }
+                        >
+                            <span>
+                                Inactivas <strong>{summary.inactive}</strong>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`compactStat heroStatInfo ${styles.heroStatButton}`}
+                            onClick={() =>
+                                setFilters((prev) => ({ ...prev, type: "cutting" }))
+                            }
+                        >
+                            <span>
+                                Despiece <strong>{summary.cutting}</strong>
+                            </span>
+                        </button>
+                    </div>
+                </section>
+
+                <div className={`${styles.toolbar} fadeSlideIn delayOne`}>
+                    <div className={styles.actionGroup}>
+                        <button
+                            type="button"
+                            className="miniAction"
                             onClick={fetchTemplates}
                             disabled={loading || actionLoading}
                         >
-                            <RefreshCcw size={16} />
+                            <RefreshCcw size={14} />
                             Recargar
                         </button>
 
                         <button
                             type="button"
-                            className="btn btn-primary"
+                            className="miniAction miniActionPrimary"
                             onClick={handleOpenCreate}
                         >
-                            <Plus size={16} />
+                            <Plus size={14} />
                             Nueva ficha
                         </button>
                     </div>
                 </div>
 
-                <div className={styles.statsGrid}>
-                    <article className={styles.statCard}>
-                        <div className={styles.statIcon}>
-                            <Factory size={18} />
-                        </div>
-                        <div>
-                            <span className={styles.statLabel}>Total fichas</span>
-                            <strong className={styles.statValue}>{summary.total}</strong>
-                        </div>
-                    </article>
-
-                    <article className={styles.statCard}>
-                        <div className={styles.statIcon}>
-                            <Settings2 size={18} />
-                        </div>
-                        <div>
-                            <span className={styles.statLabel}>Activas</span>
-                            <strong className={styles.statValue}>{summary.active}</strong>
-                        </div>
-                    </article>
-
-                    <article className={styles.statCard}>
-                        <div className={styles.statIcon}>
-                            <Package2 size={18} />
-                        </div>
-                        <div>
-                            <span className={styles.statLabel}>Inactivas</span>
-                            <strong className={styles.statValue}>{summary.inactive}</strong>
-                        </div>
-                    </article>
-
-                    <article className={styles.statCard}>
-                        <div className={styles.statIcon}>
-                            <Filter size={18} />
-                        </div>
-                        <div>
-                            <span className={styles.statLabel}>Despiece</span>
-                            <strong className={styles.statValue}>{summary.cutting}</strong>
-                        </div>
-                    </article>
-                </div>
-
-                <section className={styles.filtersCard}>
-                    <div className={styles.filtersHeader}>
-                        <h2 className={styles.filtersTitle}>Filtros</h2>
-
-                        <button
-                            type="button"
-                            className={styles.clearButton}
-                            onClick={handleClearFilters}
-                        >
-                            Limpiar
-                        </button>
-                    </div>
-
-                    <div className="form-grid form-grid--3">
+                <section className={`${styles.filtersCard} fadeSlideIn delayTwo`}>
+                    <div className={styles.filtersGrid}>
                         <div className="form-field">
-                            <div className={styles.searchField}>
-                                <Search size={16} className={styles.searchIcon} />
+                            <div className="searchField">
+                                <Search size={16} />
                                 <input
                                     name="search"
                                     value={filters.search}
                                     onChange={handleFilterChange}
-                                    placeholder="Buscar por nombre, código o categoría"
-                                    className={`form-input ${styles.searchInput}`}
+                                    placeholder="Buscar por nombre o codigo"
+                                    className="searchInput"
                                 />
                             </div>
                         </div>
 
                         <div className="form-field">
-                            <select
-                                name="type"
-                                value={filters.type}
-                                onChange={handleFilterChange}
-                                className="form-input"
-                            >
-                                {TYPE_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="selectWrap">
+                                <select
+                                    name="type"
+                                    value={filters.type}
+                                    onChange={handleFilterChange}
+                                    className="form-input"
+                                >
+                                    {TYPE_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         <div className="form-field">
-                            <select
-                                name="isActive"
-                                value={filters.isActive}
-                                onChange={handleFilterChange}
-                                className="form-input"
+                            <div className="selectWrap">
+                                <select
+                                    name="isActive"
+                                    value={filters.isActive}
+                                    onChange={handleFilterChange}
+                                    className="form-input"
+                                >
+                                    {STATUS_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className={styles.clearSlot}>
+                            <button
+                                type="button"
+                                className="miniAction"
+                                onClick={handleClearFilters}
+                                disabled={!hasActiveFilters}
                             >
-                                {STATUS_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                                Limpiar filtros
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -455,53 +477,59 @@ export default function ProductionTemplatesPage() {
                 {error ? <p className={styles.errorText}>{error}</p> : null}
 
                 {loading ? (
-                    <section className={styles.grid}>
+                    <section className={`${styles.grid} fadeSlideIn delayTwo`}>
                         {Array.from({ length: PAGE_SIZE }).map((_, index) => (
-                            <article key={index} className={styles.skeletonCard}>
+                            <article
+                                key={index}
+                                className={`${styles.skeletonCard} fadeScaleIn`}
+                                style={{
+                                    animationDelay: `${Math.min(index, 8) * 0.03}s`,
+                                }}
+                            >
                                 <div className={styles.skeletonTop} />
                                 <div className={styles.skeletonLine} />
-                                <div className={styles.skeletonLineShort} />
                             </article>
                         ))}
                     </section>
                 ) : templates.length === 0 ? (
-                    <section className={styles.emptyState}>
+                    <section className={`${styles.emptyState} fadeScaleIn`}>
                         <div className={styles.emptyIcon}>
                             <Factory size={22} />
                         </div>
                         <h3 className={styles.emptyTitle}>
-                            No se encontraron fichas de producción
+                            No se encontraron fichas de produccion
                         </h3>
                         <p className={styles.emptyDescription}>
-                            Ajusta los filtros o crea una nueva ficha para comenzar a
-                            configurar tus procesos.
+                            Ajusta los filtros o crea una ficha nueva para empezar.
                         </p>
-
                         <button
                             type="button"
-                            className="btn btn-primary"
+                            className="miniAction miniActionPrimary"
                             onClick={handleOpenCreate}
                         >
-                            <Plus size={16} />
+                            <Plus size={14} />
                             Crear ficha
                         </button>
                     </section>
                 ) : (
                     <>
-                        <section className={styles.grid}>
-                            {templates.map((template) => (
+                        <section className={`${styles.grid} fadeSlideIn delayTwo`}>
+                            {templates.map((template, index) => (
                                 <article
                                     key={template._id}
-                                    className={styles.templateCard}
+                                    className={`${styles.templateCard} fadeScaleIn`}
+                                    style={{
+                                        animationDelay: `${Math.min(index, 8) * 0.03}s`,
+                                    }}
                                     onClick={() => handleOpenReview(template._id)}
-                                    role="button"
-                                    tabIndex={0}
                                     onKeyDown={(event) => {
                                         if (event.key === "Enter" || event.key === " ") {
                                             event.preventDefault();
                                             handleOpenReview(template._id);
                                         }
                                     }}
+                                    role="button"
+                                    tabIndex={0}
                                 >
                                     <div className={styles.cardHeader}>
                                         <div className={styles.cardHeaderMain}>
@@ -511,59 +539,22 @@ export default function ProductionTemplatesPage() {
                                                         {template.code}
                                                     </span>
                                                 ) : null}
-
                                                 <span
-                                                    className={`${styles.statusBadge} ${template.isActive
-                                                        ? styles.active
-                                                        : styles.inactive
-                                                        }`}
+                                                    className={`${styles.statusBadge} ${
+                                                        template.isActive
+                                                            ? styles.active
+                                                            : styles.inactive
+                                                    }`}
                                                 >
                                                     {template.isActive ? "Activa" : "Inactiva"}
                                                 </span>
                                             </div>
 
                                             <h3 className={styles.cardTitle}>{template.name}</h3>
-
-                                            <p className={styles.cardDescription}>
-                                                {template.description || "Sin descripción registrada."}
+                                            <p className={styles.cardSubtitle}>
+                                                {getTemplateSubtitle(template)}
                                             </p>
                                         </div>
-                                    </div>
-
-                                    <div className={styles.cardMeta}>
-                                        <div className={styles.metaPill}>
-                                            <span className={styles.metaLabel}>Tipo</span>
-                                            <strong className={styles.metaValue}>
-                                                {TYPE_LABELS[template.type] || template.type}
-                                            </strong>
-                                        </div>
-
-                                        <div className={styles.metaPill}>
-                                            <span className={styles.metaLabel}>Categoría</span>
-                                            <strong className={styles.metaValue}>
-                                                {template.category || "—"}
-                                            </strong>
-                                        </div>
-
-                                        <div className={styles.metaPill}>
-                                            <span className={styles.metaLabel}>Insumos</span>
-                                            <strong className={styles.metaValue}>
-                                                {template.inputs.length || 0}
-                                            </strong>
-                                        </div>
-
-                                        <div className={styles.metaPill}>
-                                            <span className={styles.metaLabel}>Resultados</span>
-                                            <strong className={styles.metaValue}>
-                                                {template.outputs.length || 0}
-                                            </strong>
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.cardFooter}>
-                                        <span className={styles.footerText}>
-                                            Haz clic para revisar la ficha completa
-                                        </span>
                                     </div>
                                 </article>
                             ))}
@@ -573,8 +564,19 @@ export default function ProductionTemplatesPage() {
                             page={pagination.page}
                             totalPages={pagination.pages}
                             totalItems={pagination.total}
-                            fromItem={pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                            toItem={pagination.total === 0 ? 0 : Math.min(pagination.page * pagination.limit, pagination.total)}
+                            fromItem={
+                                pagination.total === 0
+                                    ? 0
+                                    : (pagination.page - 1) * pagination.limit + 1
+                            }
+                            toItem={
+                                pagination.total === 0
+                                    ? 0
+                                    : Math.min(
+                                          pagination.page * pagination.limit,
+                                          pagination.total
+                                      )
+                            }
                             itemLabel="fichas"
                             onPageChange={setPage}
                         />
@@ -584,19 +586,28 @@ export default function ProductionTemplatesPage() {
 
             <ProductionTemplateModal
                 open={createEditOpen}
-                onClose={handleCloseCreateEdit}
+                onClose={() => {
+                    setCreateEditOpen(false);
+                    setSubmitError("");
+                }}
                 onSubmit={handleSubmitTemplate}
                 mode={modalMode}
                 initialData={selectedTemplate}
                 categories={categories}
+                loading={actionLoading}
+                submitError={submitError}
             />
 
             <ProductionTemplateReviewModal
                 open={reviewOpen}
-                onClose={handleCloseReview}
-                onEdit={handleEditFromReview}
+                onClose={() => setReviewOpen(false)}
+                onEdit={() => {
+                    setReviewOpen(false);
+                    setModalMode("edit");
+                    setCreateEditOpen(true);
+                }}
                 onToggleStatus={handleToggleStatus}
-                onDelete={handleAskDeleteTemplate}
+                onDelete={() => setConfirmDeleteOpen(true)}
                 template={selectedTemplate}
                 loading={actionLoading}
             />
@@ -604,12 +615,13 @@ export default function ProductionTemplatesPage() {
             <ConfirmModal
                 open={confirmDeleteOpen}
                 onClose={() => {
-                    if (actionLoading) return;
-                    setConfirmDeleteOpen(false);
+                    if (!actionLoading) setConfirmDeleteOpen(false);
                 }}
                 onConfirm={handleDeleteTemplate}
-                title="Eliminar ficha de producción"
-                description={`¿Seguro que deseas eliminar la ficha "${selectedTemplate?.name || ""}"? Esta acción no se puede deshacer.`}
+                title="Eliminar ficha de produccion"
+                description={`Seguro que deseas eliminar la ficha "${
+                    selectedTemplate?.name || ""
+                }"? Esta accion no se puede deshacer.`}
                 confirmLabel="Eliminar"
                 cancelLabel="Cancelar"
                 variant="danger"

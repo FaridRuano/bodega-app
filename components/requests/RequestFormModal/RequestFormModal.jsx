@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { ArrowRight, ArrowRightFromLine, Circle, CircleAlertIcon, ClipboardList, FlipVertical, GripVertical, Plus, Trash2, X } from "lucide-react";
+import { ClipboardList, Plus, Trash2, X } from "lucide-react";
 
-import styles from "./request-form-modal.module.scss";
-import { getUnitLabel } from "@libs/constants/units";
-import { REQUEST_PURPOSE_OPTIONS } from "@libs/constants/purposes";
-import { getRequestTypeLabel } from "@libs/constants/domainLabels";
 import ProductAutoComplete from "@components/shared/ProductAutocomplete/ProductAutoComplete";
+import { getLocationLabel, getRequestTypeLabel } from "@libs/constants/domainLabels";
+import { REQUEST_PURPOSE_OPTIONS } from "@libs/constants/purposes";
+import { getUnitLabel } from "@libs/constants/units";
+import styles from "./request-form-modal.module.scss";
 
 export default function RequestFormModal({
     open,
     mode = "create",
     formData,
+    destinationOptions = [],
     onChange,
     onItemChange,
     onAddItem,
@@ -43,19 +44,17 @@ export default function RequestFormModal({
         }).length;
     }, [formData.items]);
 
-    const shouldValidateSourceStock = formData.requestType === "return";
+    const isReturnRequest = formData.requestType === "return";
+    const shouldValidateSourceStock = isReturnRequest;
 
     const hasInventoryOverflow = useMemo(() => {
-        if (!shouldValidateSourceStock) {
-            return false;
-        }
+        if (!shouldValidateSourceStock) return false;
 
         return (formData.items || []).some((item) => {
             const selectedProduct = products.find((product) => product._id === item.productId);
             if (!selectedProduct) return false;
 
-            const sourceLocation =
-                formData.sourceLocation === "warehouse" ? "warehouse" : "kitchen";
+            const sourceLocation = formData.sourceLocation || "warehouse";
             const maxAvailable = Number(selectedProduct?.inventory?.[sourceLocation] || 0);
             const quantity = Number(item.requestedQuantity || 0);
 
@@ -63,10 +62,7 @@ export default function RequestFormModal({
         });
     }, [formData.items, formData.sourceLocation, products, shouldValidateSourceStock]);
 
-    const sourceLocationLabel =
-        formData.sourceLocation === "warehouse" ? "bodega" : "cocina";
-
-    const isReturnRequest = formData.requestType === "return";
+    const sourceLocationLabel = getLocationLabel(formData.sourceLocation).toLowerCase();
     const hasRequestPurpose = Boolean(formData.requestPurpose?.trim?.());
     const canSubmit =
         hasRequestPurpose &&
@@ -77,10 +73,7 @@ export default function RequestFormModal({
     function handleFormSubmit(event) {
         event.preventDefault();
 
-        if (!canSubmit) {
-            return;
-        }
-
+        if (!canSubmit) return;
         onSubmit(event);
     }
 
@@ -92,7 +85,7 @@ export default function RequestFormModal({
                 className="modal-container modal-container--xl"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
+                <div className="modal-top">
                     <div className="modal-headerContent">
                         <div className="modal-icon modal-icon--info">
                             <ClipboardList size={20} />
@@ -102,16 +95,16 @@ export default function RequestFormModal({
                             <h2 className="modal-title">
                                 {mode === "edit"
                                     ? isReturnRequest
-                                        ? "Editar devolución"
-                                        : "Editar solicitud"
+                                        ? "Editar transferencia"
+                                        : "Editar solicitud interna"
                                     : isReturnRequest
-                                        ? "Nueva devolución"
-                                        : "Nueva solicitud"}
+                                        ? "Nueva transferencia"
+                                        : "Nueva solicitud interna"}
                             </h2>
                             <p className="modal-description">
                                 {isReturnRequest
                                     ? "Define los productos y cantidades que regresarán a bodega."
-                                    : "Define los productos y cantidades que deseas solicitar."}
+                                    : "Define los productos y cantidades que deseas mover entre áreas."}
                             </p>
                         </div>
                     </div>
@@ -128,13 +121,41 @@ export default function RequestFormModal({
 
                 <div className="modal-body">
                     <form className={styles.form} onSubmit={handleFormSubmit}>
+                        <div className={styles.flowGrid}>
+                            <div className="form-field">
+                                <label className="form-label">Origen</label>
+                                <div className={styles.readonlyField}>
+                                    <span>{getLocationLabel(formData.sourceLocation)}</span>
+                                </div>
+                            </div>
+
+                            <div className="form-field">
+                                <label className="form-label">Destino</label>
+                                <div className="selectWrap">
+                                    <select
+                                        name="destinationLocation"
+                                        className="form-input"
+                                        value={formData.destinationLocation}
+                                        onChange={onChange}
+                                        disabled={isSubmitting}
+                                    >
+                                        {destinationOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className={styles.itemsSection}>
                             <div className={styles.itemsHeader}>
                                 <h3 className={styles.sectionTitle}>Productos</h3>
 
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="miniAction"
                                     onClick={onAddItem}
                                     disabled={isSubmitting}
                                 >
@@ -154,17 +175,10 @@ export default function RequestFormModal({
                                     const selectedProduct = products.find(
                                         (product) => product._id === item.productId
                                     );
-                                    const sourceLocation =
-                                        formData.sourceLocation === "warehouse"
-                                            ? "warehouse"
-                                            : "kitchen";
+                                    const sourceLocation = formData.sourceLocation || "warehouse";
                                     const maxAvailable = Number(
                                         selectedProduct?.inventory?.[sourceLocation] || 0
                                     );
-
-                                    const quantity = Number(item.requestedQuantity || 0);
-                                    const hasValidQuantity =
-                                        Number.isFinite(quantity) && quantity > 0;
 
                                     return (
                                         <div key={index} className={styles.itemRow}>
@@ -174,11 +188,7 @@ export default function RequestFormModal({
                                                     value={item.productId}
                                                     selectedProduct={selectedProduct}
                                                     onChange={(product) =>
-                                                        onItemChange(
-                                                            index,
-                                                            "productId",
-                                                            product?._id || ""
-                                                        )
+                                                        onItemChange(index, "productId", product?._id || "")
                                                     }
                                                     disabled={isSubmitting}
                                                     placeholder="Buscar por nombre o código..."
@@ -206,22 +216,17 @@ export default function RequestFormModal({
                                                     className="form-input"
                                                     value={item.requestedQuantity}
                                                     onChange={(event) =>
-                                                        onItemChange(
-                                                            index,
-                                                            "requestedQuantity",
-                                                            event.target.value
-                                                        )
+                                                        onItemChange(index, "requestedQuantity", event.target.value)
                                                     }
                                                     placeholder="0"
                                                     disabled={isSubmitting}
                                                 />
-
                                             </div>
 
                                             <div className="form-field">
                                                 <label className="form-label">Und.</label>
-                                                <div className={styles.unitField}>
-                                                    <span className="unitValue">
+                                                <div className={styles.readonlyField}>
+                                                    <span>
                                                         {selectedProduct
                                                             ? getUnitLabel(selectedProduct.unit)
                                                             : "Selecciona un producto"}
@@ -230,17 +235,13 @@ export default function RequestFormModal({
                                             </div>
 
                                             <div className="form-field">
-                                                <label className="form-label">Nota del item</label>
+                                                <label className="form-label">Nota del producto</label>
                                                 <input
                                                     type="text"
                                                     className="form-input"
                                                     value={item.notes || ""}
                                                     onChange={(event) =>
-                                                        onItemChange(
-                                                            index,
-                                                            "notes",
-                                                            event.target.value
-                                                        )
+                                                        onItemChange(index, "notes", event.target.value)
                                                     }
                                                     placeholder="Opcional"
                                                     disabled={isSubmitting}
@@ -261,46 +262,37 @@ export default function RequestFormModal({
                                 })}
                             </div>
 
-                            <div className={styles.alertSlot}>
-                                {hasInventoryOverflow ? (
-                                    <div className={styles.formAlert}>
-                                        Ajusta las cantidades. Uno o más productos superan el stock disponible en {sourceLocationLabel}.
-                                    </div>
-                                ) : null}
-                            </div>
+                            {hasInventoryOverflow ? (
+                                <div className={styles.formAlert}>
+                                    Ajusta las cantidades. Uno o más productos superan el stock disponible en {sourceLocationLabel}.
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="form-field">
                             <label className="form-label">
-                                {isReturnRequest ? "Motivo de la devolución" : "Motivo de la solicitud"}
+                                {isReturnRequest ? "Motivo de la transferencia" : "Motivo de la solicitud"}
                             </label>
-                            <select
-                                name="requestPurpose"
-                                className="form-input"
-                                value={formData.requestPurpose}
-                                onChange={onChange}
-                                disabled={isSubmitting}
-                            >
-                                <option value="">Seleccionar</option>
-
-                                {REQUEST_PURPOSE_OPTIONS.filter((option) =>
-                                    isReturnRequest
-                                        ? option.value === "return_to_warehouse"
-                                        : option.value !== "return_to_warehouse"
-                                ).map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            {!hasRequestPurpose && (
-                                <p className={styles.errorText}>
-                                    {isReturnRequest
-                                        ? "Debes seleccionar el motivo de la devolución."
-                                        : "Debes seleccionar el motivo de la solicitud."}
-                                </p>
-                            )}
+                            <div className="selectWrap">
+                                <select
+                                    name="requestPurpose"
+                                    className="form-input"
+                                    value={formData.requestPurpose}
+                                    onChange={onChange}
+                                    disabled={isSubmitting}
+                                >
+                                    <option value="">Seleccionar</option>
+                                    {REQUEST_PURPOSE_OPTIONS.filter((option) =>
+                                        isReturnRequest
+                                            ? option.value === "return_to_warehouse"
+                                            : option.value !== "return_to_warehouse" && option.value !== "production"
+                                    ).map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         <div className="form-field">
@@ -319,17 +311,16 @@ export default function RequestFormModal({
                             <span className={styles.typeHintLabel}>Flujo</span>
                             <strong className={styles.typeHintValue}>
                                 {getRequestTypeLabel(formData.requestType)}
-                                <ArrowRightFromLine width={13}/>{" "}
-                                {formData.sourceLocation === "warehouse" ? "Bodega" : "Cocina"}
-                                <ArrowRight width={13} />{" "}
-                                {formData.destinationLocation === "warehouse" ? "Bodega" : "Cocina"}
+                                <span>{getLocationLabel(formData.sourceLocation)}</span>
+                                <span>→</span>
+                                <span>{getLocationLabel(formData.destinationLocation)}</span>
                             </strong>
                         </div>
 
                         <div className="modal-footer">
                             <button
                                 type="button"
-                                className="btn btn-secondary"
+                                className="miniAction"
                                 onClick={onClose}
                                 disabled={isSubmitting}
                             >
@@ -338,14 +329,14 @@ export default function RequestFormModal({
 
                             <button
                                 type="submit"
-                                className="btn btn-primary"
+                                className="miniAction miniActionPrimary"
                                 disabled={!canSubmit}
                             >
                                 {isSubmitting
                                     ? "Guardando..."
                                     : mode === "edit"
                                         ? "Guardar cambios"
-                                        : "Crear"}
+                                        : "Crear solicitud"}
                             </button>
                         </div>
                     </form>

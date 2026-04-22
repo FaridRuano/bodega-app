@@ -1,7 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+
+const EMPTY_FORM = {
+    name: "",
+    description: "",
+    familyId: "",
+};
+
+function buildInitialForm(initialData, isEdit) {
+    if (!isEdit || !initialData) {
+        return EMPTY_FORM;
+    }
+
+    return {
+        name: initialData.name || "",
+        description: initialData.description || "",
+        familyId:
+            initialData.familyId?._id ||
+            initialData.familyId ||
+            initialData.family?._id ||
+            "",
+    };
+}
 
 export default function CategoryModal({
     open,
@@ -9,70 +31,24 @@ export default function CategoryModal({
     onSubmit,
     mode = "create",
     initialData = null,
+    families = [],
+    loading = false,
+    submitError = "",
 }) {
-    const [form, setForm] = useState({
-        name: "",
-        description: "",
-    });
-
-    const [initialForm, setInitialForm] = useState({
-        name: "",
-        description: "",
-    });
-
     const isEdit = mode === "edit";
-
-    // 🔁 cargar datos
-    useEffect(() => {
-        if (mode === "edit" && initialData) {
-            const data = {
-                name: initialData.name || "",
-                description: initialData.description || "",
-            };
-
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setForm(data);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setInitialForm(data);
-        }
-
-        if (mode === "create") {
-            const empty = { name: "", description: "" };
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setForm(empty);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setInitialForm(empty);
-        }
-    }, [mode, initialData, open]);
-
-    function handleChange(e) {
-        setForm({
-            ...form,
-            [e.target.name]: e.target.value,
-        });
-    }
-
-    function handleSubmit(e) {
-        e.preventDefault();
-        if (!isDirty) return;
-        onSubmit(form);
-    }
-
-    // 🧠 detectar cambios
-    const isDirty =
-        form.name !== initialForm.name ||
-        form.description !== initialForm.description;
-
-    // 🧠 validación mínima
-    const isValid = form.name.trim().length > 0;
-
-    const isDisabled = isEdit
-        ? !isDirty || !isValid
-        : !isValid;
+    const initialForm = useMemo(
+        () => buildInitialForm(initialData, isEdit),
+        [initialData, isEdit]
+    );
+    const [form, setForm] = useState(initialForm);
 
     useEffect(() => {
-        function handleEscape(e) {
-            if (e.key === "Escape") {
+        setForm(initialForm);
+    }, [initialForm, open]);
+
+    useEffect(() => {
+        function handleEscape(event) {
+            if (event.key === "Escape" && !loading) {
                 onClose();
             }
         }
@@ -82,60 +58,132 @@ export default function CategoryModal({
         return () => {
             window.removeEventListener("keydown", handleEscape);
         };
-    }, [onClose]);
+    }, [loading, onClose]);
+
+    function handleChange(event) {
+        const { name, value } = event.target;
+
+        setForm((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    }
+
+    function handleSubmit(event) {
+        event.preventDefault();
+
+        if (isDisabled) return;
+
+        onSubmit({
+            ...form,
+            familyId: form.familyId || null,
+        });
+    }
+
+    const isDirty =
+        form.name !== initialForm.name ||
+        form.description !== initialForm.description ||
+        form.familyId !== initialForm.familyId;
+
+    const isValid = form.name.trim().length > 0;
+    const isDisabled = loading || !isValid || (isEdit && !isDirty);
 
     if (!open) return null;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-container"
-                onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
-                    <div>
+        <div className="modal-overlay" onClick={loading ? undefined : onClose}>
+            <div
+                className="modal-container"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className="modal-top">
+                    <div className="modal-headerBlock">
                         <h3 className="modal-title">
-                            {isEdit ? "Editar categoría" : "Nueva categoría"}
+                            {isEdit ? "Editar categoria" : "Nueva categoria"}
                         </h3>
                         <p className="modal-description">
                             {isEdit
-                                ? "Modifica la información de la categoría."
-                                : "Crea una categoría para organizar los productos."}
+                                ? "Actualiza el nombre, la descripcion y su familia asociada."
+                                : "Crea una categoria y relacionala opcionalmente con una familia."}
                         </p>
                     </div>
 
-                    <button className="modal-close" onClick={onClose}>
+                    <button
+                        type="button"
+                        className="modal-close"
+                        onClick={onClose}
+                        disabled={loading}
+                    >
                         <X size={18} />
                     </button>
                 </div>
-
                 <form onSubmit={handleSubmit} className="modal-body">
                     <div className="form-field">
-                        <label className="form-label">Nombre</label>
+                        <label className="form-label" htmlFor="category-name">
+                            Nombre
+                        </label>
                         <input
+                            id="category-name"
                             name="name"
                             value={form.name}
                             onChange={handleChange}
-                            placeholder="Ej: Carnes"
+                            placeholder="Carnes"
                             className="form-input"
                             required
+                            disabled={loading}
                         />
                     </div>
 
                     <div className="form-field">
-                        <label className="form-label">Descripción</label>
+                        <label className="form-label" htmlFor="category-family">
+                            Familia
+                        </label>
+                        <div className="selectWrap">
+                            <select
+                                id="category-family"
+                                name="familyId"
+                                value={form.familyId}
+                                onChange={handleChange}
+                                className="form-input"
+                                disabled={loading}
+                            >
+                                <option value="">Sin familia</option>
+                                {families.map((family) => (
+                                    <option key={family._id} value={family._id}>
+                                        {family.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="category-description">
+                            Descripcion
+                        </label>
                         <textarea
+                            id="category-description"
                             name="description"
                             value={form.description}
                             onChange={handleChange}
                             placeholder="Opcional"
                             className="form-textarea"
+                            disabled={loading}
                         />
                     </div>
+
+                    {submitError ? (
+                        <div className="form-error-message" role="alert">
+                            {submitError}
+                        </div>
+                    ) : null}
 
                     <div className="modal-footer">
                         <button
                             type="button"
                             className="btn btn-secondary"
                             onClick={onClose}
+                            disabled={loading}
                         >
                             Cancelar
                         </button>
@@ -144,12 +192,12 @@ export default function CategoryModal({
                             type="submit"
                             className="btn btn-primary"
                             disabled={isDisabled}
-                            style={{
-                                opacity: isDisabled ? 0.6 : 1,
-                                cursor: isDisabled ? "not-allowed" : "pointer",
-                            }}
                         >
-                            {isEdit ? "Guardar cambios" : "Crear categoría"}
+                            {loading
+                                ? "Guardando..."
+                                : isEdit
+                                    ? "Guardar cambios"
+                                    : "Crear categoria"}
                         </button>
                     </div>
                 </form>

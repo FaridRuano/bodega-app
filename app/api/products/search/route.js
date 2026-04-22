@@ -29,7 +29,7 @@ export async function GET(req) {
         }
 
         const products = await Product.find(filters)
-            .select("_id name code unit allowsProduction")
+            .select("_id name code unit allowsProduction requiresWeightControl")
             .limit(20)
             .lean();
 

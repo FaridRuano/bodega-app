@@ -18,15 +18,28 @@
 .paginationControls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .pageIndicator {
-    min-width: 128px;
+    min-width: 124px;
     text-align: center;
     color: var(--text-primary);
     font-size: 0.95rem;
     font-weight: 700;
+}
+
+.paginationControls :global(.action-button) {
+    min-width: 36px;
+}
+
+.disabledControl {
+    opacity: 0.45;
+    border-color: var(--border-subtle);
+    background: var(--surface-secondary);
+    color: var(--text-muted);
+    box-shadow: none;
+    transform: none;
 }
 
 @media (max-width: 720px) {

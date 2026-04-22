@@ -15,10 +15,10 @@
     position: relative;
     display: flex;
     align-items: center;
-    min-height: 46px;
+    min-height: 36px;
     border: 1px solid var(--border-subtle);
-    background: var(--bg-subtle);
-    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
+    border-radius: 999px;
     transition:
         border-color 0.18s ease,
         box-shadow 0.18s ease,
@@ -58,13 +58,13 @@
 .input {
     flex: 1;
     min-width: 0;
-    height: 44px;
+    height: 34px;
     border: none;
     outline: none;
     background: transparent;
     color: var(--text-primary);
-    font-size: 14px;
-    padding: 0 10px;
+    font-size: 13px;
+    padding: 0 12px;
 }
 
 .input::placeholder {

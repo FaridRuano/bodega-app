@@ -1,125 +1,153 @@
-.headerRow {
+.heroShell {
+    margin-bottom: 6px;
+}
+
+.heroStats {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 20px;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
-.statsGroup {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    flex: 1;
-    min-width: min(100%, 540px);
-}
-
-.statCard {
-    position: relative;
-    overflow: hidden;
-    padding: 10px 16px;
-    border-radius: 18px;
-    border: 1px solid var(--border-subtle);
-    background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-        var(--surface-primary);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-    text-align: start;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.heroStatButton {
     cursor: pointer;
-
     transition:
         transform 0.18s ease,
         border-color 0.18s ease,
-        background 0.18s ease,
-        box-shadow 0.18s ease;
+        background-color 0.18s ease,
+        box-shadow 0.18s ease,
+        color 0.18s ease;
 }
 
-.warningCard {
-    background: var(--warning-soft);
+.heroStatButton:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
 }
 
-.mutedCard {
+.heroStatActive {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
+}
+
+.heroStatDanger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.heroStatDanger strong {
+    color: var(--danger);
+}
+
+.heroStatMuted {
     background: var(--bg-subtle);
+    color: var(--text-secondary);
 }
 
-.statLabel {
-    position: relative;
-    margin: 0;
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.2;
-    color: var(--text-muted);
-}
-
-.statValue {
-    position: relative;
-    margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1;
+.heroStatMuted strong {
     color: var(--text-primary);
 }
 
-.searchBox {
-    min-width: min(100%, 280px);
-    max-width: 360px;
-    width: min(100%, 360px);
-    padding: 0 14px;
-    height: 46px;
-
+.headerRow {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.viewSwitch {
+    display: inline-flex;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.clearButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.filterRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 220px));
     gap: 10px;
+}
 
-    border-radius: 14px;
+.filterSelect {
+    width: 100%;
     border: 1px solid var(--border-subtle);
-    background: var(--surface-primary);
-    color: var(--text-muted);
-}
-
-.searchInput {
-    flex: 1;
-    border: none;
-    background: transparent;
-    outline: none;
+    background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
     color: var(--text-primary);
+    min-height: 46px;
+    padding: 0 40px 0 14px;
+    border-radius: 14px;
     font-size: 14px;
-}
-
-.searchInput::placeholder {
-    color: var(--text-muted);
+    outline: none;
+    appearance: none;
 }
 
 .listSection {
     display: flex;
     flex-direction: column;
+    gap: 16px;
 }
 
-.productList {
-    display: flex;
-    flex-direction: column;
+.productList,
+.loadingGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
 }
 
 .productCard {
-    padding: 16px 18px;
+    padding: 14px;
     border-radius: 18px;
     border: 1px solid var(--border-subtle);
     background: var(--surface-primary);
     box-shadow: var(--shadow-sm);
-
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.9fr) auto;
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     align-items: start;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.22s ease,
+        background 0.22s ease;
+}
+
+.productCard:hover {
+    border-color: var(--text-muted);
+    box-shadow: var(--shadow-md);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        var(--surface-primary);
+    transform: translateY(-3px) scale(1.01);
+}
+
+.productMain {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.95fr) auto;
+    gap: 14px;
+    align-items: center;
 }
 
 .productInfo {
     min-width: 0;
+}
+
+.scopeAmountValue {
+    justify-self: end;
+    align-self: start;
+    font-size: 30px;
+    line-height: 0.95;
+    color: var(--text-primary);
+    font-weight: 800;
 }
 
 .productTitleRow {
@@ -131,52 +159,125 @@
 
 .productName {
     margin: 0;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-primary);
 }
 
-.productMeta {
-    margin: 8px 0 0;
-    font-size: 13px;
-    color: var(--text-secondary);
-}
-
-.stockSummary {
+.stockSummary,
+.skeletonStockGrid {
+    width: 100%;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.stockBlock {
-    padding: 12px;
-    border-radius: 14px;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-subtle);
-
-    display: flex;
-    flex-direction: column;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
 }
 
+.stockBlock {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        background-color 0.18s ease;
+}
+
+.productCard:hover .stockBlock {
+    border-color: var(--border-strong);
+    background: var(--surface-secondary);
+    transform: translateY(-1px);
+}
+
 .stockBlock span {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
 }
 
 .stockBlock strong {
-    font-size: 20px;
+    font-size: 15px;
     line-height: 1;
     color: var(--text-primary);
 }
 
-.actions {
+.footerRow {
+    width: 100%;
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 2px;
+}
+
+.unitMeta {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.actions,
+.skeletonActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-wrap: wrap;
-    justify-content: flex-end;
-    align-self: center;
+    justify-content: flex-start;
+}
+
+.actions :global(.miniAction) {
+    min-width: 0;
+}
+
+.skeletonCard {
+    pointer-events: none;
+}
+
+.skeletonHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.skeletonTitle,
+.skeletonBadge,
+.skeletonMeta,
+.skeletonStockBlock,
+.skeletonAction {
+    display: block;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.skeletonTitle {
+    width: 60%;
+    height: 18px;
+}
+
+.skeletonBadge {
+    width: 84px;
+    height: 24px;
+}
+
+.skeletonMeta {
+    width: 78%;
+    height: 14px;
+    border-radius: 10px;
+}
+
+.skeletonStockBlock {
+    height: 46px;
+    border-radius: 12px;
+}
+
+.skeletonAction {
+    width: 96px;
+    height: 36px;
 }
 
 .statusBadge {
@@ -220,59 +321,91 @@
 }
 
 @media (max-width: 1080px) {
-    .productCard {
-        grid-template-columns: 1fr;
-        gap: 14px;
+
+    .viewSwitch {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
     }
 
-    .actions {
-        justify-content: flex-start;
-        align-self: stretch;
+    .headerRow {
+        gap: 14px;
+        align-items: stretch;
+    }
+
+    .filterRow {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .productList,
+    .loadingGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .productMain {
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.95fr);
+        align-items: start;
+    }
+
+    .actions,
+    .footerRow,
+    .skeletonActions {
+        grid-column: 1 / -1;
+        width: 100%;
+        padding-top: 8px;
+    }
+
+    .footerRow {
+        border-top: 1px solid var(--border-subtle);
     }
 }
 
 @media (max-width: 768px) {
-    .headerRow {
-        gap: 14px;
-    }
-
-    .statsGroup {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        width: 100%;
-        min-width: 0;
-    }
-
-    .searchBox {
-        max-width: none;
-        width: 100%;
-    }
-
-    .stockSummary {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .statCard {
-        min-width: 0;
-        padding: 12px 14px;
-    }
 
     .productCard {
         padding: 14px;
+    }
+
+    .productMain {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .scopeAmountValue {
+        justify-self: end;
+        font-size: 26px;
+    }
+
+    .stockSummary,
+    .skeletonStockGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .stockBlock {
         padding: 10px;
     }
 
-    .stockBlock strong {
-        font-size: 18px;
+    .footerRow,
+    .actions,
+    .skeletonActions {
+        padding-top: 6px;
     }
 }
 
 @media (max-width: 640px) {
-    .statsGroup {
-        width: 100%;
-        grid-template-columns: 1fr;
+    .heroStats {
+        justify-content: flex-end;
+    }
+
+    .filterRow {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .filterSelect {
+        min-height: 34px;
+        padding: 0 30px 0 10px;
+        font-size: 12px;
     }
 
     .productTitleRow {
@@ -280,23 +413,32 @@
         gap: 8px;
     }
 
-    .productMeta {
-        margin-top: 6px;
-        line-height: 1.45;
+    .footerRow {
+        flex-direction: column;
+        align-items: stretch;
     }
 
-    .stockSummary {
+    .stockSummary,
+    .skeletonStockGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .actions,
+    .skeletonActions {
+        display: grid;
         grid-template-columns: 1fr;
     }
 
-    .actions {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
+    .unitMeta {
+        white-space: normal;
     }
 
-    .actions :global(.btn) {
+    .actions :global(.miniAction) {
         width: 100%;
         justify-content: center;
+    }
+
+    .skeletonAction {
+        width: 100%;
     }
 }

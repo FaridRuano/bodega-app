@@ -7,6 +7,19 @@ import Request from "@models/Request";
 import Product from "@models/Product";
 import InventoryStock from "@models/InventoryStock";
 
+function getLocationName(location) {
+    switch (location) {
+        case "warehouse":
+            return "bodega";
+        case "kitchen":
+            return "cocina";
+        case "lounge":
+            return "lounge";
+        default:
+            return location || "ubicacion";
+    }
+}
+
 function isValidObjectId(value) {
     return mongoose.Types.ObjectId.isValid(value);
 }
@@ -59,11 +72,13 @@ function normalizeRequestDocument(request) {
         returned: 0,
     };
 
+    const normalizedStatus = request.status === "approved" ? "processing" : request.status;
+
     return {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
-        status: request.status,
+        status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
 
@@ -201,7 +216,7 @@ export async function GET(_request, { params }) {
 
 export async function PATCH(request, { params }) {
     try {
-        const { user, response } = await requireUserRole(["admin", "kitchen"]);
+        const { user, response } = await requireUserRole(["kitchen", "lounge"]);
         if (response) return response;
 
         await dbConnect();
@@ -236,11 +251,34 @@ export async function PATCH(request, { params }) {
 
         const body = await request.json();
 
-        const requestType = requestDoc.requestType || "operation";
+        const destinationLocation = normalizeText(body.destinationLocation).toLowerCase();
+        const operationalLocation = user.role === "lounge" ? "lounge" : "kitchen";
+        const requestType = destinationLocation === "warehouse" ? "return" : "operation";
         const isReturnRequest = requestType === "return";
         const justification = normalizeNullableText(body.justification);
         const notes = normalizeNullableText(body.notes);
         const rawItems = Array.isArray(body.items) ? body.items : [];
+
+        if (!destinationLocation) {
+            return NextResponse.json(
+                { success: false, message: "La ubicacion destino no es valida." },
+                { status: 400 }
+            );
+        }
+
+        if (destinationLocation === operationalLocation) {
+            return NextResponse.json(
+                { success: false, message: "La ubicacion destino debe ser diferente al origen." },
+                { status: 400 }
+            );
+        }
+
+        if (!["warehouse", "kitchen", "lounge"].includes(destinationLocation)) {
+            return NextResponse.json(
+                { success: false, message: "La ubicacion destino no es valida." },
+                { status: 400 }
+            );
+        }
 
         if (!rawItems.length) {
             return NextResponse.json(
@@ -282,11 +320,11 @@ export async function PATCH(request, { params }) {
         const productMap = new Map(
             products.map((product) => [String(product._id), product])
         );
-        const shouldValidateSourceStock = requestDoc.requestType === "return";
+        const shouldValidateSourceStock = requestType === "return";
         const stocks = shouldValidateSourceStock
             ? await InventoryStock.find({
                 productId: { $in: productIds },
-                location: requestDoc.sourceLocation,
+                location: operationalLocation,
             }).lean()
             : [];
         const stockMap = new Map(stocks.map((stock) => [String(stock.productId), stock]));
@@ -314,7 +352,7 @@ export async function PATCH(request, { params }) {
 
             if (shouldValidateSourceStock && requestedQuantity > available) {
                 throw new Error(
-                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${requestDoc.sourceLocation === "warehouse" ? "bodega" : "cocina"}.`
+                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${getLocationName(requestDoc.sourceLocation)}.`
                 );
             }
 
@@ -332,10 +370,9 @@ export async function PATCH(request, { params }) {
 
         requestDoc.justification = justification;
         requestDoc.notes = notes;
-        if (isReturnRequest) {
-            requestDoc.sourceLocation = "kitchen";
-            requestDoc.destinationLocation = "warehouse";
-        }
+        requestDoc.requestType = requestType;
+        requestDoc.sourceLocation = operationalLocation;
+        requestDoc.destinationLocation = destinationLocation;
 
         requestDoc.addActivity({
             type: "edited",
@@ -373,7 +410,7 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
         if (response) return response;
 
         await dbConnect();
@@ -453,13 +490,13 @@ export async function DELETE(request, { params }) {
             );
         }
 
-        if (user.role === "kitchen" && requestDoc.status !== "pending") {
+        if (["kitchen", "lounge"].includes(user.role) && requestDoc.status !== "pending") {
             return NextResponse.json(
                 {
                     success: false,
                     message: isReturnRequest
                         ? "Cocina solo puede cancelar devoluciones que aún no han sido despachadas."
-                        : "Cocina solo puede cancelar solicitudes que aún no han sido aprobadas.",
+                        : "El area operativa solo puede cancelar solicitudes que aun no han sido procesadas.",
                 },
                 { status: 403 }
             );

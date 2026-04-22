@@ -1,0 +1,59 @@
+.pickerModal {
+  max-width: 520px;
+}
+
+.resultsList {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.resultCard {
+  display: flex;
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.resultCard:hover,
+.resultCard:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.resultCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resultCopy strong {
+  color: var(--text-primary);
+}
+
+.resultCopy span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.emptyState {
+  padding: 20px 12px;
+  border-radius: 14px;
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  text-align: center;
+}

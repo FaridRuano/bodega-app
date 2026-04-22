@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import dbConnect from "@libs/mongodb";
 import ProductionTemplate from "@models/ProductionTemplate";
+import { PRODUCTION_BASE_UNITS } from "@libs/constants/units";
 
 function buildSearchFilter(search) {
     if (!search?.trim()) return null;
@@ -31,6 +32,36 @@ function parsePositiveNumber(value, fallback) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function normalizeOutputs(outputs = []) {
+    if (!Array.isArray(outputs) || outputs.length === 0) {
+        return [];
+    }
+
+    if (outputs.length === 1) {
+        return outputs.map((item) => ({
+            ...item,
+            isMain: true,
+        }));
+    }
+
+    let hasMain = false;
+
+    return outputs.map((item) => {
+        if (item.isMain && !hasMain) {
+            hasMain = true;
+            return {
+                ...item,
+                isMain: true,
+            };
+        }
+
+        return {
+            ...item,
+            isMain: false,
+        };
+    });
+}
+
 async function getCurrentUserId() {
     const session = await auth();
     return session?.user?.id || session?.user?._id || null;
@@ -56,9 +87,10 @@ function sanitizeTemplatePayload(payload = {}) {
                 payload.expectedWaste === null
                 ? null
                 : Number(payload.expectedWaste),
-        defaultDestination: payload.defaultDestination,
+        defaultDestination: "kitchen",
         allowsMultipleOutputs: Boolean(payload.allowsMultipleOutputs),
         requiresWasteRecord: Boolean(payload.requiresWasteRecord),
+        requiresWeightControl: Boolean(payload.requiresWeightControl),
         allowRealOutputAdjustment:
             payload.allowRealOutputAdjustment === undefined
                 ? true
@@ -78,7 +110,7 @@ function sanitizeTemplatePayload(payload = {}) {
             }))
             : [],
         outputs: Array.isArray(payload.outputs)
-            ? payload.outputs.map((item) => ({
+            ? normalizeOutputs(payload.outputs.map((item) => ({
                 productId: item.productId,
                 quantity:
                     item.quantity === "" || item.quantity === undefined || item.quantity === null
@@ -89,7 +121,7 @@ function sanitizeTemplatePayload(payload = {}) {
                 isWaste: Boolean(item.isWaste),
                 isByProduct: Boolean(item.isByProduct),
                 notes: item.notes?.trim() || "",
-            }))
+            })))
             : [],
     };
 }
@@ -159,6 +191,7 @@ function formatTemplateListItem(template) {
         defaultDestination: template.defaultDestination || "",
         allowsMultipleOutputs: Boolean(template.allowsMultipleOutputs),
         requiresWasteRecord: Boolean(template.requiresWasteRecord),
+        requiresWeightControl: Boolean(template.requiresWeightControl),
         allowRealOutputAdjustment: Boolean(template.allowRealOutputAdjustment),
         notes: template.notes || "",
         isActive: Boolean(template.isActive),
@@ -241,7 +274,7 @@ export async function GET(request) {
         const [templates, total, active, inactive, cutting] = await Promise.all([
             ProductionTemplate.find(filters)
                 .select(
-                    "code name description category type baseUnit expectedYield expectedWaste defaultDestination allowsMultipleOutputs requiresWasteRecord allowRealOutputAdjustment notes isActive inputs outputs createdBy updatedBy createdAt updatedAt"
+                    "code name description category type baseUnit expectedYield expectedWaste defaultDestination allowsMultipleOutputs requiresWasteRecord requiresWeightControl allowRealOutputAdjustment notes isActive inputs outputs createdBy updatedBy createdAt updatedAt"
                 )
                 .sort({ [finalSortBy]: sortOrder })
                 .skip(hasPagination ? skip : 0)
@@ -334,6 +367,26 @@ export async function POST(request) {
                 {
                     success: false,
                     message: "La unidad base es obligatoria.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (!PRODUCTION_BASE_UNITS.includes(payload.baseUnit)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "La unidad base solo puede ser unidad o kilogramo.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (payload.requiresWeightControl && payload.baseUnit !== "kg") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "El control de gramaje solo aplica a fichas con unidad base en kilogramo.",
                 },
                 { status: 400 }
             );

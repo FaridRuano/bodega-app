@@ -1,6 +1,8 @@
 @use './variables' as v;
 @use './mixins' as m;
 @use './components';
+@use './buttons';
+@use './animations';
 
 /* =========================
    THEME TOKENS - LIGHT
@@ -61,13 +63,32 @@
     --shadow-lg: 0 24px 60px rgba(17, 17, 17, 0.14);
 
     /* Overlays */
-    --overlay: rgba(17, 17, 17, 0.45);
+    --overlay: rgba(17, 17, 17, .7);
 
     /* Glass helpers */
     --glass-bg: rgba(255, 255, 255, 0.842);
     --glass-border: rgba(255, 255, 255, 0.42);
     --glass-highlight: rgba(255, 255, 255, 0.3);
     --grid-line: rgba(17, 17, 17, 0.06);
+
+    /* Notification dropdown */
+    --notification-dropdown-border: color-mix(in srgb, var(--border-strong) 78%, white 22%);
+    --notification-dropdown-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 246, 249, 0.985) 100%);
+    --notification-dropdown-shadow: 0 24px 60px rgba(17, 17, 17, 0.18);
+    --notification-card-bg: color-mix(in srgb, var(--surface-primary) 82%, var(--surface-secondary) 18%);
+    --notification-card-hover-bg: color-mix(in srgb, var(--surface-secondary) 76%, var(--bg-elevated) 24%);
+    --notification-card-unread-bg: color-mix(in srgb, var(--info-soft) 28%, var(--surface-primary) 72%);
+    --notification-chip-bg: color-mix(in srgb, var(--surface-secondary) 88%, var(--surface-primary) 12%);
+    --notification-chip-hover-bg: color-mix(in srgb, var(--surface-tertiary) 82%, var(--surface-secondary) 18%);
+    --notification-chip-active-bg: color-mix(in srgb, var(--info-soft) 34%, var(--surface-primary) 66%);
+    --notification-muted-strong: color-mix(in srgb, var(--text-muted) 90%, var(--text-primary) 10%);
+    --notification-empty-bg: color-mix(in srgb, var(--surface-secondary) 72%, transparent);
+
+    /* Scrollbars */
+    --scrollbar-size: 10px;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(107, 114, 128, 0.3);
+    --scrollbar-thumb-hover: rgba(107, 114, 128, 0.5);
 }
 
 /* =========================
@@ -80,8 +101,8 @@
         --primary-hover: #e5e5e5;
         --primary-active: #d4d4d4;
 
-        --accent: #f8d300;
-        --accent-hover: #ffbb00;
+        --accent: #e6c409;
+        --accent-hover: #ffd900;
         --accent-soft: rgba(143, 143, 143, 0.16);
 
         /* Neutral backgrounds */
@@ -91,10 +112,11 @@
         --bg-inverse: #fafafa;
 
         /* Surfaces */
-        --surface-primary: #18181860;
-        --surface-secondary: #272727;
-        --surface-tertiary: #26262b;
-        --surface-inverse: #fafafa;
+        --surface-primary: #08080891;
+        --surface-secondary: #0f0f0fe0;
+        --surface-tertiary: #1b1b1bb0;
+        --surface-inverse: #fafafa93;
+        --surface-strong: #070707d3;
 
         /* Text */
         --text-primary: #f4f4f5;
@@ -130,13 +152,32 @@
         --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
 
         /* Overlays */
-        --overlay: rgba(0, 0, 0, 0.6);
+        --overlay: rgba(0, 0, 0, .8);
 
         /* Glass helpers */
         --glass-bg: rgba(20, 20, 20, 0.795);
         --glass-border: rgba(255, 255, 255, 0.06);
         --glass-highlight: rgba(255, 255, 255, 0.04);
         --grid-line: rgba(255, 255, 255, 0.05);
+
+        /* Notification dropdown */
+        --notification-dropdown-border: color-mix(in srgb, var(--border-strong) 72%, black 28%);
+        --notification-dropdown-bg: linear-gradient(180deg, rgba(12, 15, 20, 0.98) 0%, rgba(8, 10, 14, 0.985) 100%);
+        --notification-dropdown-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+        --notification-card-bg: color-mix(in srgb, #11161f 90%, var(--surface-secondary) 10%);
+        --notification-card-hover-bg: color-mix(in srgb, #18212d 82%, var(--surface-elevated) 18%);
+        --notification-card-unread-bg: color-mix(in srgb, var(--info-soft) 14%, #13202d 86%);
+        --notification-chip-bg: color-mix(in srgb, #121821 90%, var(--surface-secondary) 10%);
+        --notification-chip-hover-bg: color-mix(in srgb, #18212d 88%, var(--surface-elevated) 12%);
+        --notification-chip-active-bg: color-mix(in srgb, var(--info-soft) 18%, #132231 82%);
+        --notification-muted-strong: color-mix(in srgb, var(--text-muted) 82%, white 18%);
+        --notification-empty-bg: color-mix(in srgb, #0f141c 88%, transparent 12%);
+
+        /* Scrollbars */
+        --scrollbar-size: 10px;
+        --scrollbar-track: transparent;
+        --scrollbar-thumb: rgba(161, 161, 170, 0.22);
+        --scrollbar-thumb-hover: rgba(161, 161, 170, 0.4);
     }
 }
 
@@ -158,6 +199,8 @@
 html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 html.light {
@@ -223,6 +266,24 @@ html.light {
     --glass-border: rgba(255, 255, 255, 0.42);
     --glass-highlight: rgba(255, 255, 255, 0.3);
     --grid-line: rgba(17, 17, 17, 0.06);
+
+    /* Notification dropdown */
+    --notification-dropdown-border: color-mix(in srgb, var(--border-strong) 78%, white 22%);
+    --notification-dropdown-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 246, 249, 0.985) 100%);
+    --notification-dropdown-shadow: 0 24px 60px rgba(17, 17, 17, 0.18);
+    --notification-card-bg: color-mix(in srgb, var(--surface-primary) 82%, var(--surface-secondary) 18%);
+    --notification-card-hover-bg: color-mix(in srgb, var(--surface-secondary) 76%, var(--bg-elevated) 24%);
+    --notification-card-unread-bg: color-mix(in srgb, var(--info-soft) 28%, var(--surface-primary) 72%);
+    --notification-chip-bg: color-mix(in srgb, var(--surface-secondary) 88%, var(--surface-primary) 12%);
+    --notification-chip-hover-bg: color-mix(in srgb, var(--surface-tertiary) 82%, var(--surface-secondary) 18%);
+    --notification-chip-active-bg: color-mix(in srgb, var(--info-soft) 34%, var(--surface-primary) 66%);
+    --notification-muted-strong: color-mix(in srgb, var(--text-muted) 90%, var(--text-primary) 10%);
+    --notification-empty-bg: color-mix(in srgb, var(--surface-secondary) 72%, transparent);
+
+    --scrollbar-size: 10px;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(107, 114, 128, 0.3);
+    --scrollbar-thumb-hover: rgba(107, 114, 128, 0.5);
 }
 
 html.dark {
@@ -288,6 +349,24 @@ html.dark {
     --glass-border: rgba(255, 255, 255, 0.06);
     --glass-highlight: rgba(255, 255, 255, 0.04);
     --grid-line: rgba(255, 255, 255, 0.05);
+
+    /* Notification dropdown */
+    --notification-dropdown-border: color-mix(in srgb, var(--border-strong) 72%, black 28%);
+    --notification-dropdown-bg: linear-gradient(180deg, rgba(12, 15, 20, 0.98) 0%, rgba(8, 10, 14, 0.985) 100%);
+    --notification-dropdown-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    --notification-card-bg: color-mix(in srgb, #11161f 90%, var(--surface-secondary) 10%);
+    --notification-card-hover-bg: color-mix(in srgb, #18212d 82%, var(--surface-elevated) 18%);
+    --notification-card-unread-bg: color-mix(in srgb, var(--info-soft) 14%, #13202d 86%);
+    --notification-chip-bg: color-mix(in srgb, #121821 90%, var(--surface-secondary) 10%);
+    --notification-chip-hover-bg: color-mix(in srgb, #18212d 88%, var(--surface-elevated) 12%);
+    --notification-chip-active-bg: color-mix(in srgb, var(--info-soft) 18%, #132231 82%);
+    --notification-muted-strong: color-mix(in srgb, var(--text-muted) 82%, white 18%);
+    --notification-empty-bg: color-mix(in srgb, #0f141c 88%, transparent 12%);
+
+    --scrollbar-size: 10px;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(161, 161, 170, 0.22);
+    --scrollbar-thumb-hover: rgba(161, 161, 170, 0.4);
 }
 
 body {
@@ -300,6 +379,66 @@ body {
     transition:
         background v.$transition-normal,
         color v.$transition-normal;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+textarea::-webkit-scrollbar,
+*::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.modal-container {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.modal-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-container::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.modal-container::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 button,

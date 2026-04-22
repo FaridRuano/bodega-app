@@ -74,7 +74,7 @@ export default function ConfirmModal({
                 className={`modal-container ${styles.confirmModal}`}
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
+                <div className="modal-top">
                     <div className="modal-headerContent">
                         <div className={config.iconClass}>
                             <Icon size={20} />

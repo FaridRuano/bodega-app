@@ -21,6 +21,16 @@
     gap: 16px;
 }
 
+.sectionPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-secondary);
+}
+
 .sectionHeader {
     display: flex;
     align-items: flex-start;
@@ -87,24 +97,14 @@
     line-height: 1.4;
 }
 
-.addButton {
-    border: none;
-    border-radius: 12px;
-    padding: 10px 14px;
-    background: var(--foreground);
-    color: var(--background);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 600;
+.addAction {
+    width: auto;
 }
 
 .addButtonDisabled {
     opacity: 0.55;
     cursor: not-allowed;
-    background: var(--surface-secondary);
+    background: var(--surface-primary);
     color: var(--text-muted);
     border-color: var(--border-subtle);
     box-shadow: none;
@@ -305,7 +305,7 @@
         align-items: stretch;
     }
 
-    .addButton {
+    .addAction {
         justify-content: center;
     }
 }

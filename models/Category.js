@@ -23,6 +23,12 @@ const categorySchema = new Schema(
             maxlength: [250, "Description cannot exceed 250 characters."],
             default: "",
         },
+        familyId: {
+            type: Schema.Types.ObjectId,
+            ref: "ProductFamily",
+            default: null,
+            index: true,
+        },
         isActive: {
             type: Boolean,
             default: true,
@@ -50,6 +56,7 @@ categorySchema.pre("validate", function () {
 
 categorySchema.index({ name: 1 });
 categorySchema.index({ slug: 1 }, { unique: true });
+categorySchema.index({ familyId: 1, isActive: 1 });
 
 const Category = models.Category || model("Category", categorySchema);
 

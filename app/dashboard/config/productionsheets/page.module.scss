@@ -4,6 +4,49 @@
     gap: 24px;
 }
 
+.heroShell {
+    margin-bottom: 0;
+}
+
+.heroStats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.heroStatButton {
+    cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.heroStatButton:hover {
+    transform: translateY(-1px);
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.actionGroup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.clearSlot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
 .hero {
     display: flex;
     align-items: flex-start;
@@ -99,51 +142,18 @@
 .filtersCard {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 20px;
-    border-radius: 22px;
-    border: 1px solid var(--border-subtle);
-    background: var(--surface-primary);
-    box-shadow: var(--shadow-sm);
-}
-
-.filtersHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.filtersTitle {
-    margin: 0;
-    font-size: 1rem;
-    color: var(--text-primary);
-}
-
-.clearButton {
+    gap: 14px;
+    padding: 0;
     border: none;
     background: transparent;
-    color: var(--accent);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
+    box-shadow: none;
 }
 
-.searchField {
-    position: relative;
-}
-
-.searchIcon {
-    position: absolute;
-    top: 50%;
-    left: 14px;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    pointer-events: none;
-}
-
-.searchInput {
-    padding-left: 40px;
+.filtersGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(180px, 0.7fr)) auto;
+    gap: 12px;
+    align-items: center;
 }
 
 .errorText {
@@ -158,15 +168,15 @@
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+    grid-template-columns: 1fr;
+    gap: 16px;
 }
 
 .templateCard {
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    padding: 20px;
+    gap: 10px;
+    padding: 16px 18px;
     border-radius: 22px;
     border: 1px solid var(--border-subtle);
     background: var(--surface-primary);
@@ -179,8 +189,8 @@
 }
 
 .templateCard:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
     border-color: var(--border-strong);
 }
 
@@ -198,7 +208,7 @@
 .cardHeaderMain {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .cardBadges {
@@ -247,57 +257,10 @@
     color: var(--text-primary);
 }
 
-.cardDescription {
+.cardSubtitle {
     margin: 0;
     font-size: 14px;
-    line-height: 1.6;
-    color: var(--text-secondary);
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.cardMeta {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.metaPill {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px;
-    border-radius: 16px;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-subtle);
-}
-
-.metaLabel {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-    font-weight: 700;
-}
-
-.metaValue {
-    font-size: 14px;
-    color: var(--text-primary);
-    overflow: hidden;
-}
-
-.cardFooter {
-    padding-top: 2px;
-    border-top: 1px solid var(--border-subtle);
-}
-
-.footerText {
-    display: inline-block;
-    padding-top: 14px;
-    font-size: 13px;
+    line-height: 1.4;
     color: var(--text-secondary);
 }
 
@@ -386,31 +349,39 @@
 }
 
 @media (max-width: 1100px) {
-    .grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .statsGrid {
+    .filtersGrid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 768px) {
-    .hero {
-        flex-direction: column;
+    .toolbar {
+        justify-content: stretch;
     }
 
-    .heroActions {
+    .actionGroup {
         width: 100%;
     }
 
-    .heroActions .btn {
+    .actionGroup :global(.miniAction) {
         flex: 1;
+        justify-content: center;
     }
 
-    .grid,
-    .statsGrid,
-    .cardMeta {
+    .filtersGrid {
         grid-template-columns: 1fr;
+    }
+
+    .clearSlot {
+        justify-content: stretch;
+    }
+
+    .clearSlot :global(.miniAction) {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .templateCard {
+        padding: 16px;
     }
 }

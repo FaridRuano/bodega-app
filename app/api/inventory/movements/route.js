@@ -7,6 +7,7 @@ import Product from "@models/Product";
 import InventoryStock from "@models/InventoryStock";
 import InventoryMovement from "@models/InventoryMovement";
 import { parsePositiveNumber } from "@libs/apiUtils";
+import { createStockAlertNotifications } from "@libs/notifications";
 import {
     getLocationLabel,
     getMovementTypeLabel,
@@ -16,7 +17,7 @@ import {
 function normalizeLocation(value) {
     const location = String(value || "").trim().toLowerCase();
 
-    const allowed = ["warehouse", "kitchen"];
+    const allowed = ["warehouse", "kitchen", "lounge"];
     return allowed.includes(location) ? location : null;
 }
 
@@ -36,6 +37,34 @@ function normalizeMovementType(value) {
     ];
 
     return allowed.includes(type) ? type : null;
+}
+
+function normalizeDate(value) {
+    const raw = String(value || "").trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return null;
+    }
+
+    const date = new Date(`${raw}T00:00:00.000Z`);
+    return Number.isNaN(date.getTime()) ? null : raw;
+}
+
+function normalizeDateOnlyRange(value, endOfDay = false) {
+    const raw = String(value || "").trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return null;
+    }
+
+    const date = new Date(`${raw}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) return null;
+
+    if (endOfDay) {
+        date.setUTCHours(23, 59, 59, 999);
+    }
+
+    return date;
 }
 
 function getPerformedByLabel(user) {
@@ -108,10 +137,16 @@ export async function POST(request) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
         if (response) return response;
 
         await dbConnect();
+        await Promise.all([
+            InventoryStock.createCollection().catch(() => null),
+            InventoryMovement.createCollection().catch(() => null),
+            InventoryStock.syncIndexes().catch(() => null),
+            InventoryMovement.syncIndexes().catch(() => null),
+        ]);
 
         const body = await request.json();
 
@@ -145,6 +180,7 @@ export async function POST(request) {
         }
 
         const isKitchenUser = user.role === "kitchen";
+        const isLoungeUser = user.role === "lounge";
 
         if (isKitchenUser) {
             const isAllowedMovement =
@@ -156,6 +192,22 @@ export async function POST(request) {
                     {
                         success: false,
                         message: "Cocina solo puede registrar ajustes manuales dentro de su inventario.",
+                    },
+                    { status: 403 }
+                );
+            }
+        }
+
+        if (isLoungeUser) {
+            const isAllowedMovement =
+                ["adjustment_in", "adjustment_out"].includes(movementType) &&
+                location === "lounge";
+
+            if (!isAllowedMovement) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Lounge solo puede registrar ajustes manuales dentro de su inventario.",
                     },
                     { status: 403 }
                 );
@@ -274,6 +326,29 @@ export async function POST(request) {
         await session.commitTransaction();
         session.endSession();
 
+        const alertLocations = Array.from(
+            new Set(
+                [location, fromLocation, toLocation]
+                    .map((value) => String(value || "").trim().toLowerCase())
+                    .filter(Boolean)
+            )
+        );
+        const alertStocks = await InventoryStock.find({
+            productId,
+            location: { $in: alertLocations },
+        }).lean();
+
+        await createStockAlertNotifications(
+            alertStocks.map((stock) => ({
+                productId: stock.productId,
+                product,
+                location: stock.location,
+                quantity: Number(stock.quantity || 0),
+            }))
+        ).catch((notificationError) => {
+            console.error("inventory movement stock alert notification error:", notificationError);
+        });
+
         return NextResponse.json(
             {
                 success: true,
@@ -309,8 +384,13 @@ export async function GET(request) {
         const page = parsePositiveNumber(searchParams.get("page"), 1);
         const limit = Math.min(parsePositiveNumber(searchParams.get("limit"), 50), 200);
         const productId = String(searchParams.get("productId") || "").trim();
+        const search = String(searchParams.get("search") || "").trim();
         const movementType = normalizeMovementType(searchParams.get("movementType"));
         const location = normalizeLocation(searchParams.get("location"));
+        const date = normalizeDate(searchParams.get("date"));
+        const dateFrom = normalizeDateOnlyRange(searchParams.get("dateFrom"));
+        const dateTo = normalizeDateOnlyRange(searchParams.get("dateTo"), true);
+        const performedBy = String(searchParams.get("performedBy") || "").trim();
 
         const query = {};
 
@@ -324,6 +404,41 @@ export async function GET(request) {
 
         if (location) {
             query.$or = [{ fromLocation: location }, { toLocation: location }];
+        }
+
+        if (date) {
+            const start = new Date(`${date}T00:00:00.000Z`);
+            const end = new Date(`${date}T23:59:59.999Z`);
+            query.movementDate = { $gte: start, $lte: end };
+        } else if (dateFrom || dateTo) {
+            query.movementDate = {};
+            if (dateFrom) query.movementDate.$gte = dateFrom;
+            if (dateTo) query.movementDate.$lte = dateTo;
+        }
+
+        if (performedBy && mongoose.Types.ObjectId.isValid(performedBy)) {
+            query.performedBy = performedBy;
+        }
+
+        if (search) {
+            const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+            const matchingProducts = await Product.find({
+                $or: [{ name: searchRegex }, { code: searchRegex }],
+            })
+                .select("_id")
+                .lean();
+
+            const matchingProductIds = matchingProducts.map((product) => product._id);
+
+            query.$and = [
+                ...(query.$and || []),
+                {
+                    $or: [
+                        { notes: searchRegex },
+                        ...(matchingProductIds.length > 0 ? [{ productId: { $in: matchingProductIds } }] : []),
+                    ],
+                },
+            ];
         }
 
         const skip = (page - 1) * limit;

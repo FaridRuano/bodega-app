@@ -1,3 +1,32 @@
+.heroShell {
+    margin-bottom: 10px;
+}
+
+.heroStats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.heroStatButton {
+    cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        opacity 0.18s ease;
+}
+
+.heroStatButton:hover {
+    transform: translateY(-1px);
+}
+
+.heroStatActive {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 45%, transparent);
+}
+
 .headerRow {
     display: flex;
     align-items: center;
@@ -7,81 +36,25 @@
     margin-bottom: 18px;
 }
 
-.statsGroup {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(160px, 80px));
-    gap: 12px;
-    flex: 1;
-}
-
-.statCard {
-    position: relative;
-    overflow: hidden;
-    padding: 10px 16px;
-    border-radius: 18px;
-    border: 1px solid var(--border-subtle);
-    background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-        var(--surface-primary);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-    text-align: start;
+.sectionIntro {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    cursor: pointer;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 16px;
+    color: var(--text-secondary);
 
-    transition:
-        transform 0.18s ease,
-        border-color 0.18s ease,
-        background 0.18s ease,
-        box-shadow 0.18s ease;
-}
-
-.warningCard {
-    background: var(--warning-soft);
-
-    &.activeCard {
-        border-color: var(--warning);
+    strong {
+        color: var(--text-primary);
+        font-size: 14px;
+        font-weight: 700;
     }
-}
 
-.infoCard {
-    background: var(--info-soft);
-
-    &.activeCard {
-        border-color: var(--info);
+    span {
+        font-size: 13px;
+        line-height: 1.5;
+        text-align: right;
     }
-}
-
-.successCard {
-    background: var(--success-soft);
-
-    &.activeCard {
-        border-color: var(--success);
-    }
-}
-
-.activeCard {
-    transform: scale(1.025);
-    box-shadow: var(--shadow-sm);
-}
-
-.statLabel {
-    position: relative;
-    margin: 0;
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.2;
-    color: var(--text-muted);
-}
-
-.statValue {
-    position: relative;
-    margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--text-primary);
 }
 
 .toolbar {
@@ -91,6 +64,11 @@
     gap: 14px;
     flex-wrap: wrap;
     margin-bottom: 20px;
+}
+
+.actionGroup :global(.miniAction),
+.filtersGroup :global(.miniAction) {
+    justify-content: center;
 }
 
 .actionGroup {
@@ -103,30 +81,6 @@
 .searchBox {
     min-width: 280px;
     flex: 1;
-    padding: 0 14px;
-    height: 46px;
-
-    display: flex;
-    align-items: center;
-    gap: 10px;
-
-    border-radius: 14px;
-    border: 1px solid var(--border-subtle);
-    background: var(--surface-primary);
-    color: var(--text-muted);
-}
-
-.searchInput {
-    flex: 1;
-    border: none;
-    background: transparent;
-    outline: none;
-    color: var(--text-primary);
-    font-size: 14px;
-}
-
-.searchInput::placeholder {
-    color: var(--text-muted);
 }
 
 .filtersGroup {
@@ -164,12 +118,17 @@
     background: var(--surface-primary);
     box-shadow: var(--shadow-sm);
     cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.15s ease;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
 }
 
 .requestCard:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     border-color: var(--border-accent);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
 }
 
 .cardHeader {
@@ -316,6 +275,15 @@
         align-items: stretch;
     }
 
+    .sectionIntro {
+        flex-direction: column;
+        align-items: flex-start;
+
+        span {
+            text-align: left;
+        }
+    }
+
     .requestList {
         grid-template-columns: 1fr;
     }
@@ -330,7 +298,7 @@
         grid-template-columns: 1fr 1fr;
     }
 
-    .actionGroup :global(.btn) {
+    .actionGroup :global(.miniAction) {
         width: 100%;
         justify-content: center;
     }
@@ -342,7 +310,7 @@
         align-items: stretch;
     }
 
-    .filtersGroup :global(.btn) {
+    .filtersGroup :global(.miniAction) {
         width: 100%;
         justify-content: center;
     }

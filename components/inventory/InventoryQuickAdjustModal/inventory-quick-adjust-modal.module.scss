@@ -1,0 +1,68 @@
+.quickModal {
+  max-width: 460px;
+}
+
+.productCard {
+  display: grid;
+  gap: 8px;
+}
+
+.productMain {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.productCopy {
+  min-width: 0;
+}
+
+.productName {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.productMeta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.formGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.helperCard {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.16);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(220, 38, 38, 0.03));
+}
+
+.alertTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.alertText {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.footer {
+  margin-top: 0;
+}
+
+.footer :global(.miniAction) {
+  min-width: 138px;
+}

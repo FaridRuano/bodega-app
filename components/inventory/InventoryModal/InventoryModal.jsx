@@ -1,35 +1,36 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { ArrowLeftRight, PackagePlus, PackageMinus, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, PackageMinus, PackagePlus, Trash2, X } from "lucide-react";
 
 import styles from "./inventory-modal.module.scss";
+import { getUnitLabel } from "@libs/constants/units";
 
 const MODE_CONFIG = {
     entry: {
         title: "Agregar inventario",
-        description: "Registra una entrada manual de inventario para este producto.",
+        description: "Registra una entrada manual para actualizar existencias.",
         icon: PackagePlus,
         iconClass: "modal-icon modal-icon--success",
         submitLabel: "Registrar entrada",
     },
     exit: {
         title: "Retirar inventario",
-        description: "Registra una salida manual de inventario para este producto.",
+        description: "Registra una salida manual para este producto.",
         icon: PackageMinus,
         iconClass: "modal-icon modal-icon--warning",
         submitLabel: "Registrar salida",
     },
     waste: {
         title: "Registrar merma",
-        description: "Registra inventario perdido, dañado o vencido.",
+        description: "Descuenta inventario perdido, dañado o vencido.",
         icon: Trash2,
         iconClass: "modal-icon modal-icon--danger",
         submitLabel: "Registrar merma",
     },
     transfer: {
         title: "Transferir inventario",
-        description: "Mueve existencias entre ubicaciones.",
+        description: "Mueve existencias entre ubicaciones del sistema.",
         icon: ArrowLeftRight,
         iconClass: "modal-icon modal-icon--info",
         submitLabel: "Registrar transferencia",
@@ -39,6 +40,7 @@ const MODE_CONFIG = {
 const LOCATION_OPTIONS = [
     { value: "warehouse", label: "Bodega" },
     { value: "kitchen", label: "Cocina" },
+    { value: "lounge", label: "Salon" },
 ];
 
 function getStockByLocation(product, location) {
@@ -118,18 +120,18 @@ export default function InventoryMovementModal({
     if (!open || !product) return null;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay">
             <div
                 className={`modal-container ${styles.movementModal}`}
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
+                <div className="modal-top">
                     <div className="modal-headerContent">
                         <div className={config.iconClass}>
                             <Icon size={20} />
                         </div>
 
-                        <div>
+                        <div className="modal-headerBlock">
                             <h2 className="modal-title">{config.title}</h2>
                             <p className="modal-description">{config.description}</p>
                         </div>
@@ -145,52 +147,68 @@ export default function InventoryMovementModal({
                     </button>
                 </div>
 
-                <div className="modal-body">
-                    <div className={styles.productCard}>
-                        <div className={styles.productMain}>
-                            <div>
-                                <p className={styles.productName}>{product.name}</p>
-                                <p className={styles.productMeta}>
-                                    Código: <span>{product.code || "Sin código"}</span>
-                                </p>
-                            </div>
-
-                            <span className={styles.unitBadge}>{product.unit}</span>
+                <form className="modal-body" onSubmit={handleFormSubmit}>
+                    <section className="modal-section fadeSlideIn">
+                        <div className="modal-sectionHeader">
+                            <h3 className="modal-sectionTitle">Producto</h3>
+                            <p className="modal-sectionDescription">
+                                Consulta el stock actual antes de registrar el movimiento.
+                            </p>
                         </div>
 
-                        <div className={styles.stockGrid}>
-                            <div className={styles.stockItem}>
-                                <span className={styles.stockLabel}>Total actual</span>
-                                <strong className={styles.stockValue}>
-                                    {Number(product.inventory?.total || 0)}
-                                </strong>
+                        <div className={styles.productCard}>
+                            <div className={styles.productMain}>
+                                <div className={styles.productCopy}>
+                                    <p className={styles.productName}>{product.name}</p>
+                                    <p className={styles.productMeta}>
+                                        {product.code || "Sin codigo"}
+                                    </p>
+                                </div>
+
+                                <span className={styles.unitBadge}>{getUnitLabel(product.unit)}</span>
                             </div>
 
-                            <div className={styles.stockItem}>
-                                <span className={styles.stockLabel}>Bodega</span>
-                                <strong className={styles.stockValue}>
-                                    {Number(product.inventory?.warehouse || 0)}
-                                </strong>
-                            </div>
+                            <div className={styles.stockGrid}>
+                                <div className={styles.stockItem}>
+                                    <span className={styles.stockLabel}>Total</span>
+                                    <strong className={styles.stockValue}>
+                                        {Number(product.inventory?.total || 0)}
+                                    </strong>
+                                </div>
 
-                            <div className={styles.stockItem}>
-                                <span className={styles.stockLabel}>Cocina</span>
-                                <strong className={styles.stockValue}>
-                                    {Number(product.inventory?.kitchen || 0)}
-                                </strong>
-                            </div>
+                                <div className={styles.stockItem}>
+                                    <span className={styles.stockLabel}>Bodega</span>
+                                    <strong className={styles.stockValue}>
+                                        {Number(product.inventory?.warehouse || 0)}
+                                    </strong>
+                                </div>
 
-                            <div className={styles.stockItem}>
-                                <span className={styles.stockLabel}>Disponible</span>
-                                <strong className={styles.stockValue}>
-                                    {Number(product.inventory?.available || 0)}
-                                </strong>
+                                <div className={styles.stockItem}>
+                                    <span className={styles.stockLabel}>Cocina</span>
+                                    <strong className={styles.stockValue}>
+                                        {Number(product.inventory?.kitchen || 0)}
+                                    </strong>
+                                </div>
+
+                                <div className={styles.stockItem}>
+                                    <span className={styles.stockLabel}>Salon</span>
+                                    <strong className={styles.stockValue}>
+                                        {Number(product.inventory?.lounge || 0)}
+                                    </strong>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <form className={styles.form} onSubmit={handleFormSubmit}>
-                        <div className="form-grid">
+                    <section className="modal-section fadeSlideIn delayOne">
+                        <div className="modal-sectionHeader">
+                            <h3 className="modal-sectionTitle">Movimiento</h3>
+                            <p className="modal-sectionDescription">
+                                Completa la cantidad y la ubicación correspondiente.
+                            </p>
+                        </div>
+
+                        <div className={`form-grid ${isTransfer ? "form-grid--3" : "form-grid--2"}`}>
                             <div className="form-field">
                                 <label className="form-label" htmlFor="movement-quantity">
                                     Cantidad
@@ -209,39 +227,17 @@ export default function InventoryMovementModal({
                                 />
                             </div>
 
-                            {!isTransfer && (
+                            {!isTransfer ? (
                                 <div className="form-field">
                                     <label className="form-label" htmlFor="movement-location">
-                                        {mode === "entry" ? "Ubicación destino" : "Ubicación origen"}
+                                        {mode === "entry" ? "Ubicacion destino" : "Ubicacion origen"}
                                     </label>
-                                    <select
-                                        id="movement-location"
-                                        name="location"
-                                        className={`form-input ${styles.selectInput}`}
-                                        value={formData.location}
-                                        onChange={onChange}
-                                        required
-                                    >
-                                        {locationOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {isTransfer && (
-                                <>
-                                    <div className="form-field">
-                                        <label className="form-label" htmlFor="movement-from-location">
-                                            Ubicación origen
-                                        </label>
+                                    <div className="selectWrap">
                                         <select
-                                            id="movement-from-location"
-                                            name="fromLocation"
+                                            id="movement-location"
+                                            name="location"
                                             className={`form-input ${styles.selectInput}`}
-                                            value={formData.fromLocation}
+                                            value={formData.location}
                                             onChange={onChange}
                                             required
                                         >
@@ -252,87 +248,123 @@ export default function InventoryMovementModal({
                                             ))}
                                         </select>
                                     </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="form-field">
+                                        <label className="form-label" htmlFor="movement-from-location">
+                                            Ubicacion origen
+                                        </label>
+                                        <div className="selectWrap">
+                                            <select
+                                                id="movement-from-location"
+                                                name="fromLocation"
+                                                className={`form-input ${styles.selectInput}`}
+                                                value={formData.fromLocation}
+                                                onChange={onChange}
+                                                required
+                                            >
+                                                {locationOptions.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
 
                                     <div className="form-field">
                                         <label className="form-label" htmlFor="movement-to-location">
-                                            Ubicación destino
+                                            Ubicacion destino
                                         </label>
-                                        <select
-                                            id="movement-to-location"
-                                            name="toLocation"
-                                            className={`form-input ${styles.selectInput}`}
-                                            value={formData.toLocation}
-                                            onChange={onChange}
-                                            required
-                                        >
-                                            {locationOptions.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="selectWrap">
+                                            <select
+                                                id="movement-to-location"
+                                                name="toLocation"
+                                                className={`form-input ${styles.selectInput}`}
+                                                value={formData.toLocation}
+                                                onChange={onChange}
+                                                required
+                                            >
+                                                {locationOptions.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 </>
                             )}
                         </div>
 
-                        {(isExitLike || isTransfer) && (
-                            <div className={styles.helperCard}>
-                                <span className={styles.helperLabel}>
-                                    Stock actual en la ubicación seleccionada
-                                </span>
-                                <strong className={styles.helperValue}>{selectedLocationStock}</strong>
+                        {(exceedsAvailableStock || hasInvalidTransfer) && (
+                            <div className={`${styles.helperCard} fadeSlideIn`}>
+                                {exceedsAvailableStock ? (
+                                    <div className={styles.alertItem}>
+                                        <span className={styles.alertTitle}>Cantidad no disponible</span>
+                                        <p className={styles.alertText}>
+                                            La cantidad ingresada no puede ser mayor al stock disponible en la
+                                            ubicacion seleccionada.
+                                        </p>
+                                    </div>
+                                ) : null}
+
+                                {hasInvalidTransfer ? (
+                                    <div className={styles.alertItem}>
+                                        <span className={styles.alertTitle}>Transferencia invalida</span>
+                                        <p className={styles.alertText}>
+                                            La ubicacion de origen y destino no pueden ser la misma.
+                                        </p>
+                                    </div>
+                                ) : null}
                             </div>
                         )}
+                    </section>
 
-                        {exceedsAvailableStock && (
-                            <p className={styles.errorText}>
-                                La cantidad ingresada no puede ser mayor al stock disponible en la
-                                ubicación seleccionada.
+                    <section className="modal-section fadeSlideIn delayTwo">
+                        <div className="modal-sectionHeader">
+                            <h3 className="modal-sectionTitle">Notas</h3>
+                            <p className="modal-sectionDescription">
+                                Agrega contexto si necesitas dejar una observacion interna.
                             </p>
-                        )}
-
-                        {hasInvalidTransfer && (
-                            <p className={styles.errorText}>
-                                La ubicación de origen y destino no pueden ser la misma.
-                            </p>
-                        )}
+                        </div>
 
                         <div className="form-field">
                             <label className="form-label" htmlFor="movement-notes">
-                                Notas
+                                Detalle
                             </label>
                             <textarea
                                 id="movement-notes"
                                 name="notes"
-                                className={`form-textarea ${styles.notesField}`}
+                                className={`form-textarea`}
                                 value={formData.notes}
                                 onChange={onChange}
-                                placeholder="Agrega una observación o detalle del movimiento"
-                                rows={4}
+                                placeholder="Agrega una observacion o detalle del movimiento"
+                                rows={3}
                             />
                         </div>
+                    </section>
 
-                        <div className="modal-footer">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={onClose}
-                                disabled={isSubmitting}
-                            >
-                                Cancelar
-                            </button>
+                    <div className={`modal-footer ${styles.footer} fadeSlideIn delayThree`}>
+                        <button
+                            type="button"
+                            className="miniAction modal-textButton"
+                            onClick={onClose}
+                            disabled={isSubmitting}
+                        >
+                            Cancelar
+                        </button>
 
-                            <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={isSubmitDisabled}
-                            >
-                                {isSubmitting ? "Guardando..." : config.submitLabel}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                        <button
+                            type="submit"
+                            className="miniAction miniActionPrimary modal-textButton"
+                            disabled={isSubmitDisabled}
+                        >
+                            {isSubmitting ? "Guardando..." : config.submitLabel}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );

@@ -17,7 +17,7 @@ export default function ProductionCancelledView({ production }) {
     const router = useRouter();
 
     return (
-        <div className={styles.page}>
+        <div className="page">
             <div className={styles.header}>
                 <button
                     type="button"

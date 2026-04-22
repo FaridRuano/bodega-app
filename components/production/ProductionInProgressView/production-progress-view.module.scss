@@ -32,6 +32,10 @@
     flex-wrap: wrap;
 }
 
+.headerActions :global(.miniAction) {
+    justify-content: center;
+}
+
 .summaryGrid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -95,6 +99,11 @@
     background: var(--surface-secondary);
 }
 
+.rowCard {
+    display: grid;
+    gap: 12px;
+}
+
 .readonlyRow {
     display: flex;
     align-items: center;
@@ -113,15 +122,69 @@
     gap: 6px;
 }
 
-.input,
-.textarea {
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 12px;
-    border-radius: 12px;
+.inlineField {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.inlineUnit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
     border: 1px solid var(--border-subtle);
-    background: var(--surface-primary);
-    color: var(--text-primary);
+    background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.readonlyField {
+    display: grid;
+    align-items: center;
+    min-height: 36px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
+
+    span {
+        color: var(--text-primary);
+        font-size: 13px;
+        line-height: 1.2;
+    }
+}
+
+.fieldShell {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 36px;
+    border: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
+    border-radius: 999px;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+.fieldShell:focus-within {
+    border-color: var(--border-accent);
+    box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.selectShell {
+    width: 100%;
+}
+
+.selectInput {
+    border-radius: 999px !important;
 }
 
 .textarea {
@@ -215,6 +278,13 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 12%, transparent);
 }
 
+.flagToggleSecondary {
+    background: var(--warning-soft);
+    border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+    color: var(--warning);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
 .flagToggle:has(input:disabled) {
     opacity: 0.6;
     cursor: not-allowed;
@@ -238,6 +308,29 @@
 
     .rowGrid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .header {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .header > div {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .headerActions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .headerActions :global(.miniAction),
+    .backButton {
+        width: 100%;
     }
 }
 

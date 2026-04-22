@@ -4,6 +4,23 @@
     gap: 18px;
 }
 
+.flowGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.readonlyField {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+}
+
 /* ITEMS */
 
 .itemsSection {
@@ -138,6 +155,10 @@
 /* RESPONSIVE */
 
 @media (max-width: 768px) {
+    .flowGrid {
+        grid-template-columns: 1fr;
+    }
+
     .itemRow {
         grid-template-columns: 1fr;
         padding-right: 14px;

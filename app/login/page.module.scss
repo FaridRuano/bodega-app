@@ -38,18 +38,6 @@
   animation: floatBlobTwo 14s ease-in-out infinite;
 }
 
-.gridOverlay {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 34px 34px;
-  mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
-  -webkit-mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
-  pointer-events: none;
-}
-
 .loginCard {
   position: relative;
   z-index: 1;
@@ -155,13 +143,13 @@
 
 .input {
   width: 100%;
-  min-height: 52px;
-  padding: 0.95rem 1rem;
+  min-height: 46px;
+  padding: 0 0.95rem;
   border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface-primary) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
   color: var(--text-primary);
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   outline: none;
   transition:
     border-color 0.2s ease,
@@ -200,6 +188,45 @@
   line-height: 1.5;
 }
 
+.successBox {
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--success) 24%, var(--border-subtle));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--success-soft) 72%, transparent);
+  color: var(--success);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.secondaryLink {
+  justify-self: start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.secondaryLink:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+
+.secondaryLink:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.secondaryLink:focus-visible {
+  outline: none;
+  text-decoration: underline;
+}
+
 .submitButton {
   position: relative;
   min-height: 54px;
@@ -219,7 +246,6 @@
     filter 0.22s ease,
     opacity 0.22s ease;
 }
-
 
 .submitButton:hover:not(:disabled) {
   transform: translateY(-2px);
@@ -269,6 +295,7 @@
     transform: translateY(28px) scale(0.97);
     filter: blur(8px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -281,6 +308,7 @@
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-5px);
   }
@@ -291,6 +319,7 @@
   100% {
     transform: translate3d(0, 0, 0) scale(1);
   }
+
   50% {
     transform: translate3d(18px, 22px, 0) scale(1.03);
   }
@@ -301,6 +330,7 @@
   100% {
     transform: translate3d(0, 0, 0) scale(1);
   }
+
   50% {
     transform: translate3d(-16px, -20px, 0) scale(1.04);
   }

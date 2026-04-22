@@ -1,0 +1,196 @@
+.modalShell {
+  max-width: 760px;
+}
+
+.summaryCard,
+.itemsCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+}
+
+.receiveCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+}
+
+.summaryTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.requestNumber {
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.summaryMeta,
+.itemMain span,
+.itemSide span,
+.itemNote,
+.noteText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.statusBadge,
+.metricChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.metricsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.noteCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-secondary);
+}
+
+.noteLabel {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.itemsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.itemsTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.98rem;
+}
+
+.itemsList {
+  display: grid;
+  gap: 10px;
+}
+
+.itemRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-secondary);
+}
+
+.itemMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itemMain strong,
+.metricBlock strong {
+  color: var(--text-primary);
+}
+
+.itemMetrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.metricBlock {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 72px;
+}
+
+.metricBlock span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.itemNote {
+  grid-column: 1 / -1;
+}
+
+.receiveRow {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.receiveHint {
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.receiveInput {
+  max-width: 160px;
+}
+
+.receiveNote {
+  min-height: 88px;
+  resize: vertical;
+}
+
+@media (max-width: 640px) {
+  .summaryTop,
+  .itemRow {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .itemMetrics {
+    justify-content: flex-start;
+  }
+
+  .metricBlock {
+    align-items: flex-start;
+  }
+
+  .receiveRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .receiveInput {
+    max-width: none;
+  }
+}

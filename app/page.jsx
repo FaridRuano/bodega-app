@@ -6,7 +6,6 @@ export default function HomePage() {
     <main className={styles.homePage}>
       <div className={styles.glowOne} />
       <div className={styles.glowTwo} />
-      <div className={styles.gridOverlay} />
 
       <section className={styles.heroCard}>
         <div className={styles.topLine} />

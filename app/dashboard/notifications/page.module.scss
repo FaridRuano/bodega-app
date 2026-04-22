@@ -1,0 +1,177 @@
+.heroShell {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.heroStats {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+}
+
+.toolbar {
+    margin-top: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+}
+
+.filterGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.list {
+    margin-top: 1.2rem;
+    display: grid;
+    gap: 0.9rem;
+}
+
+.card {
+    width: 100%;
+    padding: 1rem 1.05rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 22px;
+    background: var(--surface-secondary);
+    appearance: none;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--surface-secondary) 82%, var(--surface-elevated) 18%);
+}
+
+.cardUnread {
+    border-color: color-mix(in srgb, var(--info) 22%, var(--border-subtle));
+    background: color-mix(in srgb, var(--info-soft) 20%, var(--surface-secondary) 80%);
+}
+
+.cardIcon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--info-soft) 60%, transparent);
+    color: var(--info);
+}
+
+.cardBody {
+    min-width: 0;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.cardTop,
+.cardMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.cardTitle {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.unreadBadge {
+    padding: 0.18rem 0.48rem;
+    border-radius: 999px;
+    background: var(--info-soft);
+    color: var(--info);
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.cardMessage {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.cardMeta {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.emptyState {
+    margin-top: 1.2rem;
+    padding: 1.2rem;
+    border: 1px dashed var(--border-subtle);
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--surface-secondary) 75%, transparent);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.emptyTitle {
+    margin: 0 0 0.35rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.emptyDescription {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .toolbar {
+        align-items: stretch;
+    }
+
+    .filterGroup {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .filterGroup :global(.miniAction),
+    .filterGroup :global(.selectWrap) {
+        width: 100%;
+    }
+
+    .filterGroup :global(.miniAction) {
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .filterGroup :global(.selectWrap select) {
+        width: 100%;
+    }
+
+    .card {
+        grid-template-columns: 1fr;
+    }
+
+    .cardTop,
+    .cardMeta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

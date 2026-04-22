@@ -1,0 +1,244 @@
+.tableWrap {
+    display: grid;
+    gap: 6px;
+}
+
+.tableHeader,
+.tableRow {
+    display: grid;
+    grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr)) minmax(122px, auto);
+    gap: 8px;
+    align-items: center;
+}
+
+.tableHeader {
+    padding: 0 0 6px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tableHeader span {
+    justify-self: start;
+    text-align: left;
+}
+
+.tableBody {
+    display: grid;
+}
+
+.tableRow {
+    min-height: 46px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background-color 0.18s ease;
+}
+
+.tableRow:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.productCell {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.productMain {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.productName {
+    color: var(--text-primary);
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.productMeta {
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1.3;
+}
+
+.amountCell {
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    justify-self: start;
+    text-align: left;
+}
+
+.actionsCell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.actionsHeaderSpacer {
+    display: block;
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.statusSuccess {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.statusWarning {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.statusDanger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.statusMuted {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+.skeletonRow {
+    pointer-events: none;
+}
+
+.skeletonName,
+.skeletonValue,
+.skeletonActions {
+    display: block;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.skeletonName {
+    width: 70%;
+    height: 16px;
+}
+
+.skeletonValue {
+    width: 38px;
+    height: 14px;
+}
+
+.skeletonActions {
+    justify-self: end;
+    width: 94px;
+    height: 30px;
+}
+
+.emptyState {
+    padding: 28px 0;
+    border-top: 1px dashed var(--border-subtle);
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+@media (max-width: 1100px) {
+
+    .tableHeader,
+    .tableRow {
+        grid-template-columns: minmax(160px, 1.9fr) repeat(4, minmax(42px, 0.52fr)) minmax(112px, auto);
+        gap: 8px;
+    }
+
+    .productCell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+}
+
+@media (max-width: 900px) {
+    .tableHeader,
+    .tableRow {
+        min-width: 0;
+    }
+
+    .tableHeader {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--surface-primary);
+    }
+
+    .productCell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .productName {
+        font-size: 12px;
+        line-height: 1.2;
+    }
+
+    .productMeta {
+        display: none;
+    }
+
+    .amountCell {
+        font-size: 10px;
+    }
+
+    .statusBadge {
+        display: none;
+    }
+
+    .actionsCell {
+        display: none;
+    }
+
+    .actionsHeaderSpacer {
+        display: none;
+    }
+
+    .skeletonValue {
+        width: 32px;
+    }
+
+    .tableHeader,
+    .tableRow {
+        gap: 8px;
+        grid-template-columns: minmax(92px, 1.6fr) repeat(4, minmax(28px, 1fr)) !important;
+    }
+
+    .tableHeader {
+        font-size: 9px;
+        letter-spacing: 0.04em;
+    }
+
+    .tableHeader[data-scope="warehouse"],
+    .tableHeader[data-scope="kitchen"],
+    .tableHeader[data-scope="lounge"],
+    .tableRow[data-scope="warehouse"],
+    .tableRow[data-scope="kitchen"],
+    .tableRow[data-scope="lounge"] {
+        grid-template-columns: minmax(110px, 1.9fr) minmax(34px, 0.7fr) !important;
+    }
+}

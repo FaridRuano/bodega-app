@@ -2,7 +2,14 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
 import { requireUserRole } from "@libs/apiAuth";
+import { getLocationLabel } from "@libs/constants/domainLabels";
 import dbConnect from "@libs/mongodb";
+import {
+    createNotificationsForRoles,
+    createStockAlertNotifications,
+    NOTIFICATION_TYPES,
+} from "@libs/notifications";
+import Product from "@models/Product";
 import Request from "@models/Request";
 import InventoryStock from "@models/InventoryStock";
 
@@ -34,11 +41,13 @@ function normalizeRequestDocument(request) {
         returned: 0,
     };
 
+    const normalizedStatus = request.status === "approved" ? "processing" : request.status;
+
     return {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
-        status: request.status,
+        status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
 
@@ -138,7 +147,7 @@ export async function POST(request, { params }) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
         if (response) return response;
 
         await dbConnect();
@@ -175,9 +184,21 @@ export async function POST(request, { params }) {
         }
 
         const isReturnRequest = requestDoc.requestType === "return";
+        if (isReturnRequest) {
+            await session.abortTransaction();
+            session.endSession();
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Las devoluciones se registran automaticamente al despacharlas.",
+                },
+                { status: 409 }
+            );
+        }
+
         const canReceive = isReturnRequest
             ? ["admin", "warehouse"].includes(user.role)
-            : ["admin", "kitchen"].includes(user.role);
+            : ["admin", "kitchen", "lounge"].includes(user.role);
 
         if (!canReceive) {
             await session.abortTransaction();
@@ -193,9 +214,7 @@ export async function POST(request, { params }) {
             );
         }
 
-        const allowedStatuses = isReturnRequest
-            ? ["pending", "partially_fulfilled"]
-            : ["approved", "partially_fulfilled"];
+        const allowedStatuses = ["approved", "processing", "partially_fulfilled"];
 
         if (!allowedStatuses.includes(requestDoc.status)) {
             await session.abortTransaction();
@@ -238,6 +257,9 @@ export async function POST(request, { params }) {
 
         const itemMap = new Map(
             requestDoc.items.map((item) => [String(item._id), item])
+        );
+        const productIdMap = new Map(
+            requestDoc.items.map((item) => [String(item._id), String(item.productId || "")])
         );
 
         const providedItemIds = new Set();
@@ -331,6 +353,44 @@ export async function POST(request, { params }) {
         await requestDoc.save({ session });
         await session.commitTransaction();
         session.endSession();
+
+        const productIds = Array.from(
+            new Set(receiptLogItems.map((item) => productIdMap.get(String(item.requestItemId))).filter(Boolean))
+        );
+        const [products, destinationStocks] = await Promise.all([
+            Product.find({ _id: { $in: productIds } })
+                .select("name minStock reorderPoint")
+                .lean(),
+            InventoryStock.find({
+                productId: { $in: productIds },
+                location: requestDoc.destinationLocation,
+            }).lean(),
+        ]);
+
+        const productMap = new Map(products.map((product) => [String(product._id), product]));
+        const stockAlerts = destinationStocks.map((stock) => ({
+            productId: stock.productId,
+            product: productMap.get(String(stock.productId)) || {},
+            location: stock.location,
+            quantity: Number(stock.quantity || 0),
+        }));
+
+        await Promise.all([
+            createNotificationsForRoles(["admin"], {
+                type: NOTIFICATION_TYPES.internal_request_received,
+                title: "Transferencia confirmada",
+                message: `${requestDoc.requestNumber} ya fue confirmada en ${getLocationLabel(
+                    requestDoc.destinationLocation
+                )}.`,
+                href: "/dashboard/requests",
+                entityType: "request",
+                entityId: requestDoc._id,
+                priority: "normal",
+            }),
+            createStockAlertNotifications(stockAlerts),
+        ]).catch((notificationError) => {
+            console.error("internal request received notification error:", notificationError);
+        });
 
         const populated = await getRequestById(requestDoc._id);
 

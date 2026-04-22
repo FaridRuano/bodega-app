@@ -3,12 +3,12 @@ import styles from "./page.module.scss";
 export default function ConfigPage() {
   return (
     <div className={styles.container}>
-      <section className={styles.card}>
-        <div className={styles.cardHeader}>
+      <section className="hero fadeSlideIn">
+        <div className="heroCopy">
           <div>
-            <p className={styles.eyebrow}>Configuración</p>
-            <h2 className={styles.title}>Ajustes generales</h2>
-            <p className={styles.description}>
+            <p className="eyebrow">Configuración</p>
+            <h2 className="title">Ajustes generales</h2>
+            <p className="description">
               Administra la información básica del negocio y algunos parámetros
               generales del sistema.
             </p>

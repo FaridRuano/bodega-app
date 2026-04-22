@@ -13,9 +13,9 @@ import { getUnitLabel } from "@libs/constants/units";
 import styles from "./production-template-review.module.scss";
 
 const TEMPLATE_TYPE_LABELS = {
-    transformation: "Transformación",
+    transformation: "Transformacion",
     cutting: "Despiece",
-    preparation: "Preparación",
+    preparation: "Preparacion",
     portioning: "Porcionado",
 };
 
@@ -26,15 +26,35 @@ const DESTINATION_LABELS = {
 };
 
 function getProductName(product) {
-    if (!product) return "—";
+    if (!product) return "-";
 
     if (typeof product === "string") return product;
 
-    return product.code ? `${product.code} - ${product.name}` : product.name || "—";
+    return product.code ? `${product.code} - ${product.name}` : product.name || "-";
 }
 
 function getBooleanLabel(value) {
-    return value ? "Sí" : "No";
+    return value ? "Si" : "No";
+}
+
+function getFlowLabel(template) {
+    const inputsCount = template.inputs?.length || 0;
+    const outputsCount = template.outputs?.length || 0;
+
+    if (inputsCount === 1 && outputsCount === 1) {
+        return "1 insumo -> 1 resultado";
+    }
+
+    return `${inputsCount} insumos -> ${outputsCount} resultados`;
+}
+
+function CompactMeta({ label, value }) {
+    return (
+        <div className={styles.metaItem}>
+            <span className={styles.metaLabel}>{label}</span>
+            <span className={styles.metaValue}>{value || "-"}</span>
+        </div>
+    );
 }
 
 export default function ProductionTemplateReviewModal({
@@ -67,20 +87,33 @@ export default function ProductionTemplateReviewModal({
                 className={`modal-container modal-container--xl ${styles.modalContainer}`}
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
-                    <div className="modal-headerContent">
-                        <div className="modal-icon modal-icon--info">
-                            <ClipboardList size={20} />
-                        </div>
+                <div className="modal-top">
+                    <div className={styles.topBlock}>
+                        <div className="modal-headerContent">
+                            <div className="modal-icon modal-icon--info">
+                                <ClipboardList size={18} />
+                            </div>
 
-                        <div>
-                            <h3 className="modal-title">
-                                {template.name || "Ficha de producción"}
-                            </h3>
-                            <p className="modal-description">
-                                Revisa toda la configuración de la ficha antes de editarla,
-                                desactivarla o eliminarla.
-                            </p>
+                            <div className={styles.topCopy}>
+                                <div className={styles.badgesRow}>
+                                    {template.code ? (
+                                        <span className={styles.codeBadge}>{template.code}</span>
+                                    ) : null}
+
+                                    <span
+                                        className={`${styles.statusBadge} ${isActive ? styles.active : styles.inactive}`}
+                                    >
+                                        {isActive ? "Activa" : "Inactiva"}
+                                    </span>
+                                </div>
+
+                                <h3 className="modal-title">
+                                    {template.name || "Ficha de produccion"}
+                                </h3>
+                                <p className="modal-description">
+                                    {template.description || "Sin descripcion registrada."}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -95,126 +128,70 @@ export default function ProductionTemplateReviewModal({
                 </div>
 
                 <div className={`modal-body ${styles.modalBody}`}>
-                    <section className={styles.heroSection}>
-                        <div className={styles.heroMain}>
-                            <div className={styles.badgesRow}>
-                                {template.code ? (
-                                    <span className={styles.codeBadge}>{template.code}</span>
-                                ) : null}
-
-                                <span
-                                    className={`${styles.statusBadge} ${isActive ? styles.active : styles.inactive
-                                        }`}
-                                >
-                                    {isActive ? "Activa" : "Inactiva"}
-                                </span>
-                            </div>
-
-                            <h4 className={styles.heroTitle}>{template.name || "Sin nombre"}</h4>
-
-                            {template.description ? (
-                                <p className={styles.heroDescription}>{template.description}</p>
-                            ) : (
-                                <p className={styles.heroDescriptionMuted}>
-                                    Esta ficha no tiene descripción registrada.
-                                </p>
-                            )}
-                        </div>
+                    <section className={styles.summaryPanel}>
+                        <CompactMeta
+                            label="Tipo"
+                            value={TEMPLATE_TYPE_LABELS[template.type] || template.type}
+                        />
+                        <CompactMeta
+                            label="Base"
+                            value={getUnitLabel(template.baseUnit)}
+                        />
+                        <CompactMeta
+                            label="Flujo"
+                            value={getFlowLabel(template)}
+                        />
+                        <CompactMeta
+                            label="Destino"
+                            value={
+                                DESTINATION_LABELS[template.defaultDestination] ||
+                                template.defaultDestination
+                            }
+                        />
+                        <CompactMeta
+                            label="Gramaje"
+                            value={template.requiresWeightControl ? "Controlado" : "Libre"}
+                        />
+                        <CompactMeta
+                            label="Categoria"
+                            value={template.category?.name || "-"}
+                        />
                     </section>
 
                     <section className={styles.section}>
                         <div className={styles.sectionHeader}>
-                            <h4 className={styles.sectionTitle}>Información general</h4>
+                            <h4 className={styles.sectionTitle}>Configuracion</h4>
                         </div>
 
-                        <div className={styles.metaGrid}>
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Categoría</span>
-                                <span className={styles.metaValue}>
-                                    {template.category?.name || "—"}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Tipo</span>
-                                <span className={styles.metaValue}>
-                                    {TEMPLATE_TYPE_LABELS[template.type] || template.type || "—"}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Unidad base</span>
-                                <span className={styles.metaValue}>
-                                    {getUnitLabel(template.baseUnit)}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Destino por defecto</span>
-                                <span className={styles.metaValue}>
-                                    {DESTINATION_LABELS[template.defaultDestination] ||
-                                        template.defaultDestination ||
-                                        "—"}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Rendimiento esperado</span>
-                                <span className={styles.metaValue}>
-                                    {template.expectedYield ?? "—"}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Merma esperada</span>
-                                <span className={styles.metaValue}>
-                                    {template.expectedWaste ?? "—"}
-                                </span>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section className={styles.section}>
-                        <div className={styles.sectionHeader}>
-                            <h4 className={styles.sectionTitle}>Configuración operativa</h4>
+                        <div className={styles.metaRows}>
+                            <CompactMeta
+                                label="Rendimiento esperado"
+                                value={template.expectedYield ?? "-"}
+                            />
+                            <CompactMeta
+                                label="Merma esperada"
+                                value={template.expectedWaste ?? "-"}
+                            />
+                            <CompactMeta
+                                label="Multiples resultados"
+                                value={getBooleanLabel(template.allowsMultipleOutputs)}
+                            />
+                            <CompactMeta
+                                label="Registrar desperdicio"
+                                value={getBooleanLabel(template.requiresWasteRecord)}
+                            />
+                            <CompactMeta
+                                label="Ajuste real permitido"
+                                value={getBooleanLabel(template.allowRealOutputAdjustment)}
+                            />
                         </div>
 
-                        <div className={styles.toggleSummaryGrid}>
-                            <div className={styles.toggleSummaryCard}>
-                                <span className={styles.metaLabel}>Múltiples resultados</span>
-                                <span className={styles.metaValue}>
-                                    {getBooleanLabel(template.allowsMultipleOutputs)}
-                                </span>
+                        {template.notes ? (
+                            <div className={styles.notesBlock}>
+                                <span className={styles.metaLabel}>Notas</span>
+                                <p className={styles.notesText}>{template.notes}</p>
                             </div>
-
-                            <div className={styles.toggleSummaryCard}>
-                                <span className={styles.metaLabel}>Registrar merma</span>
-                                <span className={styles.metaValue}>
-                                    {getBooleanLabel(template.requiresWasteRecord)}
-                                </span>
-                            </div>
-
-                            <div className={styles.toggleSummaryCard}>
-                                <span className={styles.metaLabel}>Ajuste real permitido</span>
-                                <span className={styles.metaValue}>
-                                    {getBooleanLabel(template.allowRealOutputAdjustment)}
-                                </span>
-                            </div>
-
-                            <div className={styles.toggleSummaryCard}>
-                                <span className={styles.metaLabel}>Estado</span>
-                                <span className={styles.metaValue}>
-                                    {isActive ? "Activa" : "Inactiva"}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className={styles.notesBlock}>
-                            <span className={styles.metaLabel}>Notas</span>
-                            <p className={styles.notesText}>
-                                {template.notes || "Sin notas registradas."}
-                            </p>
-                        </div>
+                        ) : null}
                     </section>
 
                     <section className={styles.section}>
@@ -229,24 +206,20 @@ export default function ProductionTemplateReviewModal({
                             {template.inputs?.length ? (
                                 template.inputs.map((item, index) => (
                                     <article key={item._id || index} className={styles.itemCard}>
-                                        <div className={styles.itemHeader}>
-                                            <div>
-                                                <h5 className={styles.itemTitle}>
-                                                    {getProductName(item.productId)}
-                                                </h5>
-                                                <p className={styles.itemSubtitle}>
-                                                    {item.quantity} {getUnitLabel(item.unit)}
-                                                </p>
-                                            </div>
+                                        <div className={styles.itemMain}>
+                                            <h5 className={styles.itemTitle}>
+                                                {getProductName(item.productId)}
+                                            </h5>
+                                            <p className={styles.itemSubtitle}>
+                                                {item.quantity} {getUnitLabel(item.unit)}
+                                            </p>
+                                        </div>
 
+                                        <div className={styles.badgesRow}>
                                             {item.isPrimary ? (
                                                 <span className={styles.primaryBadge}>Principal</span>
                                             ) : null}
                                         </div>
-
-                                        {item.notes ? (
-                                            <p className={styles.itemNotes}>{item.notes}</p>
-                                        ) : null}
                                     </article>
                                 ))
                             ) : (
@@ -267,36 +240,26 @@ export default function ProductionTemplateReviewModal({
                             {template.outputs?.length ? (
                                 template.outputs.map((item, index) => (
                                     <article key={item._id || index} className={styles.itemCard}>
-                                        <div className={styles.itemHeader}>
-                                            <div>
-                                                <h5 className={styles.itemTitle}>
-                                                    {getProductName(item.productId)}
-                                                </h5>
-                                                <p className={styles.itemSubtitle}>
-                                                    {item.quantity} {getUnitLabel(item.unit)}
-                                                </p>
-                                            </div>
-
-                                            <div className={styles.badgesRow}>
-                                                {item.isMain ? (
-                                                    <span className={styles.mainBadge}>Principal</span>
-                                                ) : null}
-
-                                                {item.isWaste ? (
-                                                    <span className={styles.wasteBadge}>Merma</span>
-                                                ) : null}
-
-                                                {item.isByProduct ? (
-                                                    <span className={styles.byProductBadge}>
-                                                        Subproducto
-                                                    </span>
-                                                ) : null}
-                                            </div>
+                                        <div className={styles.itemMain}>
+                                            <h5 className={styles.itemTitle}>
+                                                {getProductName(item.productId)}
+                                            </h5>
+                                            <p className={styles.itemSubtitle}>
+                                                {item.quantity ?? "-"} {getUnitLabel(item.unit)}
+                                            </p>
                                         </div>
 
-                                        {item.notes ? (
-                                            <p className={styles.itemNotes}>{item.notes}</p>
-                                        ) : null}
+                                        <div className={styles.badgesRow}>
+                                            {item.isMain ? (
+                                                <span className={styles.mainBadge}>Principal</span>
+                                            ) : null}
+
+                                            {item.isByProduct ? (
+                                                <span className={styles.byProductBadge}>
+                                                    Subproducto
+                                                </span>
+                                            ) : null}
+                                        </div>
                                     </article>
                                 ))
                             ) : (
@@ -304,76 +267,36 @@ export default function ProductionTemplateReviewModal({
                             )}
                         </div>
                     </section>
-
-                    <section className={styles.section}>
-                        <div className={styles.sectionHeader}>
-                            <h4 className={styles.sectionTitle}>Auditoría</h4>
-                        </div>
-
-                        <div className={styles.metaGrid}>
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Creado por</span>
-                                <span className={styles.metaValue}>
-                                    {template.createdBy || "—"}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Actualizado por</span>
-                                <span className={styles.metaValue}>
-                                    {template.updatedBy || "—"}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Fecha de creación</span>
-                                <span className={styles.metaValue}>
-                                    {template.createdAt
-                                        ? new Date(template.createdAt).toLocaleString()
-                                        : "—"}
-                                </span>
-                            </div>
-
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>Última actualización</span>
-                                <span className={styles.metaValue}>
-                                    {template.updatedAt
-                                        ? new Date(template.updatedAt).toLocaleString()
-                                        : "—"}
-                                </span>
-                            </div>
-                        </div>
-                    </section>
                 </div>
 
-                <div className="modal-footer">
+                <div className={`modal-footer ${styles.footer}`}>
                     <button
                         type="button"
-                        className="btn btn-neutral"
+                        className="miniAction"
                         onClick={onEdit}
                         disabled={loading}
                     >
-                        <Pencil size={16} />
+                        <Pencil size={14} />
                         Editar
                     </button>
 
                     <button
                         type="button"
-                        className="btn btn-ghost"
+                        className="miniAction"
                         onClick={onToggleStatus}
                         disabled={loading}
                     >
-                        <Power size={16} />
+                        <Power size={14} />
                         {isActive ? "Desactivar" : "Activar"}
                     </button>
 
                     <button
                         type="button"
-                        className="btn btn-danger"
+                        className="miniAction miniActionDanger"
                         onClick={onDelete}
                         disabled={loading}
                     >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                         Eliminar
                     </button>
                 </div>

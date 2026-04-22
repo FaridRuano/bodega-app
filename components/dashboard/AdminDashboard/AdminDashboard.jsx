@@ -118,9 +118,9 @@ export default function AdminDashboard({ inventoryItems = [], requests = [], pro
     const totalInventory = inventoryItems.reduce((sum, item) => sum + Number(item.inventory?.total || 0), 0);
     const lowStock = inventoryItems.filter((item) => ["low", "warning", "out"].includes(item.status)).length;
     const pendingApprovals = requests.filter((item) => item.status === "pending").length;
-    const pendingDispatches = requests.filter((item) => ["approved", "partially_fulfilled"].includes(item.status)).length;
+    const pendingDispatches = requests.filter((item) => ["approved", "processing", "partially_fulfilled"].includes(item.status)).length;
     const activeRequests = requests
-        .filter((item) => ["pending", "approved", "partially_fulfilled"].includes(item.status))
+        .filter((item) => ["pending", "approved", "processing", "partially_fulfilled"].includes(item.status))
         .sort((a, b) => new Date(getRequestDate(b) || 0) - new Date(getRequestDate(a) || 0))
         .slice(0, 5);
 

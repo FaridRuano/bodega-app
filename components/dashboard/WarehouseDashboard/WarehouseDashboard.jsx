@@ -126,7 +126,7 @@ export default function WarehouseDashboard({ inventoryItems = [], requests = [] 
         .slice(0, 5);
 
     const pendingDispatches = [...requests]
-        .filter((request) => ["approved", "partially_fulfilled"].includes(request.status))
+        .filter((request) => ["approved", "processing", "partially_fulfilled"].includes(request.status))
         .sort((a, b) => new Date(getRequestDate(b) || 0) - new Date(getRequestDate(a) || 0))
         .slice(0, 5);
 
@@ -159,10 +159,10 @@ export default function WarehouseDashboard({ inventoryItems = [], requests = [] 
                             caption="Revisar solicitudes nuevas"
                         />
                         <QuickAction
-                            href="/dashboard/requests?status=approved"
+                            href="/dashboard/requests?status=processing"
                             icon={Package}
                             title="Por despachar"
-                            caption="Continuar entregas"
+                            caption="Continuar procesos"
                         />
                         <QuickAction
                             href="/dashboard/movements?location=warehouse"
@@ -210,7 +210,7 @@ export default function WarehouseDashboard({ inventoryItems = [], requests = [] 
                     <SectionHeader
                         title="Pendientes por despachar"
                         description="Solicitudes aprobadas listas para salida."
-                        href="/dashboard/requests?status=approved"
+                        href="/dashboard/requests?status=processing"
                         hrefLabel="Ver despachos"
                     />
                     <RequestList

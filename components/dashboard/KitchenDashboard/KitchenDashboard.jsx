@@ -155,7 +155,7 @@ export default function KitchenDashboard({ inventoryItems = [], requests = [], p
         .slice(0, 6);
 
     const activeRequests = [...requests]
-        .filter((request) => ["pending", "approved", "partially_fulfilled"].includes(request.status))
+        .filter((request) => ["pending", "approved", "processing", "partially_fulfilled"].includes(request.status))
         .sort((a, b) => new Date(getRequestDate(b) || 0) - new Date(getRequestDate(a) || 0))
         .slice(0, 4);
 

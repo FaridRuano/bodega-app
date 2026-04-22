@@ -15,7 +15,7 @@ import {
 import styles from "./request-details-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
 import { getPurposeLabel } from "@libs/constants/purposes";
-import { getRequestTypeLabel } from "@libs/constants/domainLabels";
+import { getLocationLabel, getRequestTypeLabel } from "@libs/constants/domainLabels";
 
 const STATUS_CONFIG = {
     pending: {
@@ -24,7 +24,12 @@ const STATUS_CONFIG = {
         icon: Clock3,
     },
     approved: {
-        label: "Aprobada",
+        label: "En proceso",
+        className: styles.statusApproved,
+        icon: CheckCircle2,
+    },
+    processing: {
+        label: "En proceso",
         className: styles.statusApproved,
         icon: CheckCircle2,
     },
@@ -79,7 +84,9 @@ function getActivityTitle(activity) {
         case "request_created":
             return "Solicitud creada";
         case "approved":
-            return "Solicitud aprobada";
+            return "Solicitud en proceso";
+        case "processing":
+            return "Solicitud en proceso";
         case "dispatch":
             return "Despacho registrado";
         case "receive":
@@ -187,6 +194,7 @@ export default function RequestDetailsModal({
     const isAdmin = currentUserRole === "admin";
     const isWarehouse = currentUserRole === "warehouse";
     const isKitchen = currentUserRole === "kitchen";
+    const isLounge = currentUserRole === "lounge";
     const isFinal =
         request.status === "fulfilled" ||
         request.status === "rejected" ||
@@ -197,36 +205,33 @@ export default function RequestDetailsModal({
         !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
     const canReject =
         !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
-    const canEdit = (isAdmin || isKitchen) && request.status === "pending";
+    const canEdit = (isAdmin || isKitchen || isLounge) && request.status === "pending";
 
     const canDispatch =
-        (isReturnRequest ? (isAdmin || isKitchen) : (isAdmin || isWarehouse)) &&
+        (isReturnRequest ? (isAdmin || isKitchen || isLounge) : (isAdmin || isWarehouse)) &&
         !isFinal &&
         (
             isReturnRequest
                 ? ["pending", "partially_fulfilled"].includes(request.status)
-                : ["approved", "partially_fulfilled"].includes(request.status)
+                : ["approved", "processing", "partially_fulfilled"].includes(request.status)
         ) &&
         summary.pendingDispatch > 0;
 
     const canReceive =
-        (isReturnRequest ? (isAdmin || isWarehouse) : (isAdmin || isKitchen)) &&
+        !isReturnRequest &&
+        (isAdmin || isKitchen || isLounge) &&
         !isFinal &&
-        (
-            isReturnRequest
-                ? ["pending", "partially_fulfilled"].includes(request.status)
-                : ["approved", "partially_fulfilled"].includes(request.status)
-        ) &&
+        ["approved", "processing", "partially_fulfilled"].includes(request.status) &&
         summary.pendingReceive > 0;
 
     const canCancel =
         !isFinal &&
         summary.dispatched === 0 &&
         (
-            ((isAdmin || isKitchen) && request.status === "pending") ||
+            ((isAdmin || isKitchen || isLounge) && request.status === "pending") ||
             ((isAdmin || isWarehouse) &&
                 !isReturnRequest &&
-                ["pending", "approved"].includes(request.status))
+                ["pending", "approved", "processing"].includes(request.status))
         );
 
     const showFooter =
@@ -288,11 +293,9 @@ export default function RequestDetailsModal({
                             <div className={styles.locationChip}>
                                 <ArrowRightLeft size={16} />
                                 <span>
-                                    {request.sourceLocation === "warehouse" ? "Bodega" : "Cocina"}{" "}
+                                    {getLocationLabel(request.sourceLocation)}{" "}
                                     →{" "}
-                                    {request.destinationLocation === "warehouse"
-                                        ? "Bodega"
-                                        : "Cocina"}
+                                    {getLocationLabel(request.destinationLocation)}
                                 </span>
                             </div>
                         </div>
@@ -533,7 +536,7 @@ export default function RequestDetailsModal({
                                 className="btn btn-primary"
                                 onClick={onApprove}
                             >
-                                Aprobar
+                                Procesar
                             </button>
                         ) : null}
 

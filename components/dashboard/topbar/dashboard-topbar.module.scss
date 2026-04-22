@@ -16,6 +16,10 @@
     gap: 0.9rem;
 }
 
+.notificationsWrap {
+    position: relative;
+}
+
 .menuButton,
 .iconButton {
     width: 44px;
@@ -44,6 +48,240 @@
 
 .iconButton {
     display: grid;
+    position: relative;
+}
+
+.notificationBadge {
+    position: absolute;
+    top: -0.2rem;
+    right: -0.2rem;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.28rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--warning);
+    color: var(--text-inverse);
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.notificationsDropdown {
+    position: absolute;
+    top: calc(100% + 0.75rem);
+    right: 0;
+    width: min(92vw, 380px);
+    padding: 1rem;
+    display: grid;
+    gap: 0.9rem;
+    border: 1px solid var(--notification-dropdown-border);
+    border-radius: 22px;
+    background: var(--notification-dropdown-bg);
+    box-shadow: var(--notification-dropdown-shadow);
+    backdrop-filter: blur(20px) saturate(120%);
+    -webkit-backdrop-filter: blur(20px) saturate(120%);
+    z-index: 40;
+}
+
+.dropdownHeader,
+.dropdownFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.dropdownEyebrow {
+    margin: 0 0 0.18rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.dropdownTitle {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.permissionCard {
+    padding: 0.85rem 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border: 1px solid var(--notification-dropdown-border);
+    border-radius: 18px;
+    background: var(--notification-card-bg);
+}
+
+.permissionTitle {
+    margin: 0 0 0.18rem;
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.permissionText {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
+.filterStrip {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.filterChip {
+    padding: 0.4rem 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--notification-dropdown-border);
+    border-radius: 999px;
+    background: var(--notification-chip-bg);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.filterChip:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+    background: var(--notification-chip-hover-bg);
+}
+
+.filterChip strong {
+    color: inherit;
+    font-size: 0.68rem;
+}
+
+.filterChipActive {
+    border-color: color-mix(in srgb, var(--info) 25%, var(--border-subtle));
+    background: var(--notification-chip-active-bg);
+    color: var(--info);
+}
+
+.dropdownList {
+    max-height: min(56vh, 420px);
+    overflow-y: auto;
+    display: grid;
+    gap: 0.65rem;
+}
+
+.dropdownSection {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.dropdownSectionHeader {
+    padding: 0 0.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.dropdownSectionHeader strong {
+    color: var(--text-secondary);
+}
+
+.dropdownSectionList {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.dropdownItem {
+    width: 100%;
+    padding: 0.9rem;
+    display: grid;
+    gap: 0.42rem;
+    border: 1px solid var(--notification-dropdown-border);
+    border-radius: 18px;
+    background: var(--notification-card-bg);
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        transform 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.dropdownItem:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    background: var(--notification-card-hover-bg);
+}
+
+.dropdownItemUnread {
+    border-color: color-mix(in srgb, var(--info) 24%, var(--border-subtle));
+    background: var(--notification-card-unread-bg);
+}
+
+.dropdownItemTop,
+.dropdownItemMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.dropdownItemTitle {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.dropdownItemMessage {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.dropdownItemMeta {
+    color: var(--notification-muted-strong);
+    font-size: 0.7rem;
+}
+
+.dropdownItemBadge {
+    padding: 0.18rem 0.45rem;
+    border-radius: 999px;
+    background: var(--info-soft);
+    color: var(--info);
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.dropdownEmpty {
+    padding: 1rem;
+    border: 1px dashed var(--notification-dropdown-border);
+    border-radius: 18px;
+    color: var(--notification-muted-strong);
+    background: var(--notification-empty-bg);
+    font-size: 0.8rem;
+    text-align: center;
 }
 
 .eyebrow {
@@ -77,6 +315,12 @@
         padding: 0.9rem 1rem;
     }
 
+    .notificationsDropdown {
+        right: -0.2rem;
+        width: min(92vw, 340px);
+        padding: 0.9rem;
+    }
+
     .title {
         font-size: 1.15rem;
     }
@@ -88,5 +332,4 @@
     .userMeta {
         display: none;
     }
-
 }

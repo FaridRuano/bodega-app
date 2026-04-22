@@ -7,6 +7,16 @@ import Request, { REQUEST_STATUSES, REQUEST_TYPES } from "@models/Request";
 import Product from "@models/Product";
 import InventoryStock, { STOCK_LOCATIONS } from "@models/InventoryStock";
 import { parsePositiveNumber } from "@libs/apiUtils";
+import { createNotificationsForRoles, NOTIFICATION_TYPES } from "@libs/notifications";
+
+const OPERATION_LOCATIONS = ["kitchen", "lounge"];
+
+function getRoleForLocation(location) {
+    if (location === "warehouse") return "warehouse";
+    if (location === "kitchen") return "kitchen";
+    if (location === "lounge") return "lounge";
+    return "";
+}
 
 function isValidObjectId(value) {
     return mongoose.Types.ObjectId.isValid(value);
@@ -36,7 +46,29 @@ function normalizeRequestType(value, fallback = "operation") {
 function normalizeRequestStatus(value) {
     const normalized = normalizeText(value).toLowerCase();
     if (!normalized) return null;
+    if (normalized === "approved") return "processing";
     return REQUEST_STATUSES.includes(normalized) ? normalized : null;
+}
+
+function getLocationName(location) {
+    switch (location) {
+        case "warehouse":
+            return "bodega";
+        case "kitchen":
+            return "cocina";
+        case "lounge":
+            return "lounge";
+        default:
+            return location || "ubicacion";
+    }
+}
+
+function buildStatusCondition(status) {
+    if (status === "processing") {
+        return { status: { $in: ["approved", "processing"] } };
+    }
+
+    return { status };
 }
 
 async function generateRequestNumber() {
@@ -58,7 +90,7 @@ async function generateRequestNumber() {
         attempts += 1;
     }
 
-    throw new Error("No se pudo generar un nÃºmero Ãºnico de solicitud.");
+    throw new Error("No se pudo generar un número único de solicitud.");
 }
 
 function buildSearchFilter(search) {
@@ -77,6 +109,20 @@ function buildSearchFilter(search) {
     };
 }
 
+function normalizeDateOnly(value, endOfDay = false) {
+    const raw = normalizeText(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+
+    const date = new Date(`${raw}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) return null;
+
+    if (endOfDay) {
+        date.setUTCHours(23, 59, 59, 999);
+    }
+
+    return date;
+}
+
 function mapMovementItems(items = []) {
     return (items || []).map((item) => ({
         requestItemId: item.requestItemId || null,
@@ -93,11 +139,13 @@ function normalizeRequestDocument(request) {
         returned: 0,
     };
 
+    const normalizedStatus = request.status === "approved" ? "processing" : request.status;
+
     return {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
-        status: request.status,
+        status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
 
@@ -195,13 +243,15 @@ export async function GET(request) {
         const sourceLocation = normalizeLocation(searchParams.get("sourceLocation"));
         const destinationLocation = normalizeLocation(searchParams.get("destinationLocation"));
         const requestedBy = normalizeText(searchParams.get("requestedBy"));
+        const dateFrom = normalizeDateOnly(searchParams.get("dateFrom"));
+        const dateTo = normalizeDateOnly(searchParams.get("dateTo"), true);
 
         const filters = [{ deletedAt: null }];
 
         const searchFilter = buildSearchFilter(search);
         if (searchFilter) filters.push(searchFilter);
 
-        if (status) filters.push({ status });
+        if (status) filters.push(buildStatusCondition(status));
         if (requestType) filters.push({ requestType });
         if (sourceLocation) filters.push({ sourceLocation });
         if (destinationLocation) filters.push({ destinationLocation });
@@ -217,10 +267,17 @@ export async function GET(request) {
             filters.push({ requestedBy });
         }
 
+        if (dateFrom || dateTo) {
+            const dateFilter = {};
+            if (dateFrom) dateFilter.$gte = dateFrom;
+            if (dateTo) dateFilter.$lte = dateTo;
+            filters.push({ requestedAt: dateFilter });
+        }
+
         const query = { $and: filters };
         const skip = (page - 1) * limit;
 
-        const [requests, total, pending, approved, partiallyFulfilled, fulfilled, rejected, cancelled] = await Promise.all([
+        const [requests, total, pending, processing, partiallyFulfilled, fulfilled, rejected, cancelled] = await Promise.all([
             Request.find(query)
                  .populate("requestedBy", "firstName lastName username email")
                  .populate("approvedBy", "firstName lastName username email")
@@ -236,7 +293,7 @@ export async function GET(request) {
                 .lean({ virtuals: true }),
             Request.countDocuments(query),
             Request.countDocuments({ ...query, status: "pending" }),
-            Request.countDocuments({ ...query, status: "approved" }),
+            Request.countDocuments({ ...query, status: { $in: ["approved", "processing"] } }),
             Request.countDocuments({ ...query, status: "partially_fulfilled" }),
             Request.countDocuments({ ...query, status: "fulfilled" }),
             Request.countDocuments({ ...query, status: "rejected" }),
@@ -248,7 +305,8 @@ export async function GET(request) {
         const summary = {
             total,
             pending,
-            approved,
+            approved: processing,
+            processing,
             partiallyFulfilled,
             fulfilled,
             rejected,
@@ -281,32 +339,20 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
-        const { user, response } = await requireUserRole(["admin", "kitchen"]);
+        const { user, response } = await requireUserRole(["kitchen", "lounge"]);
         if (response) return response;
 
         await dbConnect();
 
         const body = await request.json();
+        const operationalLocation = user.role === "lounge" ? "lounge" : "kitchen";
+        const destinationLocation = normalizeLocation(body.destinationLocation);
+        const isReturnRequest = destinationLocation === "warehouse";
+        const requestType = isReturnRequest ? "return" : "operation";
+        const sourceLocation = operationalLocation;
 
-        const requestType = normalizeRequestType(body.requestType, "operation");
-        const isReturnRequest = requestType === "return";
-        const sourceLocation = normalizeLocation(
-            body.sourceLocation,
-            isReturnRequest ? "kitchen" : "warehouse"
-        );
-        const destinationLocation = normalizeLocation(
-            body.destinationLocation,
-            isReturnRequest ? "warehouse" : "kitchen"
-        );
         const justification = normalizeNullableText(body.justification);
         const notes = normalizeNullableText(body.notes);
-
-        if (!requestType) {
-            return NextResponse.json(
-                { success: false, message: "El tipo de solicitud no es vÃ¡lido." },
-                { status: 400 }
-            );
-        }
 
         if (!sourceLocation || !destinationLocation) {
             return NextResponse.json(
@@ -315,16 +361,34 @@ export async function POST(request) {
             );
         }
 
-        if (isReturnRequest) {
-            if (sourceLocation !== "kitchen" || destinationLocation !== "warehouse") {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        message: "Las devoluciones solo pueden enviarse de cocina hacia bodega.",
-                    },
-                    { status: 400 }
-                );
-            }
+        if (!OPERATION_LOCATIONS.includes(sourceLocation)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Solo cocina o salon pueden crear solicitudes internas.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (destinationLocation === sourceLocation) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "La ubicacion destino debe ser diferente al origen.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (!isReturnRequest && !OPERATION_LOCATIONS.includes(destinationLocation)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Las solicitudes internas solo pueden dirigirse a cocina, salon o bodega.",
+                },
+                { status: 400 }
+            );
         }
 
         const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -401,7 +465,7 @@ export async function POST(request) {
 
             if (shouldValidateSourceStock && requestedQuantity > available) {
                 throw new Error(
-                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${sourceLocation === "warehouse" ? "bodega" : "cocina"}.`
+                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${getLocationName(sourceLocation)}.`
                 );
             }
 
@@ -460,6 +524,21 @@ export async function POST(request) {
              .populate("activityLog.performedBy", "firstName lastName username email")
             .lean({ virtuals: true });
 
+        const destinationRole = getRoleForLocation(destinationLocation);
+        const targetRoles = ["admin", destinationRole].filter(Boolean);
+
+        await createNotificationsForRoles(targetRoles, {
+            type: NOTIFICATION_TYPES.internal_request_created,
+            title: "Nueva transferencia interna",
+            message: `${createdRequest.requestNumber} solicita productos hacia ${getLocationName(destinationLocation)}.`,
+            href: "/dashboard/requests",
+            entityType: "request",
+            entityId: createdRequest._id,
+            priority: "high",
+        }).catch((notificationError) => {
+            console.error("internal request notification error:", notificationError);
+        });
+
         return NextResponse.json(
             {
                 success: true,
@@ -473,7 +552,7 @@ export async function POST(request) {
 
         if (error?.code === 11000) {
             return NextResponse.json(
-                { success: false, message: "Ya existe una solicitud con ese nÃºmero." },
+                { success: false, message: "Ya existe una solicitud con ese número." },
                 { status: 409 }
             );
         }
@@ -484,3 +563,4 @@ export async function POST(request) {
         );
     }
 }
+

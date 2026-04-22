@@ -56,7 +56,7 @@ export default function ProductionCompletedView({ production }) {
     }, [production?._id]);
 
     return (
-        <div className={styles.page}>
+        <div className="page">
             <div className={styles.header}>
                 <div>
                     <button

@@ -1,0 +1,426 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.heroShell {
+    margin-bottom: 0;
+}
+
+.heroStats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.actionGroup,
+.scopeSwitch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.registerCard,
+.historyCard {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 18px;
+    border-radius: 24px;
+    border: 1px solid var(--border-subtle);
+    background:
+        radial-gradient(circle at top right, color-mix(in srgb, var(--warning-soft) 20%, transparent), transparent 38%),
+        var(--surface-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.sectionTitle {
+    margin: 0;
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+.sectionDescription {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.registerTopStats,
+.historyStats {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filterRow,
+.historyFilters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-items: end;
+}
+
+.historyFilters {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.filterField,
+.filterAction {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.filterLabel {
+    min-height: 16px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.filterAction :global(.miniAction) {
+    min-height: 44px;
+    justify-content: center;
+}
+
+.registerForm {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.registerGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.catalogCard,
+.summaryCard {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+    padding: 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-secondary);
+}
+
+.summaryCard {
+    position: sticky;
+    top: 14px;
+}
+
+.cardHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cardTitle {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.cardDescription {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.familyList {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: min(68vh, 900px);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.familyGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.familyHeader {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-primary) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+}
+
+.familyEyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.familyName {
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+.productList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.productRow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+}
+
+.productTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.productName,
+.historyTitle {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.productMeta,
+.historyMeta {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.stockTrail {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.stockChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.stockChip strong {
+    color: var(--text-primary);
+}
+
+.productInputs {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.summaryStack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.summaryItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.summaryItem strong {
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.auditPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--info-soft);
+    color: var(--info);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.historyRow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+    border-radius: 18px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-secondary);
+}
+
+.historyHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.lineGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.linePill {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+}
+
+.linePill strong {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.linePill span {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.lockedBox,
+.emptyState,
+.emptyInline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.lockedBox {
+    justify-content: flex-start;
+    background: var(--info-soft);
+    color: var(--info);
+}
+
+.emptyState,
+.emptyInline {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+@media (max-width: 1100px) {
+    .registerGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .summaryCard {
+        position: static;
+    }
+
+    .historyFilters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .toolbar,
+    .sectionHeader,
+    .productTop,
+    .historyHeader {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .heroStats,
+    .registerTopStats,
+    .historyStats,
+    .scopeSwitch,
+    .actionGroup {
+        justify-content: stretch;
+    }
+
+    .heroStats :global(.compactStat),
+    .scopeSwitch :global(.miniAction),
+    .actionGroup :global(.miniAction),
+    .historyFilters :global(.miniAction),
+    .summaryCard :global(.miniAction) {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .historyFilters,
+    .productInputs,
+    .lineGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .stockTrail {
+        justify-content: flex-start;
+    }
+
+    .familyList {
+        max-height: none;
+        overflow: visible;
+    }
+}

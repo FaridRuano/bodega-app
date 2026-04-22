@@ -332,6 +332,7 @@ export async function POST(request) {
                             defaultDestination: template.defaultDestination || "kitchen",
                             allowsMultipleOutputs: Boolean(template.allowsMultipleOutputs),
                             requiresWasteRecord: Boolean(template.requiresWasteRecord),
+                            requiresWeightControl: Boolean(template.requiresWeightControl),
                             allowRealOutputAdjustment: Boolean(template.allowRealOutputAdjustment),
                         },
 

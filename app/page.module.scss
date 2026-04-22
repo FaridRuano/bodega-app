@@ -38,18 +38,6 @@
     animation: floatBlobTwo 14s ease-in-out infinite;
 }
 
-.gridOverlay {
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(color-mix(in srgb, var(--border-strong) 18%, transparent) 1px, transparent 1px),
-        linear-gradient(90deg, color-mix(in srgb, var(--border-strong) 18%, transparent) 1px, transparent 1px);
-    background-size: 34px 34px;
-    mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
-    -webkit-mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
-    pointer-events: none;
-}
-
 .heroCard {
     position: relative;
     z-index: 1;

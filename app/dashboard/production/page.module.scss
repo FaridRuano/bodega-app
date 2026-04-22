@@ -1,456 +1,380 @@
 .page {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
-.topBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+.heroShell {
+    margin-bottom: 0;
 }
 
-.metricTabs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 180px));
-  gap: 12px;
-  flex: 1;
+.heroStats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
-.metricTab {
-  position: relative;
-  overflow: hidden;
-  padding: 10px 16px;
-  border-radius: 18px;
-  border: 1px solid var(--border-subtle);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-    var(--surface-primary);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-  text-align: start;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
-
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease,
-    box-shadow 0.18s ease;
+.heroStatButton {
+    cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
 }
 
-.metricTabActive {
-  transform: scale(1.025);
-  box-shadow: var(--shadow-sm);
+.heroStatButton:hover {
+    transform: translateY(-1px);
 }
 
-.warningCard {
-  background: var(--warning-soft);
-
-  &.metricTabActive {
-    border-color: var(--warning);
-  }
+.heroStatActive {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
 }
 
-.infoCard {
-  background: var(--info-soft);
-
-  &.metricTabActive {
-    border-color: var(--info);
-  }
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
 }
 
-.successCard {
-  background: var(--success-soft);
-
-  &.metricTabActive {
-    border-color: var(--success);
-  }
+.actionGroup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
-
-.metricLabel {
-  position: relative;
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.2;
-  color: var(--text-muted);
-}
-
-.metricValue {
-  position: relative;
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--text-primary);
-}
-
-.metricTab:nth-child(1) {
-  border-color: var(--border-subtle);
-}
-
 
 .filtersCard {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 18px;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-.searchField {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
-  border-radius: 14px;
-  padding: 0 14px;
-  min-height: 48px;
-  color: var(--text-muted);
-}
-
-.searchInput {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.searchInput::placeholder {
-  color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
 }
 
 .filtersGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(170px, 0.75fr)) auto;
+    gap: 12px;
+    align-items: center;
 }
 
-.filterSelect {
-  width: 100%;
-  min-height: 44px;
-  border-radius: 14px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
-  color: var(--text-primary);
-  padding: 0 14px;
-  font-size: 14px;
-  outline: none;
+.clearSlot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 .list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
 }
 
 .productionCard {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
+    box-shadow: var(--shadow-sm);
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.productionCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
+    border-color: var(--border-strong);
 }
 
 .cardTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
 }
 
 .cardMain {
-  flex: 1;
-  min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
 }
 
-.titleRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+.cardBadges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-.cardTitle {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
+.codeBadge,
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.codeBadge {
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
+    color: var(--text-primary);
 }
 
 .statusBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+    border: 1px solid transparent;
 }
 
 .statusDraft {
-  background: var(--warning-soft);
-  color: var(--warning);
+    background: var(--warning-soft);
+    color: var(--warning);
 }
 
 .statusInProgress {
-  background: var(--info-soft);
-  color: var(--info);
+    background: var(--info-soft);
+    color: var(--info);
 }
 
 .statusCompleted {
-  background: var(--success-soft);
-  color: var(--success);
+    background: var(--success-soft);
+    color: var(--success);
 }
 
 .statusCancelled {
-  background: var(--danger-soft);
-  color: var(--danger);
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.cardTitle {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.3;
+    color: var(--text-primary);
 }
 
 .cardDescription {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-secondary);
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
 }
 
 .targetBlock {
-  min-width: 150px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 140px;
+    align-items: flex-end;
 }
 
 .targetLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
 }
 
 .targetValue {
-  font-size: 22px;
-  color: var(--text-primary);
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-primary);
 }
 
 .cardMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.metaPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .resultBox {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-subtle);
 }
 
 .resultLabel {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
 }
 
 .resultText {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-primary);
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
 }
 
 .cardFooter {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
 }
 
-.footerStats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-}
-
-.footerStat {
-  font-size: 13px;
-  color: var(--text-secondary);
+.footerText {
+    font-size: 13px;
+    color: var(--text-secondary);
 }
 
 .footerActions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .emptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 320px;
-  border: 1px dashed var(--border-subtle);
-  border-radius: 20px;
-  background: var(--surface-primary);
-  text-align: center;
-  padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    padding: 52px 24px;
+    border: 1px dashed var(--border-subtle);
+    border-radius: 24px;
+    background: var(--surface-primary);
 }
 
 .emptyIcon {
-  color: var(--text-muted);
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-subtle);
+    color: var(--text-primary);
 }
 
 .emptyTitle {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
+    margin: 0;
+    font-size: 20px;
+    color: var(--text-primary);
 }
 
 .emptyDescription {
-  margin: 0;
-  max-width: 520px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-secondary);
+    max-width: 520px;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
 }
 
-.paginationBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 18px;
-  background: var(--surface-primary);
-  box-shadow: var(--shadow-sm);
+.skeletonCard {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    border-radius: 22px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-primary);
 }
 
-.paginationInfo {
-  font-size: 14px;
-  color: var(--text-secondary);
+.skeletonTop,
+.skeletonLine,
+.skeletonLineShort {
+    border-radius: 12px;
+    background: linear-gradient(
+        90deg,
+        var(--bg-subtle) 25%,
+        var(--surface-secondary) 50%,
+        var(--bg-subtle) 75%
+    );
+    background-size: 200% 100%;
+    animation: loading 1.2s infinite linear;
 }
 
-.paginationInfo strong {
-  color: var(--text-primary);
+.skeletonTop {
+    width: 160px;
+    height: 28px;
 }
 
-.paginationControls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.skeletonLine {
+    width: 100%;
+    height: 18px;
 }
 
-.pageIndicator {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  padding: 0 6px;
+.skeletonLineShort {
+    width: 58%;
+    height: 18px;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
 }
 
 @media (max-width: 1100px) {
-  .topBar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .metricTabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .topBar :global(.btn) {
-    width: 100%;
-  }
-
-  .filtersGrid {
-    grid-template-columns: 1fr;
-  }
+    .filtersGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
-@media (max-width: 720px) {
-  .page {
-    padding: 16px;
-  }
+@media (max-width: 768px) {
+    .toolbar {
+        justify-content: stretch;
+    }
 
-  .metricTabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+    .actionGroup {
+        width: 100%;
+    }
 
-  .metricTab {
-    min-width: 0;
-    padding: 10px 14px;
-  }
+    .actionGroup :global(.miniAction) {
+        flex: 1;
+        justify-content: center;
+    }
 
-  .metricValue {
-    font-size: 18px;
-  }
+    .filtersGrid {
+        grid-template-columns: 1fr;
+    }
 
-  .cardTop {
-    flex-direction: column;
-  }
+    .clearSlot {
+        justify-content: stretch;
+    }
 
-  .targetBlock {
-    align-items: flex-start;
-    min-width: 0;
-  }
+    .clearSlot :global(.miniAction) {
+        width: 100%;
+        justify-content: center;
+    }
 
-  .cardFooter {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+    .cardTop,
+    .cardFooter {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 
-  .footerActions {
-    width: 100%;
-  }
+    .targetBlock {
+        align-items: flex-start;
+        min-width: 0;
+    }
 
-  .footerActions :global(.btn) {
-    width: 100%;
-  }
-
-  .paginationBar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .paginationControls {
-    width: 100%;
-  }
-
-  .paginationControls :global(.btn) {
-    flex: 1;
-  }
+    .footerActions {
+        width: 100%;
+    }
 }

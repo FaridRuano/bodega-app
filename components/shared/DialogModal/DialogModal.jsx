@@ -80,7 +80,7 @@ export default function DialogModal({
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
             <div className="modal-container" onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
+                <div className="modal-top">
                     <div className="modal-headerContent">
                         <div className={config.iconClassName}>
                             <Icon size={20} />

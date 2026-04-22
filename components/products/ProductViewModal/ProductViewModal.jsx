@@ -1,12 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   Archive,
   Box,
   ClipboardList,
+  ClipboardCheck,
   Package,
   PencilLine,
   Power,
+  Scale,
   Tag,
   ThermometerSnowflake,
   Trash,
@@ -14,15 +17,14 @@ import {
 } from "lucide-react";
 
 import styles from "./product-view-modal.module.scss";
-import { useEffect } from "react";
 import { getUnitLabel } from "@libs/constants/units";
-
 
 const PRODUCT_TYPE_LABELS = {
   raw_material: "Materia prima",
   processed: "Procesado",
   prepared: "Preparado",
-  supply: "Insumo",
+  supply: "Insumos y empaques",
+  resale: "Producto para reventa",
 };
 
 const STORAGE_TYPE_LABELS = {
@@ -31,7 +33,7 @@ const STORAGE_TYPE_LABELS = {
   frozen: "Congelado",
 };
 
-function formatBoolean(value, truthyLabel = "Sí", falsyLabel = "No") {
+function formatBoolean(value, truthyLabel = "Si", falsyLabel = "No") {
   return value ? truthyLabel : falsyLabel;
 }
 
@@ -54,10 +56,9 @@ export default function ProductViewModal({
   onDelete,
   onToggleActive,
 }) {
-
   useEffect(() => {
-    function handleEscape(e) {
-      if (e.key === "Escape") {
+    function handleEscape(event) {
+      if (event.key === "Escape") {
         onClose();
       }
     }
@@ -82,6 +83,8 @@ export default function ProductViewModal({
     storageType,
     tracksStock,
     allowsProduction,
+    requiresWeightControl,
+    requiresDailyControl,
     minStock,
     reorderPoint,
     isActive,
@@ -92,234 +95,236 @@ export default function ProductViewModal({
   const totalInventory = Number(inventory?.total ?? 0);
   const warehouseInventory = Number(inventory?.warehouse ?? 0);
   const kitchenInventory = Number(inventory?.kitchen ?? 0);
-  const reservedInventory = Number(inventory?.reserved ?? 0);
-  const availableInventory =
-    typeof inventory?.available !== "undefined"
-      ? Number(inventory.available ?? 0)
-      : Math.max(totalInventory - reservedInventory, 0);
+  const loungeInventory = Number(inventory?.lounge ?? 0);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="modal-container modal-container--xl" onClick={(event) => event.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <div className="product-view-topline">
-              <span
-                className={`product-view-status ${isActive
-                  ? "product-view-status--active"
-                  : "product-view-status--inactive"
-                  }`}
-              >
+      <div
+        className={`modal-container modal-container--xl ${styles.modal}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+
+        <div className="modal-top">
+          <div className="topCopy fadeScaleIn">
+            <div className={styles.topline}>
+              <span className={`${styles.status} ${isActive ? styles.statusActive : styles.statusInactive}`}>
                 {isActive ? "Activo" : "Inactivo"}
               </span>
-
-              <span className="product-view-type">
+              <span className={styles.typeBadge}>
                 {PRODUCT_TYPE_LABELS[productType] || productType}
               </span>
+
             </div>
-
-            <h3 className="modal-title">{name}</h3>
-
-            <p className="modal-description">
-              {description || "Sin descripción registrada."}
-            </p>
+            <button
+              type="button"
+              className="modal-close"
+              onClick={onClose}
+              disabled={loading}
+              aria-label="Cerrar modal"
+            >
+              <X size={18} />
+            </button>
           </div>
+        </div>
+        <div className="modal-header">
+          {requiresWeightControl && (
+            <span className={styles.weightBadge}>
+              <Scale size={13} />
+              Controlar Peso
+            </span>
+          )}
+          <h3 className="modal-title">{name}</h3>
 
-          <button
-            type="button"
-            className="modal-close"
-            onClick={onClose}
-            disabled={loading}
-            aria-label="Cerrar modal"
-          >
-            <X size={18} />
-          </button>
+          <p className="modal-description">
+            {description || "Sin descripcion registrada."}
+          </p>
         </div>
 
         <div className="modal-body">
-          <section className={styles.productviewsection}>
-            <div className={styles.productviewsectionheader}>
-              <h4 className="product-view-sectionTitle">Información general</h4>
+          <section className={`${styles.infoSection} fadeSlideIn`}>
+            <div className={styles.sectionHeader}>
+              <h4 className={styles.sectionTitle}>Informacion general</h4>
             </div>
 
-            <div className={styles.productviewgrid}>
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
+            <div className={styles.infoGrid}>
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
                   <Package size={15} />
-                  <span>Código</span>
+                  <span>Codigo</span>
                 </div>
-                <p className={styles.productviewitemValue}>
-                  {code || "Sin código"}
-                </p>
+                <p className={styles.infoValue}>{code || "Sin codigo"}</p>
               </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
                   <Tag size={15} />
-                  <span>Categoría</span>
+                  <span>Categoria</span>
                 </div>
-                <p className={styles.productviewitemValue}>
-                  {category?.name || categoryName || "Sin categoría"}
+                <p className={styles.infoValue}>
+                  {category?.name || categoryName || "Sin categoria"}
                 </p>
               </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
                   <Box size={15} />
                   <span>Unidad</span>
                 </div>
-                <p className={styles.productviewitemValue}>
-                  {getUnitLabel(unit)}
-                </p>
+                <p className={styles.infoValue}>{getUnitLabel(unit)}</p>
               </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
                   <Archive size={15} />
                   <span>Tipo</span>
                 </div>
-                <p className={styles.productviewitemValue}>
+                <p className={styles.infoValue}>
                   {PRODUCT_TYPE_LABELS[productType] || productType}
                 </p>
               </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
                   <ThermometerSnowflake size={15} />
                   <span>Almacenamiento</span>
                 </div>
-                <p className={styles.productviewitemValue}>
+                <p className={styles.infoValue}>
                   {STORAGE_TYPE_LABELS[storageType] || storageType}
                 </p>
               </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
-                  <ClipboardList size={15} />
-                  <span>Permite producción</span>
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
+                  <Scale size={15} />
+                  <span>Controlar Peso</span>
                 </div>
-                <p className={styles.productviewitemValue}>
-                  {formatBoolean(allowsProduction)}
-                </p>
+                <p className={styles.infoValue}>{formatBoolean(requiresWeightControl)}</p>
               </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
+                  <ClipboardCheck size={15} />
+                  <span>Control diario</span>
+                </div>
+                <p className={styles.infoValue}>{formatBoolean(requiresDailyControl)}</p>
+              </div>
+
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
+                  <ClipboardList size={15} />
+                  <span>Permite produccion</span>
+                </div>
+                <p className={styles.infoValue}>{formatBoolean(allowsProduction)}</p>
+              </div>
+
+              <div className={styles.infoItem}>
+                <div className={styles.infoLabel}>
                   <ClipboardList size={15} />
                   <span>Controla stock</span>
                 </div>
-                <p className={styles.productviewitemValue}>
-                  {formatBoolean(tracksStock)}
-                </p>
+                <p className={styles.infoValue}>{formatBoolean(tracksStock)}</p>
               </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
-                  <ClipboardList size={15} />
-                  <span>Stock mínimo</span>
-                </div>
-                <p className={styles.productviewitemValue}>
-                  {formatNumber(minStock)}
-                </p>
-              </div>
+              {tracksStock && (
+                <>
+                  <div className={styles.infoItem}>
+                    <div className={styles.infoLabel}>
+                      <ClipboardList size={15} />
+                      <span>Alerta de stock bajo</span>
+                    </div>
+                    <p className={styles.infoValue}>{formatNumber(minStock)}</p>
+                  </div>
 
-              <div className={styles.productviewitem}>
-                <div className={styles.productviewitemLabel}>
-                  <ClipboardList size={15} />
-                  <span>Punto de reposición</span>
-                </div>
-                <p className={styles.productviewitemValue}>
-                  {formatNumber(reorderPoint)}
-                </p>
-              </div>
+                  <div className={styles.infoItem}>
+                    <div className={styles.infoLabel}>
+                      <ClipboardList size={15} />
+                      <span>Alerta de reposicion</span>
+                    </div>
+                    <p className={styles.infoValue}>{formatNumber(reorderPoint)}</p>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
-          <section className={styles.productviewsection}>
-            <div className={styles.productviewsectionHeader}>
-              <h4 className={styles.productviewsectionTitle}>Inventario actual</h4>
+          {tracksStock && (
+            <section className={`${styles.inventorySection} fadeSlideIn delayOne`}>
+              <div className={styles.sectionHeader}>
+                <h4 className={styles.sectionTitle}>Inventario actual</h4>
+              </div>
+
+              <div className={styles.inventoryGrid}>
+                <div className={styles.statCard}>
+                  <span className={styles.statLabel}>Total</span>
+                  <strong className={styles.statValue}>{formatNumber(totalInventory)}</strong>
+                </div>
+
+                <div className={styles.statCard}>
+                  <span className={styles.statLabel}>Bodega</span>
+                  <strong className={styles.statValue}>{formatNumber(warehouseInventory)}</strong>
+                </div>
+
+                <div className={styles.statCard}>
+                  <span className={styles.statLabel}>Cocina</span>
+                  <strong className={styles.statValue}>{formatNumber(kitchenInventory)}</strong>
+                </div>
+
+                <div className={styles.statCard}>
+                  <span className={styles.statLabel}>Salon</span>
+                  <strong className={styles.statValue}>{formatNumber(loungeInventory)}</strong>
+                </div>
+              </div>
+            </section>
+          )}
+
+          <section className={`${styles.notesSection} fadeSlideIn delayTwo`}>
+            <div className={styles.sectionHeader}>
+              <h4 className={styles.sectionTitle}>Notas</h4>
             </div>
 
-            <div className={styles.productviewinventoryGrid}>
-              <div className={styles.productviewstatCard}>
-                <span className={styles.productviewstatLabel}>Total</span>
-                <strong className={styles.productviewstatValue}>
-                  {formatNumber(totalInventory)}
-                </strong>
-              </div>
-
-              <div className={styles.productviewstatCard}>
-                <span className={styles.productviewstatLabel}>Disponible</span>
-                <strong className={styles.productviewstatValue}>
-                  {formatNumber(availableInventory)}
-                </strong>
-              </div>
-
-              <div className={styles.productviewstatCard}>
-                <span className={styles.productviewstatLabel}>Bodega</span>
-                <strong className={styles.productviewstatValue}>
-                  {formatNumber(warehouseInventory)}
-                </strong>
-              </div>
-
-              <div className={styles.productviewstatCard}>
-                <span className={styles.productviewstatLabel}>Cocina</span>
-                <strong className={styles.productviewstatValue}>
-                  {formatNumber(kitchenInventory)}
-                </strong>
-              </div>
-
-              <div className={styles.productviewstatCard}>
-                <span className={styles.productviewstatLabel}>Reservado</span>
-                <strong className={styles.productviewstatValue}>
-                  {formatNumber(reservedInventory)}
-                </strong>
-              </div>
-            </div>
-          </section>
-
-          <section className={styles.productviewsection}>
-            <div className={styles.productviewsectionHeader}>
-              <h4 className={styles.productviewsectionTitle}>Notas</h4>
-            </div>
-
-            <div className={styles.productviewnotesBox}>
-              <p className={styles.productviewnotestext}>
-                {notes || "Sin notas registradas."}
-              </p>
+            <div className={styles.notesBox}>
+              <p className={styles.notesText}>{notes || "Sin notas registradas."}</p>
             </div>
           </section>
         </div>
 
-        <div className="modal-footer">
-
+        <div className={`modal-footer ${styles.footer} fadeSlideIn delayThree`}>
           <button
             type="button"
-            className="btn btn-secondary"
+            className="action-button action-button--neutral"
             onClick={() => onEdit?.(product)}
             disabled={loading}
           >
-            <PencilLine size={16} />
-            Editar
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => onDelete?.(product)}
-            disabled={loading}
-          >
-            <Trash size={16} />
-            Eliminar
+            <span className="action-button__icon">
+              <PencilLine size={16} />
+            </span>
+            <span className="action-button__label">Editar</span>
           </button>
 
           <button
             type="button"
-            className={isActive ? "btn btn-danger" : "btn btn-primary"}
+            className="action-button action-button--danger"
+            onClick={() => onDelete?.(product)}
+            disabled={loading}
+          >
+            <span className="action-button__icon">
+              <Trash size={16} />
+            </span>
+            <span className="action-button__label">Eliminar</span>
+          </button>
+
+          <button
+            type="button"
+            className={isActive ? "action-button action-button--danger" : "action-button"}
             onClick={() => onToggleActive?.(product)}
             disabled={loading}
           >
-            <Power size={16} />
-            {isActive ? "Desactivar producto" : "Activar producto"}
+            <span className="action-button__icon">
+              <Power size={16} />
+            </span>
+            <span className="action-button__label">
+              {isActive ? "Desactivar" : "Activar"}
+            </span>
           </button>
         </div>
       </div>

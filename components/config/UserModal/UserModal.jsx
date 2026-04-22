@@ -1,14 +1,32 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 
 const ROLE_OPTIONS = [
-    { value: "admin", label: "Administrador" },
-    { value: "kitchen", label: "Cocina" },
-    { value: "warehouse", label: "Bodega" },
+    { value: "kitchen", label: "Chef" },
+    { value: "warehouse", label: "Bodeguero" },
+    { value: "lounge", label: "Mesero" },
 ];
+
+function buildInitialForm(initialData, isEdit, emptyForm) {
+    if (!isEdit || !initialData) {
+        return emptyForm;
+    }
+
+    return {
+        firstName: initialData.firstName || "",
+        lastName: initialData.lastName || "",
+        username: initialData.username || "",
+        email: initialData.email || "",
+        role: initialData.role || "kitchen",
+        isActive:
+            typeof initialData.isActive === "boolean"
+                ? initialData.isActive
+                : true,
+        password: "",
+    };
+}
 
 export default function UserModal({
     open,
@@ -17,6 +35,7 @@ export default function UserModal({
     mode = "create",
     initialData = null,
     loading = false,
+    submitError = "",
 }) {
     const isEdit = mode === "edit";
 
@@ -30,41 +49,17 @@ export default function UserModal({
         password: "",
     }), []);
 
-    const [form, setForm] = useState(emptyForm);
-    const [initialForm, setInitialForm] = useState(emptyForm);
-
-    useEffect(() => {
-        if (!open) return;
-
-        if (isEdit && initialData) {
-            const editForm = {
-                firstName: initialData.firstName || "",
-                lastName: initialData.lastName || "",
-                username: initialData.username || "",
-                email: initialData.email || "",
-                role: initialData.role || "kitchen",
-                isActive:
-                    typeof initialData.isActive === "boolean"
-                        ? initialData.isActive
-                        : true,
-                password: "",
-            };
-
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setForm(editForm);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setInitialForm(editForm);
-            return;
-        }
-
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setForm(emptyForm);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setInitialForm(emptyForm);
-    }, [open, isEdit, initialData, emptyForm]);
+    const initialForm = useMemo(
+        () => buildInitialForm(initialData, isEdit, emptyForm),
+        [initialData, isEdit, emptyForm]
+    );
+    const [form, setForm] = useState(initialForm);
+    const [localError, setLocalError] = useState("");
 
     function handleChange(event) {
         const { name, value, type, checked } = event.target;
+
+        setLocalError("");
 
         setForm((prev) => ({
             ...prev,
@@ -115,6 +110,11 @@ export default function UserModal({
     }
 
     useEffect(() => {
+        setForm(initialForm);
+        setLocalError("");
+    }, [initialForm, open]);
+
+    useEffect(() => {
         function handleEscape(event) {
             if (event.key === "Escape") {
                 onClose();
@@ -133,14 +133,14 @@ export default function UserModal({
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
             <div className="modal-container" onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
-                    <div>
+                <div className="modal-top">
+                    <div className="modal-headerBlock">
                         <h3 className="modal-title">
                             {isEdit ? "Editar usuario" : "Nuevo usuario"}
                         </h3>
                         <p className="modal-description">
                             {isEdit
-                                ? "Actualiza la información general del usuario."
+                                ? "Actualiza la informacion general del usuario."
                                 : "Crea un nuevo usuario y asigna su rol dentro del sistema."}
                         </p>
                     </div>
@@ -168,7 +168,7 @@ export default function UserModal({
                                 value={form.firstName}
                                 onChange={handleChange}
                                 className="form-input"
-                                placeholder="Ej: Juan"
+                                placeholder="Juan"
                                 disabled={loading}
                                 required
                             />
@@ -184,7 +184,7 @@ export default function UserModal({
                                 value={form.lastName}
                                 onChange={handleChange}
                                 className="form-input"
-                                placeholder="Ej: Pérez"
+                                placeholder="Perez"
                                 disabled={loading}
                                 required
                             />
@@ -202,7 +202,7 @@ export default function UserModal({
                                 value={form.username}
                                 onChange={handleChange}
                                 className="form-input"
-                                placeholder="Ej: jperez"
+                                placeholder="jperez"
                                 autoCapitalize="none"
                                 disabled={loading}
                                 required
@@ -211,7 +211,7 @@ export default function UserModal({
 
                         <div className="form-field">
                             <label htmlFor="user-email" className="form-label">
-                                Correo electrónico
+                                Correo electronico
                             </label>
                             <input
                                 id="user-email"
@@ -220,7 +220,7 @@ export default function UserModal({
                                 value={form.email}
                                 onChange={handleChange}
                                 className="form-input"
-                                placeholder="Ej: juan@correo.com"
+                                placeholder="juan@correo.com"
                                 disabled={loading}
                             />
                         </div>
@@ -231,27 +231,32 @@ export default function UserModal({
                             <label htmlFor="user-role" className="form-label">
                                 Rol
                             </label>
-                            <select
-                                id="user-role"
-                                name="role"
-                                value={form.role}
-                                onChange={handleChange}
-                                className="form-input"
-                                disabled={loading}
-                                required
-                            >
-                                {ROLE_OPTIONS.map((role) => (
-                                    <option key={role.value} value={role.value}>
-                                        {role.label}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="selectWrap">
+                                <select
+                                    id="user-role"
+                                    name="role"
+                                    value={form.role}
+                                    onChange={handleChange}
+                                    className="form-input"
+                                    disabled={loading}
+                                    required
+                                >
+                                    {!ROLE_OPTIONS.some((role) => role.value === form.role) ? (
+                                        <option value={form.role}>Sistema</option>
+                                    ) : null}
+                                    {ROLE_OPTIONS.map((role) => (
+                                        <option key={role.value} value={role.value}>
+                                            {role.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {!isEdit && (
                             <div className="form-field">
                                 <label htmlFor="user-password" className="form-label">
-                                    Contraseña
+                                    Contrasena
                                 </label>
                                 <input
                                     id="user-password"
@@ -260,7 +265,7 @@ export default function UserModal({
                                     value={form.password}
                                     onChange={handleChange}
                                     className="form-input"
-                                    placeholder="Mínimo 6 caracteres"
+                                    placeholder="Minimo 6 caracteres"
                                     disabled={loading}
                                     required
                                 />
@@ -268,15 +273,14 @@ export default function UserModal({
                         )}
                     </div>
 
-                    <div className="form-switchRow">
-                        <div>
-                            <p className="form-switchLabel">Usuario activo</p>
-                            <p className="form-switchDescription">
-                                El usuario podrá ingresar y operar en el sistema.
-                            </p>
-                        </div>
-
-                        <label className="switch">
+                    <label className="optionCard optionCard--simple">
+                        <span className="optionCopy">
+                            <span className="optionTitle">Usuario activo</span>
+                            <span className="optionHint">
+                                El usuario podra ingresar y operar en el sistema.
+                            </span>
+                        </span>
+                        <span className="optionSwitch">
                             <input
                                 type="checkbox"
                                 name="isActive"
@@ -284,9 +288,14 @@ export default function UserModal({
                                 onChange={handleChange}
                                 disabled={loading}
                             />
-                            <span className="switch-slider" />
-                        </label>
-                    </div>
+                        </span>
+                    </label>
+
+                    {submitError || localError ? (
+                        <div className="form-error-message" role="alert">
+                            {submitError || localError}
+                        </div>
+                    ) : null}
 
                     <div className="modal-footer">
                         <button

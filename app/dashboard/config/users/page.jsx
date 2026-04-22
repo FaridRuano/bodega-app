@@ -15,19 +15,70 @@ import DialogModal from "@components/shared/DialogModal/DialogModal";
 import UserModal from "@components/config/UserModal/UserModal";
 
 const ROLE_LABELS = {
-  admin: "Administrador",
-  kitchen: "Cocina",
-  warehouse: "Bodega",
+  admin: "Sistema",
+  kitchen: "Chef",
+  lounge: "Mesero",
+  warehouse: "Bodeguero",
 };
+
+function ActionButton({
+  label,
+  icon: Icon,
+  variant = "neutral",
+  disabled = false,
+  onClick,
+}) {
+  return (
+    <button
+      type="button"
+      className={`action-button ${variant === "danger" ? "action-button--danger" : "action-button--neutral"}`}
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+    >
+      <span className="action-button__icon">
+        <Icon size={15} />
+      </span>
+      <span className="action-button__label">{label}</span>
+    </button>
+  );
+}
+
+function LoadingCard({ index }) {
+  return (
+    <article
+      className={`${styles.card} ${styles.loadingCard}`}
+      style={{ "--card-index": index }}
+    >
+      <div className={styles.summary}>
+        <div className={styles.summaryMain}>
+          <div className={styles.titleRow}>
+            <div className={`${styles.avatar} ${styles.skeletonBlock}`} />
+            <div className={styles.titleBlock}>
+              <div className={`${styles.skeletonLine} ${styles.skeletonTitle}`} />
+              <div className={`${styles.skeletonLine} ${styles.skeletonShort}`} />
+            </div>
+            <div className={`${styles.skeletonPill} ${styles.statusPill}`} />
+            <div className={`${styles.skeletonPill} ${styles.rolePill}`} />
+          </div>
+          <div className={`${styles.skeletonLine} ${styles.skeletonMedium}`} />
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [editError, setEditError] = useState("");
 
   const [dialogState, setDialogState] = useState({
     open: false,
@@ -78,7 +129,28 @@ export default function UsersPage() {
     }
   }
 
+  async function fetchCurrentUser() {
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || "No se pudo obtener la sesión.");
+      }
+
+      setCurrentUser(result.user || null);
+    } catch (error) {
+      console.error(error);
+      setCurrentUser(null);
+    }
+  }
+
   useEffect(() => {
+    fetchCurrentUser();
     fetchUsers();
   }, []);
 
@@ -97,6 +169,7 @@ export default function UsersPage() {
   async function handleCreateUser(formData) {
     try {
       setIsSubmitting(true);
+      setCreateError("");
 
       const response = await fetch("/api/users", {
         method: "POST",
@@ -109,11 +182,13 @@ export default function UsersPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo crear el usuario.");
+        setCreateError(result.message || "No se pudo crear el usuario.");
+        return;
       }
 
       setUsers((prev) => [result.data, ...prev]);
       setIsCreateOpen(false);
+      setCreateError("");
 
       setDialogState({
         open: true,
@@ -130,7 +205,8 @@ export default function UsersPage() {
           })),
       });
     } catch (error) {
-      console.error(error);
+      console.error("Create user error:", error);
+      setCreateError("");
 
       setDialogState({
         open: true,
@@ -152,6 +228,7 @@ export default function UsersPage() {
   }
 
   function handleOpenEdit(user) {
+    setEditError("");
     setSelectedUser(user);
   }
 
@@ -160,6 +237,7 @@ export default function UsersPage() {
 
     try {
       setIsSubmitting(true);
+      setEditError("");
 
       const response = await fetch(`/api/users/${selectedUser._id}`, {
         method: "PATCH",
@@ -172,7 +250,8 @@ export default function UsersPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo actualizar el usuario.");
+        setEditError(result.message || "No se pudo actualizar el usuario.");
+        return;
       }
 
       setUsers((prev) =>
@@ -182,6 +261,7 @@ export default function UsersPage() {
       );
 
       setSelectedUser(null);
+      setEditError("");
 
       setDialogState({
         open: true,
@@ -198,7 +278,8 @@ export default function UsersPage() {
           })),
       });
     } catch (error) {
-      console.error(error);
+      console.error("Update user error:", error);
+      setEditError("");
 
       setDialogState({
         open: true,
@@ -371,31 +452,48 @@ export default function UsersPage() {
 
   return (
     <>
-      <div className={styles.page}>
-        <div className={styles.headerRow}>
-          <div className={styles.headerContent}>
-            <h2 className={styles.title}>Administrador de Usuarios</h2>
-            <p className={styles.description}>
+      <div className="page">
+
+        <section className="hero fadeSlideIn">
+          <div className="heroCopy">
+            <span className="eyebrow">Acceso al sistema</span>
+            <h2 className="title">Usuarios</h2>
+            <p className="description">
               Administra accesos, roles y estado de los usuarios del sistema.
             </p>
           </div>
 
+          <div className="heroStatsCompact">
+            <span className="compactStat">
+              <strong>{users.length}</strong>
+              Usuarios
+            </span>
+          </div>
+        </section>
+
+        <div className={`${styles.headerRow} ${styles.enter}`}>
+
           <button
             type="button"
-            className="btn btn-primary"
+            className={`${styles.createButton} miniAction miniActionPrimary`}
             onClick={() => setIsCreateOpen(true)}
+            title="Nuevo usuario"
           >
-            <Plus size={16} />
-            Nuevo usuario
+            <span className="action-button__icon">
+              <Plus size={16} />
+            </span>
+            <span className="action-button__label">Nuevo usuario</span>
           </button>
         </div>
 
         {isLoading ? (
-          <div className={styles.emptyState}>
-            <p className={styles.emptyTitle}>Cargando usuarios...</p>
+          <div className={`${styles.list} ${styles.loadingList}`}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <LoadingCard key={index} index={index} />
+            ))}
           </div>
         ) : sortedUsers.length === 0 ? (
-          <div className={styles.emptyState}>
+          <div className={`${styles.emptyState} ${styles.enter}`} style={{ "--enter-delay": "0.08s" }}>
             <p className={styles.emptyTitle}>No hay usuarios registrados</p>
             <p className={styles.emptyDescription}>
               Crea tu primer usuario para comenzar a asignar accesos al sistema.
@@ -406,11 +504,13 @@ export default function UsersPage() {
             {sortedUsers.map((user) => {
               const isOpen = expandedId === user._id;
               const fullName = `${user.firstName} ${user.lastName}`.trim();
+              const isCurrentUser = String(currentUser?.id || "") === String(user._id);
 
               return (
                 <article
                   key={user._id}
-                  className={`${styles.card} ${isOpen ? styles.cardOpen : ""}`}
+                  className={`${styles.card} ${styles.enter} ${isOpen ? styles.cardOpen : ""}`}
+                  style={{ "--enter-delay": `${Math.min(0.08 + sortedUsers.indexOf(user) * 0.04, 0.28)}s` }}
                 >
                   <button
                     type="button"
@@ -429,11 +529,10 @@ export default function UsersPage() {
                         </div>
 
                         <span
-                          className={`${styles.statusBadge} ${
-                            user.isActive
-                              ? styles.statusActive
-                              : styles.statusInactive
-                          }`}
+                          className={`${styles.statusBadge} ${user.isActive
+                            ? styles.statusActive
+                            : styles.statusInactive
+                            }`}
                         >
                           {user.isActive ? "Activo" : "Inactivo"}
                         </span>
@@ -454,15 +553,14 @@ export default function UsersPage() {
                       </span>
                       <ChevronDown
                         size={18}
-                        className={`${styles.chevron} ${
-                          isOpen ? styles.chevronOpen : ""
-                        }`}
+                        className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""
+                          }`}
                       />
                     </div>
                   </button>
 
                   {isOpen && (
-                    <div className={styles.details}>
+                    <div className={`${styles.details} ${styles.detailsEnter}`}>
                       <div className={styles.meta}>
                         <div className={styles.metaItem}>
                           <span className={styles.metaLabel}>Nombres</span>
@@ -503,32 +601,26 @@ export default function UsersPage() {
                       </div>
 
                       <div className={styles.actions}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
+                        <ActionButton
+                          label="Editar"
+                          icon={PencilLine}
                           onClick={() => handleOpenEdit(user)}
-                        >
-                          <PencilLine size={16} />
-                          Editar
-                        </button>
+                        />
 
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
+                        <ActionButton
+                          label={user.isActive ? "Desactivar" : "Activar"}
+                          icon={Power}
                           onClick={() => handleToggleUser(user)}
-                        >
-                          <Power size={16} />
-                          {user.isActive ? "Desactivar" : "Activar"}
-                        </button>
+                          disabled={isCurrentUser}
+                        />
 
-                        <button
-                          type="button"
-                          className="btn btn-danger"
+                        <ActionButton
+                          label="Eliminar"
+                          icon={Trash2}
+                          variant="danger"
                           onClick={() => handleDeleteUser(user)}
-                        >
-                          <Trash2 size={16} />
-                          Eliminar
-                        </button>
+                          disabled={isCurrentUser}
+                        />
                       </div>
                     </div>
                   )}
@@ -541,19 +633,27 @@ export default function UsersPage() {
 
       <UserModal
         open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setCreateError("");
+        }}
         onSubmit={handleCreateUser}
         mode="create"
         loading={isSubmitting}
+        submitError={createError}
       />
 
       <UserModal
         open={Boolean(selectedUser)}
-        onClose={() => setSelectedUser(null)}
+        onClose={() => {
+          setSelectedUser(null);
+          setEditError("");
+        }}
         onSubmit={handleUpdateUser}
         mode="edit"
         initialData={selectedUser}
         loading={isSubmitting}
+        submitError={editError}
       />
 
       <DialogModal

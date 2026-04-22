@@ -14,6 +14,11 @@ export default function PaginationBar({
 }) {
     if (totalItems <= 0) return null;
 
+    const normalizedTotalPages = Math.max(totalPages, 1);
+    const isSinglePage = normalizedTotalPages <= 1;
+    const isPrevDisabled = isSinglePage || page <= 1;
+    const isNextDisabled = isSinglePage || page >= normalizedTotalPages;
+
     return (
         <div className={styles.paginationBar}>
             <div className={styles.paginationInfo}>
@@ -24,26 +29,32 @@ export default function PaginationBar({
             <div className={styles.paginationControls}>
                 <button
                     type="button"
-                    className="btn btn-secondary"
+                    className={`action-button action-button--neutral ${isPrevDisabled ? styles.disabledControl : ""}`}
                     onClick={() => onPageChange?.(Math.max(page - 1, 1))}
-                    disabled={page <= 1}
+                    disabled={isPrevDisabled}
+                    aria-label="Pagina anterior"
                 >
-                    <ChevronLeft size={16} />
-                    Anterior
+                    <span className="action-button__icon">
+                        <ChevronLeft size={16} />
+                    </span>
+                    <span className="action-button__label">Anterior</span>
                 </button>
 
                 <span className={styles.pageIndicator}>
-                    Página {page} de {Math.max(totalPages, 1)}
+                    Pagina {page} de {normalizedTotalPages}
                 </span>
 
                 <button
                     type="button"
-                    className="btn btn-secondary"
-                    onClick={() => onPageChange?.(Math.min(page + 1, Math.max(totalPages, 1)))}
-                    disabled={page >= totalPages}
+                    className={`action-button action-button--neutral ${isNextDisabled ? styles.disabledControl : ""}`}
+                    onClick={() => onPageChange?.(Math.min(page + 1, normalizedTotalPages))}
+                    disabled={isNextDisabled}
+                    aria-label="Pagina siguiente"
                 >
-                    Siguiente
-                    <ChevronRight size={16} />
+                    <span className="action-button__icon">
+                        <ChevronRight size={16} />
+                    </span>
+                    <span className="action-button__label">Siguiente</span>
                 </button>
             </div>
         </div>

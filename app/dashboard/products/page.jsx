@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Box,
+  Boxes,
+  CheckCircle2,
+  ClipboardList,
   Plus,
+  Scale,
   Search,
   Tag,
   ThermometerSnowflake,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-
 
 import styles from "./page.module.scss";
 import ProductModal from "@components/products/ProductModal/ProductModal";
@@ -19,6 +22,7 @@ import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
 import { getUnitLabel } from "@libs/constants/units";
 import { PAGE_LIMITS } from "@libs/constants/pagination";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+import { getProductTypeLabel, PRODUCT_TYPES } from "@libs/constants/productTypes";
 
 const PAGE_SIZE = PAGE_LIMITS.products;
 
@@ -26,7 +30,8 @@ const PRODUCT_TYPE_LABELS = {
   raw_material: "Materia prima",
   processed: "Procesado",
   prepared: "Preparado",
-  supply: "Insumo",
+  supply: "Insumos y empaques",
+  resale: "Producto para reventa",
 };
 
 const STORAGE_TYPE_LABELS = {
@@ -63,9 +68,22 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [viewedProduct, setViewedProduct] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [editError, setEditError] = useState("");
 
   const totalProducts = products.length;
   const activeProducts = products.filter((product) => product.isActive).length;
+  const productsWithWeightControl = products.filter(
+    (product) => product.requiresWeightControl
+  ).length;
+  const productsWithDailyControl = products.filter(
+    (product) => product.requiresDailyControl
+  ).length;
+  const hasActiveFilters =
+    Boolean(search.trim()) ||
+    Boolean(categoryFilter) ||
+    statusFilter !== "all" ||
+    typeFilter !== "all";
 
   const [dialogState, setDialogState] = useState({
     open: false,
@@ -102,7 +120,7 @@ export default function ProductsPage() {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      throw new Error(result.message || "No se pudieron obtener las categorías.");
+      throw new Error(result.message || "No se pudieron obtener las categorias.");
     }
 
     return result.data || [];
@@ -126,8 +144,7 @@ export default function ProductsPage() {
         open: true,
         variant: "danger",
         title: "Error al cargar productos",
-        message:
-          error.message || "Ocurrió un problema al cargar la información.",
+        message: error.message || "Ocurrio un problema al cargar la informacion.",
         confirmText: "Cerrar",
         showCancel: false,
         loading: false,
@@ -187,12 +204,7 @@ export default function ProductsPage() {
         const matchesType =
           typeFilter === "all" || product.productType === typeFilter;
 
-        return (
-          matchesSearch &&
-          matchesCategory &&
-          matchesStatus &&
-          matchesType
-        );
+        return matchesSearch && matchesCategory && matchesStatus && matchesType;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [products, search, categoryFilter, statusFilter, typeFilter]);
@@ -220,6 +232,7 @@ export default function ProductsPage() {
   async function handleCreateProduct(formData) {
     try {
       setIsSubmitting(true);
+      setCreateError("");
 
       const response = await fetch("/api/products", {
         method: "POST",
@@ -232,17 +245,19 @@ export default function ProductsPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo crear el producto.");
+        setCreateError(result.message || "No se pudo crear el producto.");
+        return;
       }
 
       setProducts((prev) => [result.data, ...prev]);
       setIsCreateOpen(false);
+      setCreateError("");
 
       setDialogState({
         open: true,
         variant: "success",
         title: "Producto creado",
-        message: result.message || "El producto se creó correctamente.",
+        message: result.message || "El producto se creo correctamente.",
         confirmText: "Aceptar",
         showCancel: false,
         loading: false,
@@ -254,12 +269,13 @@ export default function ProductsPage() {
       });
     } catch (error) {
       console.error(error);
+      setCreateError("");
 
       setDialogState({
         open: true,
         variant: "danger",
         title: "No se pudo crear el producto",
-        message: error.message || "Ocurrió un problema al crear el producto.",
+        message: error.message || "Ocurrio un problema al crear el producto.",
         confirmText: "Cerrar",
         showCancel: false,
         loading: false,
@@ -276,6 +292,7 @@ export default function ProductsPage() {
 
   function handleOpenEdit(product) {
     setViewedProduct(null);
+    setEditError("");
     setSelectedProduct(product);
   }
 
@@ -284,6 +301,7 @@ export default function ProductsPage() {
 
     try {
       setIsSubmitting(true);
+      setEditError("");
 
       const response = await fetch(`/api/products/${selectedProduct._id}`, {
         method: "PATCH",
@@ -296,7 +314,8 @@ export default function ProductsPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo actualizar el producto.");
+        setEditError(result.message || "No se pudo actualizar el producto.");
+        return;
       }
 
       setProducts((prev) =>
@@ -306,6 +325,7 @@ export default function ProductsPage() {
       );
 
       setSelectedProduct(null);
+      setEditError("");
 
       setDialogState({
         open: true,
@@ -323,13 +343,13 @@ export default function ProductsPage() {
       });
     } catch (error) {
       console.error(error);
+      setEditError("");
 
       setDialogState({
         open: true,
         variant: "danger",
         title: "No se pudo actualizar el producto",
-        message:
-          error.message || "Ocurrió un problema al actualizar el producto.",
+        message: error.message || "Ocurrio un problema al actualizar el producto.",
         confirmText: "Cerrar",
         showCancel: false,
         loading: false,
@@ -355,8 +375,7 @@ export default function ProductsPage() {
         open: true,
         variant: "danger",
         title: "No se pudo abrir el producto",
-        message:
-          error.message || "Ocurrió un problema al cargar el detalle del producto.",
+        message: error.message || "Ocurrio un problema al cargar el detalle del producto.",
         confirmText: "Cerrar",
         showCancel: false,
         loading: false,
@@ -375,8 +394,8 @@ export default function ProductsPage() {
       variant: product.isActive ? "warning" : "success",
       title: product.isActive ? "Desactivar producto" : "Activar producto",
       message: product.isActive
-        ? `El producto "${product.name}" dejará de estar disponible en el sistema.`
-        : `El producto "${product.name}" volverá a estar disponible.`,
+        ? `El producto "${product.name}" dejara de estar disponible en el sistema.`
+        : `El producto "${product.name}" volvera a estar disponible.`,
       confirmText: product.isActive ? "Desactivar" : "Activar",
       showCancel: true,
       loading: false,
@@ -419,9 +438,7 @@ export default function ProductsPage() {
             open: true,
             variant: "success",
             title: "Estado actualizado",
-            message:
-              result.message ||
-              "El estado del producto se actualizó correctamente.",
+            message: result.message || "El estado del producto se actualizo correctamente.",
             confirmText: "Aceptar",
             showCancel: false,
             loading: false,
@@ -438,9 +455,7 @@ export default function ProductsPage() {
             open: true,
             variant: "danger",
             title: "No se pudo actualizar el estado",
-            message:
-              error.message ||
-              "Ocurrió un problema al cambiar el estado del producto.",
+            message: error.message || "Ocurrio un problema al cambiar el estado del producto.",
             confirmText: "Cerrar",
             showCancel: false,
             loading: false,
@@ -460,7 +475,7 @@ export default function ProductsPage() {
       open: true,
       variant: "danger",
       title: "Eliminar producto",
-      message: `Se eliminará el producto "${product.name}". Esta acción no se puede deshacer.`,
+      message: `Se eliminara el producto "${product.name}". Esta accion no se puede deshacer.`,
       confirmText: "Eliminar",
       showCancel: true,
       loading: false,
@@ -510,8 +525,7 @@ export default function ProductsPage() {
             open: true,
             variant: "danger",
             title: "No se pudo eliminar el producto",
-            message:
-              error.message || "Ocurrió un problema al eliminar el producto.",
+            message: error.message || "Ocurrio un problema al eliminar el producto.",
             confirmText: "Cerrar",
             showCancel: false,
             loading: false,
@@ -526,25 +540,56 @@ export default function ProductsPage() {
     });
   }
 
+  function handleClearFilters() {
+    setSearch("");
+    setCategoryFilter("");
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setPage(1);
+  }
+
   return (
     <>
-      <div className={styles.page}>
-        <div className={styles.headerRow}>
-          <div className={styles.statsGroup}>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Total productos</span>
-              <strong className={styles.statValue}>{totalProducts}</strong>
-            </div>
+      <div className="page">
+        <section className={`hero fadeScaleIn ${styles.heroShell}`}>
+          <div className="heroCopy">
+            <span className="eyebrow">Productos</span>
+            <h1 className="title">Catalogo de productos</h1>
+            <p className="description">
+              Organiza tu base de productos y revisa su estado.
+            </p>
+          </div>
 
-            <div className={`${styles.statCard} ${styles.positive}`}>
-              <span className={styles.statLabel}>Productos activos</span>
-              <strong className={styles.statValue}>{activeProducts}</strong>
+          <div className={styles.heroStats}>
+            <div className={`compactStat ${styles.heroStatButton}`}>
+              <Boxes size={14} />
+              <span>
+                Productos <strong>{totalProducts}</strong>
+              </span>
             </div>
+            <div className={`compactStat ${styles.heroStatButton} heroStatSuccess`}>
+              <CheckCircle2 size={14} />
+              <span>
+                Activos <strong>{activeProducts}</strong>
+              </span>
+            </div>
+            <div className={`compactStat ${styles.heroStatButton} heroStatInfo`}>
+              <ClipboardList size={14} />
+              <span>
+                Control diario <strong>{productsWithDailyControl}</strong>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <div className={styles.headerRow}>
+          <div className={styles.filtersLead}>
+            <span className={styles.filtersHint}>Explora y filtra el catalogo</span>
           </div>
 
           <button
             type="button"
-            className="btn btn-primary"
+            className="miniAction miniActionPrimary"
             onClick={() => setIsCreateOpen(true)}
           >
             <Plus size={16} />
@@ -553,52 +598,71 @@ export default function ProductsPage() {
         </div>
 
         <div className={styles.filtersCard}>
-          <div className={styles.searchField}>
-            <Search size={16} />
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por nombre, código o categoría"
-              className={styles.searchInput}
-            />
+          <div className={styles.filtersTop}>
+            <div className="searchField">
+              <Search size={16} />
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por nombre, codigo o categoria"
+                className="searchInput"
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="miniAction"
+                onClick={handleClearFilters}
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
 
           <div className={styles.filtersGrid}>
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className={styles.filterSelect}
-            >
-              <option value="">Todas las categorías</option>
-              {categories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <div className="selectWrap">
+              <select
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                className="form-input"
+              >
+                <option value="">Todas las categorias</option>
+                {categories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className={styles.filterSelect}
-            >
-              <option value="all">Todos los estados</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-            </select>
+            <div className="selectWrap">
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="form-input"
+              >
+                <option value="all">Todos los estados</option>
+                <option value="active">Activos</option>
+                <option value="inactive">Inactivos</option>
+              </select>
+            </div>
 
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-              className={styles.filterSelect}
-            >
-              <option value="all">Todos los tipos</option>
-              <option value="raw_material">Materia prima</option>
-              <option value="processed">Procesado</option>
-              <option value="prepared">Preparado</option>
-              <option value="supply">Insumo</option>
-            </select>
+            <div className="selectWrap">
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+                className="form-input"
+              >
+                <option value="all">Todos los tipos</option>
+                {PRODUCT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {getProductTypeLabel(type)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -627,6 +691,10 @@ export default function ProductsPage() {
                     <div className={styles.titleLine}>
                       <h3 className={styles.cardTitle}>{product.name}</h3>
 
+                      {product.code && (
+                        <span className={styles.codeBadge}>{product.code}</span>
+                      )}
+
                       <span
                         className={`${styles.statusBadge} ${product.isActive
                           ? styles.statusActive
@@ -636,55 +704,59 @@ export default function ProductsPage() {
                         {product.isActive ? "Activo" : "Inactivo"}
                       </span>
                     </div>
-
-                    <p className={styles.cardDescription}>
-                      {product.description || "Sin descripción registrada."}
-                    </p>
-                  </div>
-
-                  <div className={styles.inventoryBlock}>
-                    <span className={styles.inventoryLabel}>Disponible</span>
-                    <strong className={styles.inventoryValue}>
-                      {formatNumber(product.inventory?.available)}
-                    </strong>
                   </div>
                 </div>
 
-                <div className={styles.cardMeta}>
-                  <span className={styles.metaPill}>
-                    <Tag size={14} />
-                    {product.category?.name || product.categoryName || "Sin categoría"}
-                  </span>
+                <div className={styles.hoverBar}>
+                  <div className={styles.hoverMeta}>
+                    <span className={styles.hoverItem}>
+                      <Tag size={13} />
+                      {product.category?.name || product.categoryName || "Sin categoria"}
+                    </span>
 
-                  <span className={styles.metaPill}>
-                    <Box size={14} />
-                    {getUnitLabel(product.unit)}
-                  </span>
+                    <span className={styles.hoverItem}>
+                      <Box size={13} />
+                      {getUnitLabel(product.unit)}
+                    </span>
 
-                  <span className={styles.metaPill}>
-                    {PRODUCT_TYPE_LABELS[product.productType] || product.productType}
-                  </span>
+                    <span className={styles.hoverItem}>
+                      {PRODUCT_TYPE_LABELS[product.productType] || product.productType}
+                    </span>
 
-                  <span className={styles.metaPill}>
-                    <ThermometerSnowflake size={14} />
-                    {STORAGE_TYPE_LABELS[product.storageType] || product.storageType}
-                  </span>
-                </div>
+                    <span className={styles.hoverItem}>
+                      <ThermometerSnowflake size={13} />
+                      {STORAGE_TYPE_LABELS[product.storageType] || product.storageType}
+                    </span>
 
-                <div className={styles.cardFooter}>
-                  <div className={styles.footerStats}>
-                    <span className={styles.footerStat}>
+                    {product.requiresWeightControl && (
+                      <span className={`${styles.hoverItem} ${styles.weightPill}`}>
+                        <Scale size={13} />
+                        Controlar Peso
+                      </span>
+                    )}
+
+                    {product.requiresDailyControl && (
+                      <span className={`${styles.hoverItem} ${styles.weightPill}`}>
+                        <ClipboardList size={13} />
+                        Control diario
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.stockBar}>
+                    <span className={styles.stockItem}>
+                      Total: {formatNumber(product.inventory?.total)}
+                    </span>
+                    <span className={styles.stockItem}>
                       Bodega: {formatNumber(product.inventory?.warehouse)}
                     </span>
-                    <span className={styles.footerStat}>
+                    <span className={styles.stockItem}>
                       Cocina: {formatNumber(product.inventory?.kitchen)}
                     </span>
-                    <span className={styles.footerStat}>
-                      Mínimo: {formatNumber(product.minStock)}
+                    <span className={styles.stockItem}>
+                      Alerta baja: {formatNumber(product.minStock)}
                     </span>
                   </div>
-
-                  <span className={styles.viewHint}>Ver detalle</span>
                 </div>
               </button>
             ))}
@@ -702,24 +774,38 @@ export default function ProductsPage() {
         />
       </div>
 
-      <ProductModal
-        open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSubmit={handleCreateProduct}
-        mode="create"
-        categories={categories}
-        loading={isSubmitting}
-      />
+      {isCreateOpen && (
+        <ProductModal
+          key="create-product"
+          open={isCreateOpen}
+          onClose={() => {
+            setIsCreateOpen(false);
+            setCreateError("");
+          }}
+          onSubmit={handleCreateProduct}
+          mode="create"
+          categories={categories}
+          loading={isSubmitting}
+          submitError={createError}
+        />
+      )}
 
-      <ProductModal
-        open={Boolean(selectedProduct)}
-        onClose={() => setSelectedProduct(null)}
-        onSubmit={handleUpdateProduct}
-        mode="edit"
-        initialData={selectedProduct}
-        categories={categories}
-        loading={isSubmitting}
-      />
+      {Boolean(selectedProduct) && (
+        <ProductModal
+          key={selectedProduct?._id || "edit-product"}
+          open={Boolean(selectedProduct)}
+          onClose={() => {
+            setSelectedProduct(null);
+            setEditError("");
+          }}
+          onSubmit={handleUpdateProduct}
+          mode="edit"
+          initialData={selectedProduct}
+          categories={categories}
+          loading={isSubmitting}
+          submitError={editError}
+        />
+      )}
 
       <ProductViewModal
         open={Boolean(viewedProduct)}

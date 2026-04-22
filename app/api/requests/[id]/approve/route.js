@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
+import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notifications";
 import Request from "@models/Request";
 
 function isValidObjectId(value) {
@@ -33,11 +34,13 @@ function normalizeRequestDocument(request) {
         returned: 0,
     };
 
+    const normalizedStatus = request.status === "approved" ? "processing" : request.status;
+
     return {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
-        status: request.status,
+        status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
 
@@ -300,6 +303,18 @@ export async function POST(request, { params }) {
         });
 
         await requestDoc.save();
+
+        await createNotificationsForUsers([requestDoc.requestedBy], {
+            type: NOTIFICATION_TYPES.internal_request_approved,
+            title: "Transferencia aprobada",
+            message: `${requestDoc.requestNumber} fue aprobada y ya puede prepararse.`,
+            href: "/dashboard/requests",
+            entityType: "request",
+            entityId: requestDoc._id,
+            priority: "normal",
+        }).catch((notificationError) => {
+            console.error("internal request approved notification error:", notificationError);
+        });
 
         const populated = await getRequestById(requestDoc._id);
 

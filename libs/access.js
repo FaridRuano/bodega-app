@@ -1,12 +1,19 @@
-export const USER_ROLES = ["admin", "warehouse", "kitchen"];
+export const USER_ROLES = ["admin", "warehouse", "kitchen", "lounge"];
 
 export const ACCESS_RULES = [
     { pattern: "/dashboard/config", roles: ["admin"] },
     { pattern: "/dashboard/products", roles: ["admin", "warehouse"] },
-    { pattern: "/dashboard/inventory", roles: ["admin", "warehouse"] },
+    { pattern: "/dashboard/inventory", roles: ["admin", "warehouse", "kitchen", "lounge"] },
     { pattern: "/dashboard/kitchen", roles: ["admin", "kitchen"] },
+    { pattern: "/dashboard/lounge", roles: ["admin", "lounge"] },
     { pattern: "/dashboard/movements", roles: ["admin", "warehouse"] },
+    { pattern: "/dashboard/notifications", roles: ["admin", "warehouse", "kitchen", "lounge"] },
+    { pattern: "/dashboard/receiving", roles: ["warehouse", "kitchen", "lounge"] },
+    { pattern: "/dashboard/daily-control", roles: ["admin", "kitchen", "lounge"] },
     { pattern: "/dashboard/production", roles: ["admin", "kitchen"] },
+    { pattern: "/dashboard/purchases/history", roles: ["admin"] },
+    { pattern: "/dashboard/purchase-requests", roles: ["admin", "warehouse", "kitchen", "lounge"] },
+    { pattern: "/dashboard/purchases", roles: ["admin", "warehouse", "kitchen", "lounge"] },
 ];
 
 export function isValidRole(role) {
@@ -24,11 +31,13 @@ export function hasAnyRole(userRole, allowedRoles = []) {
 export function getRoleLabel(role) {
     switch (role) {
         case "admin":
-            return "Administrador";
+            return "Sistema";
         case "warehouse":
-            return "Bodega";
+            return "Bodeguero";
         case "kitchen":
-            return "Cocina";
+            return "Chef";
+        case "lounge":
+            return "Mesero";
         default:
             return "Usuario";
     }

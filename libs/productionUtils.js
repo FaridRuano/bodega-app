@@ -167,8 +167,24 @@ export async function buildValidatedProductionItems(
             productTypeSnapshot: product.productType || "",
             unitSnapshot,
             quantity,
+            recordedWeight:
+                item.recordedWeight === "" ||
+                item.recordedWeight === undefined ||
+                item.recordedWeight === null
+                    ? null
+                    : normalizeNumber(item.recordedWeight),
             notes: normalizeText(item.notes, 300),
         };
+
+        if (
+            normalized.recordedWeight !== null &&
+            (!Number.isFinite(normalized.recordedWeight) ||
+                normalized.recordedWeight <= 0)
+        ) {
+            throw new Error(
+                `El peso real del producto "${product.name}" no es valido.`
+            );
+        }
 
         if (allowDestination) {
             normalized.destinationLocation = item.destinationLocation || "warehouse";

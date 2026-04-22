@@ -1,74 +1,40 @@
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.heroShell {
+  margin-bottom: 6px;
 }
 
-.toolbarCard {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 18px;
-  border-radius: 20px;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-.toolbarTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.pageTitle {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.pageDescription {
-  margin: 6px 0 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.searchRow {
+.heroStats {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.filtersCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.filtersTop {
+  display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.filtersGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .searchBox {
-  flex: 1 1 320px;
-  min-width: min(100%, 280px);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 48px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-secondary);
-  color: var(--text-muted);
-}
-
-.searchInput {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 14px;
-  outline: none;
-}
-
-.searchInput::placeholder {
-  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .clearButton {
@@ -82,31 +48,6 @@
   background: var(--bg-subtle);
   color: var(--text-secondary);
   cursor: pointer;
-}
-
-.filterRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.filterChip {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-secondary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.filterChipActive {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .resultsList {
@@ -123,6 +64,16 @@
   border: 1px solid var(--border-subtle);
   background: var(--surface-primary);
   box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.resultCard:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-accent);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
 }
 
 .cardHeader {
@@ -156,9 +107,29 @@
   color: var(--info);
 }
 
-.kindProduction {
-  background: var(--warning-soft);
+.kindPurchase {
+  background: color-mix(in srgb, var(--warning-soft) 82%, transparent);
   color: var(--warning);
+}
+
+.kindProduction {
+  background: color-mix(in srgb, var(--success-soft) 78%, transparent);
+  color: var(--success);
+}
+
+.kindMovement {
+  background: color-mix(in srgb, var(--surface-secondary) 86%, transparent);
+  color: var(--text-secondary);
+}
+
+.kindDailyControl {
+  background: color-mix(in srgb, var(--info-soft) 86%, transparent);
+  color: var(--info);
+}
+
+.kindGeneric {
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
 }
 
 .resultCode {
@@ -306,7 +277,11 @@
   color: var(--text-secondary);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
+  .filtersGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .cardHeader {
     flex-direction: column;
   }
@@ -316,27 +291,21 @@
   }
 }
 
+@media (max-width: 720px) {
+  .filtersTop {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 @media (max-width: 640px) {
-  .toolbarCard,
   .resultCard {
     padding: 14px;
   }
 
-  .searchRow {
-    align-items: stretch;
-  }
-
-  .searchBox {
-    flex-basis: 100%;
-  }
-
-  .filterRow {
-    width: 100%;
-  }
-
-  .filterChip {
-    flex: 1 1 calc(50% - 4px);
-    justify-content: center;
+  .filtersGrid,
+  .detailsGrid {
+    grid-template-columns: 1fr;
   }
 
   .titleBlock {
@@ -344,15 +313,11 @@
     gap: 10px;
   }
 
-  .detailsGrid {
-    grid-template-columns: 1fr;
-  }
-
   .cardFooter {
     justify-content: stretch;
   }
 
-  .cardFooter :global(.btn) {
+  .cardFooter :global(.miniAction) {
     width: 100%;
     justify-content: center;
   }

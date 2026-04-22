@@ -286,12 +286,12 @@ export default function ProductionDraftView({
 
     return (
         <>
-            <div className={styles.page}>
+            <div className="page">
                 <div className={styles.header}>
                     <div className={styles.headerLeft}>
                         <button
                             type="button"
-                            className={`btn btn-secondary ${styles.backButton}`}
+                            className={`miniAction ${styles.backButton}`}
                             onClick={() => router.push("/dashboard/production")}
                             disabled={isSaving || isStarting || isDeleting}
                         >
@@ -319,7 +319,7 @@ export default function ProductionDraftView({
                     <div className={styles.headerActions}>
                         <button
                             type="button"
-                            className="btn btn-secondary"
+                            className="miniAction"
                             onClick={handleSave}
                             disabled={!canSave}
                         >
@@ -338,7 +338,7 @@ export default function ProductionDraftView({
 
                         <button
                             type="button"
-                            className="btn btn-primary"
+                            className="miniAction miniActionPrimary"
                             onClick={handleOpenStartModal}
                             disabled={!canStart}
                         >
@@ -357,7 +357,7 @@ export default function ProductionDraftView({
 
                         <button
                             type="button"
-                            className={`btn btn-secondary ${styles.deleteButton}`}
+                            className={`miniAction miniActionDanger ${styles.deleteButton}`}
                             onClick={() => setShowDeleteModal(true)}
                             disabled={isSaving || isStarting || isDeleting}
                         >
@@ -425,7 +425,7 @@ export default function ProductionDraftView({
                                     </div>
 
                                     <div className={styles.summaryItem}>
-                                        <span className={styles.summaryLabel}>UbicaciÃ³n</span>
+                                        <span className={styles.summaryLabel}>Ubicación</span>
                                         <span className={styles.summaryValue}>
                                             {production?.location === "kitchen"
                                                 ? "Cocina"
@@ -500,25 +500,27 @@ export default function ProductionDraftView({
                             </div>
 
                             <div className={styles.formGrid}>
-                                <div className={styles.fieldBlock}>
-                                    <label className={styles.fieldLabel}>
+                                <div className="form-field">
+                                    <label className="form-label">
                                         Cantidad objetivo
                                     </label>
                                     <div className={styles.inlineInput}>
-                                        <input
-                                            type="number"
-                                            min="0.0001"
-                                            step="0.0001"
-                                            value={form.targetQuantity}
-                                            onChange={(event) =>
-                                                setForm((prev) => ({
-                                                    ...prev,
-                                                    targetQuantity: event.target.value,
-                                                }))
-                                            }
-                                            className={styles.fieldInput}
-                                            disabled={isSaving || isStarting || isDeleting}
-                                        />
+                                        <div className={styles.fieldShell}>
+                                            <input
+                                                type="number"
+                                                min="0.0001"
+                                                step="0.0001"
+                                                value={form.targetQuantity}
+                                                onChange={(event) =>
+                                                    setForm((prev) => ({
+                                                        ...prev,
+                                                        targetQuantity: event.target.value,
+                                                    }))
+                                                }
+                                                className="form-input"
+                                                disabled={isSaving || isStarting || isDeleting}
+                                            />
+                                        </div>
 
                                         <div className={styles.inlineUnit}>
                                             {getUnitLabel(production?.targetUnit)}
@@ -530,8 +532,8 @@ export default function ProductionDraftView({
                                     </span>
                                 </div>
 
-                                <div className={`${styles.fieldBlock} ${styles.fullWidth}`}>
-                                    <label className={styles.fieldLabel}>Notas</label>
+                                <div className={`form-field ${styles.fullWidth}`}>
+                                    <label className="form-label">Notas</label>
                                     <textarea
                                         value={form.notes}
                                         onChange={(event) =>
@@ -540,7 +542,7 @@ export default function ProductionDraftView({
                                                 notes: event.target.value,
                                             }))
                                         }
-                                        className={styles.fieldTextarea}
+                                        className="form-textarea"
                                         placeholder="Observaciones para este borrador"
                                         disabled={isSaving || isStarting || isDeleting}
                                     />

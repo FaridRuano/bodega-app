@@ -5,6 +5,7 @@ import Product from "@models/Product";
 import { auth } from "@auth";
 import dbConnect from "@libs/mongodb";
 import ProductionTemplate from "@models/ProductionTemplate";
+import { PRODUCTION_BASE_UNITS } from "@libs/constants/units";
 
 async function getCurrentUserId() {
     const session = await auth();
@@ -13,6 +14,36 @@ async function getCurrentUserId() {
 
 function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id);
+}
+
+function normalizeOutputs(outputs = []) {
+    if (!Array.isArray(outputs) || outputs.length === 0) {
+        return [];
+    }
+
+    if (outputs.length === 1) {
+        return outputs.map((item) => ({
+            ...item,
+            isMain: true,
+        }));
+    }
+
+    let hasMain = false;
+
+    return outputs.map((item) => {
+        if (item.isMain && !hasMain) {
+            hasMain = true;
+            return {
+                ...item,
+                isMain: true,
+            };
+        }
+
+        return {
+            ...item,
+            isMain: false,
+        };
+    });
 }
 
 function sanitizeTemplatePayload(payload = {}) {
@@ -38,9 +69,10 @@ function sanitizeTemplatePayload(payload = {}) {
                 payload.expectedWaste === null
                 ? null
                 : Number(payload.expectedWaste),
-        defaultDestination: payload.defaultDestination,
+        defaultDestination: "kitchen",
         allowsMultipleOutputs: Boolean(payload.allowsMultipleOutputs),
         requiresWasteRecord: Boolean(payload.requiresWasteRecord),
+        requiresWeightControl: Boolean(payload.requiresWeightControl),
         allowRealOutputAdjustment:
             payload.allowRealOutputAdjustment === undefined
                 ? true
@@ -62,7 +94,7 @@ function sanitizeTemplatePayload(payload = {}) {
             }))
             : [],
         outputs: Array.isArray(payload.outputs)
-            ? payload.outputs.map((item) => ({
+            ? normalizeOutputs(payload.outputs.map((item) => ({
                 productId: item.productId,
                 quantity:
                     item.quantity === "" ||
@@ -74,7 +106,7 @@ function sanitizeTemplatePayload(payload = {}) {
                 isMain: Boolean(item.isMain),
                 isByProduct: Boolean(item.isByProduct),
                 notes: item.notes?.trim() || "",
-            }))
+            })))
             : [],
     };
 }
@@ -164,7 +196,7 @@ export async function GET(request, context) {
 
         const productionTemplate = await ProductionTemplate.findById(id)
             .select(
-                "code name description category type baseUnit expectedYield expectedWaste defaultDestination allowsMultipleOutputs requiresWasteRecord allowRealOutputAdjustment notes isActive inputs outputs createdBy updatedBy createdAt updatedAt"
+                "code name description category type baseUnit expectedYield expectedWaste defaultDestination allowsMultipleOutputs requiresWasteRecord requiresWeightControl allowRealOutputAdjustment notes isActive inputs outputs createdBy updatedBy createdAt updatedAt"
             )
             .populate("category", "name")
             .populate("createdBy", "username")
@@ -277,6 +309,26 @@ export async function PUT(request, context) {
             );
         }
 
+        if (!PRODUCTION_BASE_UNITS.includes(payload.baseUnit)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "La unidad base solo puede ser unidad o kilogramo.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (payload.requiresWeightControl && payload.baseUnit !== "kg") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "El control de gramaje solo aplica a fichas con unidad base en kilogramo.",
+                },
+                { status: 400 }
+            );
+        }
+
         if (!Array.isArray(payload.inputs) || payload.inputs.length === 0) {
             return NextResponse.json(
                 {
@@ -358,6 +410,7 @@ export async function PUT(request, context) {
         existingTemplate.defaultDestination = payload.defaultDestination;
         existingTemplate.allowsMultipleOutputs = payload.allowsMultipleOutputs;
         existingTemplate.requiresWasteRecord = payload.requiresWasteRecord;
+        existingTemplate.requiresWeightControl = payload.requiresWeightControl;
         existingTemplate.allowRealOutputAdjustment = payload.allowRealOutputAdjustment;
         existingTemplate.notes = payload.notes;
         existingTemplate.isActive = payload.isActive;
@@ -382,7 +435,7 @@ export async function PUT(request, context) {
 
         const updatedTemplate = await ProductionTemplate.findById(id)
             .select(
-                "code name description category type baseUnit expectedYield expectedWaste defaultDestination allowsMultipleOutputs requiresWasteRecord allowRealOutputAdjustment notes isActive inputs outputs createdBy updatedBy createdAt updatedAt"
+                "code name description category type baseUnit expectedYield expectedWaste defaultDestination allowsMultipleOutputs requiresWasteRecord requiresWeightControl allowRealOutputAdjustment notes isActive inputs outputs createdBy updatedBy createdAt updatedAt"
             )
             .populate("category", "name")
             .populate("createdBy", "username")

@@ -1,0 +1,26 @@
+.modal {
+  max-width: 780px;
+  background: var(--surface-primary);
+}
+
+.footer {
+  margin-top: 2px;
+}
+
+.footer :global(.miniAction) {
+  min-width: 138px;
+}
+
+.footer :global(.miniActionPrimary) {
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .modal {
+    max-width: 100%;
+  }
+
+  .footer {
+    justify-content: stretch;
+  }
+}
