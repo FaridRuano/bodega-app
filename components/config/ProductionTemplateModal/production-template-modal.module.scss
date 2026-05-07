@@ -14,18 +14,18 @@
 .section {
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 18px;
+    padding: 2px;
     background: var(--card-bg, var(--background));
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
 }
 
 .sectionPanel {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding: 14px;
+    gap: 12px;
+    padding: 12px;
     border-radius: 16px;
     border: 1px solid var(--border-subtle);
     background: var(--surface-secondary);
@@ -282,6 +282,29 @@
 }
 
 @media (max-width: 960px) {
+    .modalBody {
+        max-height: calc(100vh - 250px);
+        gap: 16px;
+        padding-right: 0;
+    }
+
+    .section {
+        padding: 2px;
+        border-radius: 18px;
+    }
+
+    .sectionPanel {
+        padding: 10px;
+        border-radius: 14px;
+    }
+
+    .sectionTitle {
+        font-size: 0.96rem;
+    }
+
+    .sectionDescription {
+        font-size: 0.85rem;
+    }
 
     .gridThree,
     .gridTwo,
@@ -307,5 +330,39 @@
 
     .addAction {
         justify-content: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .modalContainer {
+        gap: 14px;
+    }
+
+    .modalBody {
+        max-height: calc(100vh - 290px);
+        gap: 14px;
+    }
+
+    .section {
+        padding: 2px;
+        gap: 12px;
+    }
+
+    .sectionPanel {
+        padding: 8px;
+        gap: 10px;
+    }
+
+    .rowCard {
+        padding: 12px;
+        border-radius: 16px;
+    }
+
+    .rowFooter {
+        gap: 10px;
+    }
+
+    .outputFlags {
+        gap: 10px;
     }
 }

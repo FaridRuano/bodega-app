@@ -579,6 +579,7 @@ export default function InventoryPage() {
               className={`miniAction miniActionIconOnly ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
               onClick={() => setViewMode("cards")}
               aria-label="Tarjetas"
+              disabled={products.length === 0}
             >
               <LayoutGrid size={14} />
               <span className="miniActionLabel">Tarjetas</span>
@@ -588,6 +589,7 @@ export default function InventoryPage() {
               className={`miniAction miniActionIconOnly ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
               onClick={() => setViewMode("compact")}
               aria-label="Seguimiento"
+              disabled={products.length === 0}
             >
               <List size={14} />
               <span className="miniActionLabel">Seguimiento</span>

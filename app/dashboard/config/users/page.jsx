@@ -477,7 +477,7 @@ export default function UsersPage() {
 
           <button
             type="button"
-            className={`${styles.createButton} miniAction miniActionPrimary`}
+            className={`${styles.createButton} action-button action-button--neutral`}
             onClick={() => setIsCreateOpen(true)}
             title="Nuevo usuario"
           >

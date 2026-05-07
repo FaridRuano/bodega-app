@@ -475,7 +475,15 @@
     }
 
     .toolbar {
-        flex-direction: column;
+        flex-direction: row;
+        justify-content: flex-end;
+        flex-wrap: nowrap;
+    }
+
+    .toolbar :global(.miniAction) {
+        width: auto;
+        flex: 1 1 0;
+        justify-content: center;
     }
 
     .panel {

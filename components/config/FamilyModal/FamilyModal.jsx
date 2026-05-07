@@ -80,92 +80,95 @@ export default function FamilyModal({
     return (
         <div className="modal-overlay" onClick={loading ? undefined : onClose}>
             <div
-                className="modal-container"
+                className="modalDetachedStack"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-top">
-                    <div className="modal-headerBlock">
-                        <h3 className="modal-title">
-                            {isEdit ? "Editar familia" : "Nueva familia"}
-                        </h3>
-                        <p className="modal-description">
-                            {isEdit
-                                ? "Actualiza la familia que agrupa categorias relacionadas."
-                                : "Crea una familia para organizar mejor las categorias de productos."}
-                        </p>
-                    </div>
-
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        disabled={loading}
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="modal-body">
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="family-name">
-                            Nombre
-                        </label>
-                        <input
-                            id="family-name"
-                            name="name"
-                            value={form.name}
-                            onChange={handleChange}
-                            placeholder="Ej: Bebidas"
-                            className="form-input"
-                            required
-                            disabled={loading}
-                        />
-                    </div>
-
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="family-description">
-                            Descripcion
-                        </label>
-                        <textarea
-                            id="family-description"
-                            name="description"
-                            value={form.description}
-                            onChange={handleChange}
-                            placeholder="Opcional"
-                            className="form-textarea"
-                            disabled={loading}
-                        />
-                    </div>
-
-                    {submitError ? (
-                        <div className="form-error-message" role="alert">
-                            {submitError}
+                <div className="modal-container">
+                    <div className="modal-top">
+                        <div className="modal-headerBlock">
+                            <h3 className="modal-title">
+                                {isEdit ? "Editar familia" : "Nueva familia"}
+                            </h3>
+                            <p className="modal-description">
+                                {isEdit
+                                    ? "Actualiza la familia que agrupa categorias relacionadas."
+                                    : "Crea una familia para organizar mejor las categorias de productos."}
+                            </p>
                         </div>
-                    ) : null}
 
-                    <div className="modal-footer">
                         <button
                             type="button"
-                            className="btn btn-secondary"
+                            className="modal-close"
                             onClick={onClose}
                             disabled={loading}
                         >
-                            Cancelar
-                        </button>
-
-                        <button
-                            type="submit"
-                            className="btn btn-primary"
-                            disabled={isDisabled}
-                        >
-                            {loading
-                                ? "Guardando..."
-                                : isEdit
-                                    ? "Guardar cambios"
-                                    : "Crear familia"}
+                            <X size={18} />
                         </button>
                     </div>
-                </form>
+
+                    <form onSubmit={handleSubmit} className="modal-body">
+                        <div className="form-field">
+                            <label className="form-label" htmlFor="family-name">
+                                Nombre
+                            </label>
+                            <input
+                                id="family-name"
+                                name="name"
+                                value={form.name}
+                                onChange={handleChange}
+                                placeholder="Ej: Bebidas"
+                                className="form-input"
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div className="form-field">
+                            <label className="form-label" htmlFor="family-description">
+                                Descripcion
+                            </label>
+                            <textarea
+                                id="family-description"
+                                name="description"
+                                value={form.description}
+                                onChange={handleChange}
+                                placeholder="Opcional"
+                                className="form-textarea"
+                                disabled={loading}
+                            />
+                        </div>
+
+                        {submitError ? (
+                            <div className="form-error-message" role="alert">
+                                {submitError}
+                            </div>
+                        ) : null}
+                    </form>
+                </div>
+
+                <div className="modalDetachedFooter">
+                    <button
+                        type="button"
+                        className="miniAction"
+                        onClick={onClose}
+                        disabled={loading}
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="button"
+                        className="miniAction miniActionPrimary"
+                        disabled={isDisabled}
+                        onClick={() => onSubmit(form)}
+                    >
+                        {loading
+                            ? "Guardando..."
+                            : isEdit
+                                ? "Guardar cambios"
+                                : "Crear familia"}
+                    </button>
+                </div>
             </div>
         </div>
     );

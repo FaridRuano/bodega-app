@@ -171,6 +171,7 @@ export default function ProductionTemplateModal({
     categories = [],
     submitError = "",
 }) {
+    const formId = "production-template-form";
 
     const isEdit = mode === "edit";
 
@@ -505,28 +506,36 @@ export default function ProductionTemplateModal({
     return (
         <div className="modal-overlay">
             <div
-                className="modal-container modal-container--xl"
+                className="modalDetachedStack modal-container--xl"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-top">
-                    <div>
-                        <h3 className="modal-title">
-                            {isEdit ? "Editar ficha de producción" : "Nueva ficha de producción"}
-                        </h3>
-                        <p className="modal-description">
-                            {isEdit
-                                ? "Modifica la configuración de la ficha de producción."
-                                : "Crea una ficha de producción para definir insumos y resultados."}
-                        </p>
+                <div
+                    className={`modal-container ${styles.modalContainer}`}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <div className="modal-top">
+                        <div>
+                            <h3 className="modal-title">
+                                {isEdit ? "Editar ficha de producción" : "Nueva ficha de producción"}
+                            </h3>
+                            <p className="modal-description">
+                                {isEdit
+                                    ? "Modifica la configuración de la ficha de producción."
+                                    : "Crea una ficha de producción para definir insumos y resultados."}
+                            </p>
+                        </div>
+
+                        <button type="button" className="modal-close" onClick={onClose}>
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button type="button" className="modal-close" onClick={onClose}>
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className={`modal-body ${styles.modalBody}`}>
-                    <section className={styles.section}>
+                    <form
+                        id={formId}
+                        onSubmit={handleSubmit}
+                        className={`modal-body ${styles.modalBody}`}
+                    >
+                        <section className={styles.section}>
                         <div className={styles.sectionHeader}>
                             <h4 className={styles.sectionTitle}>Información general</h4>
                         </div>
@@ -591,9 +600,9 @@ export default function ProductionTemplateModal({
                             />
                         </div>
                         </div>
-                    </section>
+                        </section>
 
-                    <section className={styles.section}>
+                        <section className={styles.section}>
                         <div className={styles.sectionHeader}>
                             <h4 className={styles.sectionTitle}>Configuración</h4>
                         </div>
@@ -784,9 +793,9 @@ export default function ProductionTemplateModal({
                             />
                         </div>
                         </div>
-                    </section>
+                        </section>
 
-                    <section className={styles.section}>
+                        <section className={styles.section}>
                         <div className={styles.sectionHeader}>
                             <div>
                                 <h4 className={styles.sectionTitle}>Insumos</h4>
@@ -889,9 +898,9 @@ export default function ProductionTemplateModal({
                             ))}
                         </div>
                         </div>
-                    </section>
+                        </section>
 
-                    <section className={styles.section}>
+                        <section className={styles.section}>
                         <div className={styles.sectionHeader}>
                             <div>
                                 <h4 className={styles.sectionTitle}>Resultados</h4>
@@ -1011,41 +1020,42 @@ export default function ProductionTemplateModal({
                             ))}
                         </div>
                         </div>
-                    </section>
+                        </section>
 
-                    {submitError ? (
-                        <div className="form-error-message" role="alert">
-                            {submitError}
-                        </div>
-                    ) : null}
+                        {submitError ? (
+                            <div className="form-error-message" role="alert">
+                                {submitError}
+                            </div>
+                        ) : null}
+                    </form>
+                </div>
 
-                    <div className="modal-footer">
-                        <button
-                            type="button"
-                            className="miniAction"
-                            onClick={onClose}
-                            disabled={loading}
-                        >
-                            Cancelar
-                        </button>
+                <div className="modalDetachedFooter">
+                    <button
+                        type="button"
+                        className="miniAction"
+                        onClick={onClose}
+                        disabled={loading}
+                    >
+                        Cancelar
+                    </button>
 
-                        <button
-                            type="submit"
-                            className="miniAction miniActionPrimary"
-                            disabled={isDisabled}
-                        >
-                            {loading
-                                ? isEdit
-                                    ? "Guardando..."
-                                    : "Creando..."
-                                : isEdit
-                                    ? "Guardar cambios"
-                                    : "Crear ficha"}
-                        </button>
-                    </div>
-                </form>
+                    <button
+                        type="submit"
+                        form={formId}
+                        className="miniAction miniActionPrimary"
+                        disabled={isDisabled}
+                    >
+                        {loading
+                            ? isEdit
+                                ? "Guardando..."
+                                : "Creando..."
+                            : isEdit
+                                ? "Guardar cambios"
+                                : "Crear ficha"}
+                    </button>
+                </div>
             </div>
         </div>
     );
 }
-

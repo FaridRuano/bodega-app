@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Factory, Plus, RefreshCcw, Search } from "lucide-react";
+import { Factory, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./page.module.scss";
@@ -393,21 +393,13 @@ export default function ProductionTemplatesPage() {
                     <div className={styles.actionGroup}>
                         <button
                             type="button"
-                            className="miniAction"
-                            onClick={fetchTemplates}
-                            disabled={loading || actionLoading}
-                        >
-                            <RefreshCcw size={14} />
-                            Recargar
-                        </button>
-
-                        <button
-                            type="button"
-                            className="miniAction miniActionPrimary"
+                            className="action-button action-button--neutral"
                             onClick={handleOpenCreate}
                         >
-                            <Plus size={14} />
-                            Nueva ficha
+                            <span className="action-button__icon">
+                                <Plus size={16} />
+                            </span>
+                            <span className="action-button__label">Nueva ficha</span>
                         </button>
                     </div>
                 </div>
@@ -504,11 +496,13 @@ export default function ProductionTemplatesPage() {
                         </p>
                         <button
                             type="button"
-                            className="miniAction miniActionPrimary"
+                            className="action-button action-button--neutral"
                             onClick={handleOpenCreate}
                         >
-                            <Plus size={14} />
-                            Crear ficha
+                            <span className="action-button__icon">
+                                <Plus size={16} />
+                            </span>
+                            <span className="action-button__label">Crear ficha</span>
                         </button>
                     </section>
                 ) : (
