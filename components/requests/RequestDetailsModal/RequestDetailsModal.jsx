@@ -15,7 +15,7 @@ import {
 import styles from "./request-details-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
 import { getPurposeLabel } from "@libs/constants/purposes";
-import { getLocationLabel, getRequestTypeLabel } from "@libs/constants/domainLabels";
+import { getLocationLabel } from "@libs/constants/domainLabels";
 
 const STATUS_CONFIG = {
     pending: {
@@ -75,6 +75,23 @@ function getPersonLabel(user) {
 function toNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getRoleForLocation(location) {
+    if (location === "kitchen") return "kitchen";
+    if (location === "lounge") return "loung";
+    if (location === "warehouse") return "warehouse";
+    return "";
+}
+
+function getRequestFlowLabel(request) {
+    if (request?.flowKind === "request" || request?.flowKind === "transfer") {
+        return request.flowKind === "request" ? "Solicitud" : "Transferencia";
+    }
+
+    return request?.requestType !== "return" && request?.sourceLocation === "warehouse"
+        ? "Solicitud"
+        : "Transferencia";
 }
 
 function getActivityTitle(activity) {
@@ -194,21 +211,27 @@ export default function RequestDetailsModal({
     const isAdmin = currentUserRole === "admin";
     const isWarehouse = currentUserRole === "warehouse";
     const isKitchen = currentUserRole === "kitchen";
-    const isLounge = currentUserRole === "lounge";
+    const isLounge = currentUserRole === "loung";
+    const sourceRole = getRoleForLocation(request.sourceLocation);
+    const destinationRole = getRoleForLocation(request.destinationLocation);
     const isFinal =
         request.status === "fulfilled" ||
         request.status === "rejected" ||
         request.status === "cancelled";
 
     const isReturnRequest = request.requestType === "return";
+    const isTransferFlow = getRequestFlowLabel(request) === "Transferencia";
+    const isWarehouseRequest =
+        !isTransferFlow && !isReturnRequest && request.sourceLocation === "warehouse";
     const canApprove =
-        !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
+        !isTransferFlow && !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
     const canReject =
-        !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
+        !isTransferFlow && !isReturnRequest && (isAdmin || isWarehouse) && request.status === "pending";
     const canEdit = (isAdmin || isKitchen || isLounge) && request.status === "pending";
 
     const canDispatch =
-        (isReturnRequest ? (isAdmin || isKitchen || isLounge) : (isAdmin || isWarehouse)) &&
+        !isTransferFlow &&
+        (isAdmin || currentUserRole === sourceRole) &&
         !isFinal &&
         (
             isReturnRequest
@@ -219,9 +242,11 @@ export default function RequestDetailsModal({
 
     const canReceive =
         !isReturnRequest &&
-        (isAdmin || isKitchen || isLounge) &&
+        (isAdmin || currentUserRole === destinationRole) &&
         !isFinal &&
-        ["approved", "processing", "partially_fulfilled"].includes(request.status) &&
+        (isTransferFlow
+            ? ["processing", "partially_fulfilled"].includes(request.status)
+            : ["approved", "processing", "partially_fulfilled"].includes(request.status)) &&
         summary.pendingReceive > 0;
 
     const canCancel =
@@ -232,7 +257,8 @@ export default function RequestDetailsModal({
             ((isAdmin || isWarehouse) &&
                 !isReturnRequest &&
                 ["pending", "approved", "processing"].includes(request.status))
-        );
+        ) &&
+        !(canApprove || canReject);
 
     const showFooter =
         canEdit || canReject || canApprove || canDispatch || canReceive || canCancel;
@@ -240,35 +266,36 @@ export default function RequestDetailsModal({
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
-                className="modal-container modal-container--xl"
+                className="modalDetachedStack modal-container--xl"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
-                    <div className="modal-headerContent">
-                        <div className="modal-icon modal-icon--info">
-                            <ClipboardList size={20} />
+                <div className="modal-container">
+                    <div className="modal-top">
+                        <div className="modal-headerContent">
+                            <div className="modal-icon modal-icon--info">
+                                <ClipboardList size={20} />
+                            </div>
+
+                            <div>
+                                <h2 className="modal-title">Detalle de solicitud</h2>
+                                <p className="modal-description">
+                                    Revisa el estado, los productos solicitados y el historial de la
+                                    solicitud.
+                                </p>
+                            </div>
                         </div>
 
-                        <div>
-                            <h2 className="modal-title">Detalle de solicitud</h2>
-                            <p className="modal-description">
-                                Revisa el estado, los productos solicitados y el historial de la
-                                solicitud.
-                            </p>
-                        </div>
+                        <button
+                            type="button"
+                            className="modal-close"
+                            onClick={onClose}
+                            aria-label="Cerrar modal"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        aria-label="Cerrar modal"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <div className="modal-body">
+                    <div className="modal-body">
                     <div className={styles.summaryCard}>
                         <div className={styles.summaryHeader}>
                             <div>
@@ -278,7 +305,7 @@ export default function RequestDetailsModal({
 
                                 <div className={styles.metaRow}>
                                     <span className={styles.requestType}>
-                                        {getRequestTypeLabel(request.requestType)}
+                                        {getRequestFlowLabel(request)}
                                     </span>
 
                                     <span
@@ -506,69 +533,76 @@ export default function RequestDetailsModal({
                             )}
                         </div>
                     </div>
+                    </div>
                 </div>
 
                 {showFooter ? (
-                    <div className="modal-footer">
-                        {canEdit ? (
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={onEdit}
-                            >
-                                Editar
-                            </button>
-                        ) : null}
+                    <div className="modalDetachedFooter">
+                        <div className={styles.footerActions}>
+                            <div className={styles.footerNegative}>
+                                {canReject ? (
+                                    <button
+                                        type="button"
+                                        className="miniAction miniActionDanger"
+                                        onClick={onReject}
+                                    >
+                                        Rechazar
+                                    </button>
+                                ) : null}
 
-                        {canReject ? (
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={onReject}
-                            >
-                                Rechazar
-                            </button>
-                        ) : null}
+                                {canCancel ? (
+                                    <button
+                                        type="button"
+                                        className="miniAction miniActionDanger"
+                                        onClick={onCancel}
+                                    >
+                                        Cancelar solicitud
+                                    </button>
+                                ) : null}
+                            </div>
 
-                        {canApprove ? (
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={onApprove}
-                            >
-                                Procesar
-                            </button>
-                        ) : null}
+                            <div className={styles.footerPositive}>
+                                {canEdit ? (
+                                    <button
+                                        type="button"
+                                        className="miniAction"
+                                        onClick={onEdit}
+                                    >
+                                        Editar
+                                    </button>
+                                ) : null}
 
-                        {canDispatch ? (
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={onDispatch}
-                            >
-                                {isReturnRequest ? "Despachar devolución" : "Despachar"}
-                            </button>
-                        ) : null}
+                                {canApprove ? (
+                                    <button
+                                        type="button"
+                                        className="miniAction miniActionPrimary"
+                                        onClick={onApprove}
+                                    >
+                                        Procesar
+                                    </button>
+                                ) : null}
 
-                        {canReceive ? (
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={onReceive}
-                            >
-                                {isReturnRequest ? "Confirmar ingreso en bodega" : "Confirmar recepción"}
-                            </button>
-                        ) : null}
+                                {canDispatch ? (
+                                    <button
+                                        type="button"
+                                        className="miniAction miniActionPrimary"
+                                        onClick={onDispatch}
+                                    >
+                                        {isReturnRequest ? "Despachar transferencia" : "Despachar"}
+                                    </button>
+                                ) : null}
 
-                        {canCancel ? (
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={onCancel}
-                            >
-                                Cancelar solicitud
-                            </button>
-                        ) : null}
+                                {canReceive ? (
+                                    <button
+                                        type="button"
+                                        className="miniAction miniActionPrimary"
+                                        onClick={onReceive}
+                                    >
+                                        {isReturnRequest ? "Confirmar ingreso en bodega" : "Confirmar recepción"}
+                                    </button>
+                                ) : null}
+                            </div>
+                        </div>
                     </div>
                 ) : null}
             </div>

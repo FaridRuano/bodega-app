@@ -299,7 +299,7 @@ export function getDefaultPurchaseRequestLocationForRole(role = "") {
     switch (String(role || "").trim()) {
         case "kitchen":
             return "kitchen";
-        case "lounge":
+        case "loung":
             return "lounge";
         case "warehouse":
         case "admin":

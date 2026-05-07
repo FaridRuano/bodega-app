@@ -172,11 +172,7 @@ function pickInitialResults({
     expectedResults,
     templateResults,
 }) {
-    if (
-        persistedResults.length > 0 &&
-        (expectedResults.length === 0 ||
-            persistedResults.length === expectedResults.length)
-    ) {
+    if (persistedResults.length > 0) {
         return persistedResults;
     }
 

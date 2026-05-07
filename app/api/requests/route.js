@@ -6,6 +6,7 @@ import dbConnect from "@libs/mongodb";
 import Request, { REQUEST_STATUSES, REQUEST_TYPES } from "@models/Request";
 import Product from "@models/Product";
 import InventoryStock, { STOCK_LOCATIONS } from "@models/InventoryStock";
+import InventoryMovement from "@models/InventoryMovement";
 import { parsePositiveNumber } from "@libs/apiUtils";
 import { createNotificationsForRoles, NOTIFICATION_TYPES } from "@libs/notifications";
 
@@ -14,8 +15,14 @@ const OPERATION_LOCATIONS = ["kitchen", "lounge"];
 function getRoleForLocation(location) {
     if (location === "warehouse") return "warehouse";
     if (location === "kitchen") return "kitchen";
-    if (location === "lounge") return "lounge";
+    if (location === "lounge") return "loung";
     return "";
+}
+
+function getOperationalLocationFromRole(role) {
+    if (role === "warehouse") return "warehouse";
+    if (role === "loung") return "lounge";
+    return "kitchen";
 }
 
 function isValidObjectId(value) {
@@ -50,6 +57,12 @@ function normalizeRequestStatus(value) {
     return REQUEST_STATUSES.includes(normalized) ? normalized : null;
 }
 
+function normalizeFlowKind(value, fallback = "request") {
+    const normalized = normalizeText(value).toLowerCase();
+    if (!normalized) return fallback;
+    return ["request", "transfer"].includes(normalized) ? normalized : null;
+}
+
 function getLocationName(location) {
     switch (location) {
         case "warehouse":
@@ -57,10 +70,28 @@ function getLocationName(location) {
         case "kitchen":
             return "cocina";
         case "lounge":
-            return "lounge";
+            return "salon";
         default:
             return location || "ubicacion";
     }
+}
+
+function getActorName(user) {
+    if (!user || typeof user !== "object") return "Usuario";
+
+    const firstName = normalizeText(user.firstName);
+    const lastName = normalizeText(user.lastName);
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+    if (fullName) return fullName;
+
+    const username = normalizeText(user.username);
+    if (username) return username;
+
+    const email = normalizeText(user.email);
+    if (email) return email;
+
+    return "Usuario";
 }
 
 function buildStatusCondition(status) {
@@ -69,6 +100,19 @@ function buildStatusCondition(status) {
     }
 
     return { status };
+}
+
+function getInventoryLocations({ requestType, sourceLocation, destinationLocation }) {
+    const isWarehouseRequest =
+        requestType !== "return" && sourceLocation === "warehouse";
+
+    return {
+        isWarehouseRequest,
+        inventorySourceLocation: isWarehouseRequest ? "warehouse" : sourceLocation,
+        inventoryDestinationLocation: isWarehouseRequest
+            ? sourceLocation
+            : destinationLocation,
+    };
 }
 
 async function generateRequestNumber() {
@@ -131,6 +175,11 @@ function mapMovementItems(items = []) {
 }
 
 function normalizeRequestDocument(request) {
+    const flowKind =
+        request.flowKind ||
+        (request.requestType !== "return" && request.sourceLocation === "warehouse"
+            ? "request"
+            : "transfer");
     const totals = request.totals || {
         requested: 0,
         approved: 0,
@@ -145,6 +194,7 @@ function normalizeRequestDocument(request) {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
+        flowKind,
         status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
@@ -227,7 +277,7 @@ function normalizeRequestDocument(request) {
 
 export async function GET(request) {
     try {
-        const { response } = await requireAuthenticatedUser();
+        const { user, response } = await requireAuthenticatedUser();
         if (response) return response;
 
         await dbConnect();
@@ -247,6 +297,21 @@ export async function GET(request) {
         const dateTo = normalizeDateOnly(searchParams.get("dateTo"), true);
 
         const filters = [{ deletedAt: null }];
+        const normalizedUserRole = normalizeText(user?.role).toLowerCase();
+
+        if (normalizedUserRole === "warehouse") {
+            filters.push({
+                $or: [{ sourceLocation: "warehouse" }, { destinationLocation: "warehouse" }],
+            });
+        } else if (normalizedUserRole === "kitchen") {
+            filters.push({
+                $or: [{ sourceLocation: "kitchen" }, { destinationLocation: "kitchen" }],
+            });
+        } else if (normalizedUserRole === "loung") {
+            filters.push({
+                $or: [{ sourceLocation: "lounge" }, { destinationLocation: "lounge" }],
+            });
+        }
 
         const searchFilter = buildSearchFilter(search);
         if (searchFilter) filters.push(searchFilter);
@@ -338,35 +403,45 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+    const session = await mongoose.startSession();
+
     try {
-        const { user, response } = await requireUserRole(["kitchen", "lounge"]);
+        const { user, response } = await requireUserRole(["warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
 
         const body = await request.json();
-        const operationalLocation = user.role === "lounge" ? "lounge" : "kitchen";
-        const destinationLocation = normalizeLocation(body.destinationLocation);
-        const isReturnRequest = destinationLocation === "warehouse";
-        const requestType = isReturnRequest ? "return" : "operation";
-        const sourceLocation = operationalLocation;
+        const operationalLocation = getOperationalLocationFromRole(user.role);
+        const flowKind = normalizeFlowKind(body.flowKind, "request");
+        const requestedDestinationLocation = normalizeLocation(body.destinationLocation);
+        const requestType = normalizeRequestType(body.requestType, "operation");
+        const sourceLocation = flowKind === "request" ? "warehouse" : operationalLocation;
+        const destinationLocation =
+            flowKind === "request" ? operationalLocation : requestedDestinationLocation;
+        const isReturnRequest = requestType === "return";
+        const {
+            isWarehouseRequest,
+            inventorySourceLocation,
+        } = getInventoryLocations({
+            requestType,
+            sourceLocation,
+            destinationLocation,
+        });
 
         const justification = normalizeNullableText(body.justification);
         const notes = normalizeNullableText(body.notes);
 
-        if (!sourceLocation || !destinationLocation) {
+        if (!flowKind) {
             return NextResponse.json(
-                { success: false, message: "Las ubicaciones no son vÃ¡lidas." },
+                { success: false, message: "El tipo de flujo no es válido." },
                 { status: 400 }
             );
         }
 
-        if (!OPERATION_LOCATIONS.includes(sourceLocation)) {
+        if (!sourceLocation || !destinationLocation) {
             return NextResponse.json(
-                {
-                    success: false,
-                    message: "Solo cocina o salon pueden crear solicitudes internas.",
-                },
+                { success: false, message: "Las ubicaciones no son vÃ¡lidas." },
                 { status: 400 }
             );
         }
@@ -381,7 +456,34 @@ export async function POST(request) {
             );
         }
 
-        if (!isReturnRequest && !OPERATION_LOCATIONS.includes(destinationLocation)) {
+        if (flowKind === "request") {
+            if (!["kitchen", "loung"].includes(user.role)) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Solo cocina o salón pueden crear solicitudes a bodega.",
+                    },
+                    { status: 403 }
+                );
+            }
+
+            if (sourceLocation !== "warehouse" || destinationLocation !== operationalLocation) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Las solicitudes deben salir de bodega hacia tu ubicación.",
+                    },
+                    { status: 400 }
+                );
+            }
+        }
+
+        if (
+            !isReturnRequest &&
+            flowKind === "transfer" &&
+            destinationLocation !== "warehouse" &&
+            !OPERATION_LOCATIONS.includes(destinationLocation)
+        ) {
             return NextResponse.json(
                 {
                     success: false,
@@ -432,13 +534,10 @@ export async function POST(request) {
         const productMap = new Map(
             products.map((product) => [String(product._id), product])
         );
-        const shouldValidateSourceStock = requestType === "return";
-        const stocks = shouldValidateSourceStock
-            ? await InventoryStock.find({
-                productId: { $in: productIds },
-                location: sourceLocation,
-            }).lean()
-            : [];
+        const stocks = await InventoryStock.find({
+            productId: { $in: productIds },
+            location: inventorySourceLocation,
+        }).lean();
         const stockMap = new Map(stocks.map((stock) => [String(stock.productId), stock]));
 
         const items = rawItems.map((item) => {
@@ -463,9 +562,9 @@ export async function POST(request) {
                 );
             }
 
-            if (shouldValidateSourceStock && requestedQuantity > available) {
+            if (requestedQuantity > available) {
                 throw new Error(
-                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${getLocationName(sourceLocation)}.`
+                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${getLocationName(inventorySourceLocation)}.`
                 );
             }
 
@@ -483,16 +582,36 @@ export async function POST(request) {
 
         const requestNumber = await generateRequestNumber();
         const requestedAt = new Date();
+        const isTransferFlow = flowKind === "transfer";
+
+        session.startTransaction();
 
         const createdRequest = new Request({
             requestNumber,
-            requestType,
-            status: "pending",
+            requestType: "operation",
+            flowKind,
+            status: isTransferFlow ? "processing" : "pending",
             sourceLocation,
             destinationLocation,
             requestedBy: user.id,
-            items,
-            dispatches: [],
+            items: items.map((item) => ({
+                ...item,
+                approvedQuantity: isTransferFlow ? item.requestedQuantity : item.approvedQuantity,
+                dispatchedQuantity: isTransferFlow ? item.requestedQuantity : item.dispatchedQuantity,
+            })),
+            dispatches: isTransferFlow
+                ? [
+                    {
+                        dispatchedBy: user.id,
+                        dispatchedAt: requestedAt,
+                        notes,
+                        items: items.map((item) => ({
+                            requestItemId: new mongoose.Types.ObjectId(),
+                            quantity: Number(item.requestedQuantity || 0),
+                        })),
+                    },
+                ]
+                : [],
             receipts: [],
             activityLog: [],
             justification,
@@ -500,18 +619,96 @@ export async function POST(request) {
             requestedAt,
         });
 
-        createdRequest.addActivity({
-            type: "request_created",
-            performedBy: user.id,
-            performedAt: requestedAt,
-            title: "Solicitud creada",
-            description: isReturnRequest
-                ? "Se registró una devolución pendiente hacia bodega."
-                : null,
-            items: [],
-        });
+        if (isTransferFlow) {
+            createdRequest.dispatches = [
+                {
+                    dispatchedBy: user.id,
+                    dispatchedAt: requestedAt,
+                    notes,
+                    items: createdRequest.items.map((item) => ({
+                        requestItemId: item._id,
+                        quantity: Number(item.requestedQuantity || 0),
+                    })),
+                },
+            ];
+        }
 
-        await createdRequest.save();
+        if (!isTransferFlow) {
+            createdRequest.addActivity({
+                type: "request_created",
+                performedBy: user.id,
+                performedAt: requestedAt,
+                title: "Solicitud creada",
+                description: "Se registró una solicitud de productos desde bodega.",
+                items: [],
+            });
+        }
+
+        if (isTransferFlow) {
+            createdRequest.addActivity({
+                type: "dispatch",
+                performedBy: user.id,
+                performedAt: requestedAt,
+                title: "Transferencia creada",
+                description:
+                    notes || `Los productos salieron de ${getLocationName(sourceLocation)} y quedaron pendientes de confirmación.`,
+                items: createdRequest.items.map((item) => ({
+                    requestItemId: item._id,
+                    quantity: Number(item.requestedQuantity || 0),
+                })),
+            });
+        }
+
+        createdRequest.recalculateStatus();
+        await createdRequest.save({ session });
+
+        if (isTransferFlow) {
+            const movementsToCreate = [];
+
+            for (const item of createdRequest.items || []) {
+                let stock = await InventoryStock.findOne({
+                    productId: item.productId,
+                    location: sourceLocation,
+                }).session(session);
+
+                if (!stock) {
+                    throw new Error(
+                        `No existe inventario disponible en ${getLocationName(sourceLocation)} para completar la transferencia.`
+                    );
+                }
+
+                const movementQuantity = Number(item.requestedQuantity || 0);
+
+                if (Number(stock.availableQuantity || 0) < movementQuantity) {
+                    throw new Error("Stock insuficiente para completar la transferencia.");
+                }
+
+                stock.quantity = Number(stock.quantity || 0) - movementQuantity;
+                stock.lastMovementAt = requestedAt;
+                await stock.save({ session });
+
+                movementsToCreate.push({
+                    productId: item.productId,
+                    movementType: "request_dispatch",
+                    quantity: movementQuantity,
+                    unitSnapshot: item.unitSnapshot,
+                    fromLocation: sourceLocation,
+                    toLocation: destinationLocation,
+                    referenceType: "request",
+                    referenceId: createdRequest._id,
+                    notes,
+                    performedBy: user.id,
+                    movementDate: requestedAt,
+                });
+            }
+
+            if (movementsToCreate.length) {
+                await InventoryMovement.create(movementsToCreate, { session });
+            }
+        }
+
+        await session.commitTransaction();
+        session.endSession();
 
         const populatedRequest = await Request.findById(createdRequest._id)
              .populate("requestedBy", "firstName lastName username email")
@@ -524,20 +721,27 @@ export async function POST(request) {
              .populate("activityLog.performedBy", "firstName lastName username email")
             .lean({ virtuals: true });
 
-        const destinationRole = getRoleForLocation(destinationLocation);
-        const targetRoles = ["admin", destinationRole].filter(Boolean);
+        const destinationRole = getRoleForLocation(
+            isWarehouseRequest ? inventorySourceLocation : destinationLocation
+        );
+        const targetRoles = [destinationRole].filter(Boolean);
 
-        await createNotificationsForRoles(targetRoles, {
-            type: NOTIFICATION_TYPES.internal_request_created,
-            title: "Nueva transferencia interna",
-            message: `${createdRequest.requestNumber} solicita productos hacia ${getLocationName(destinationLocation)}.`,
-            href: "/dashboard/requests",
-            entityType: "request",
-            entityId: createdRequest._id,
-            priority: "high",
-        }).catch((notificationError) => {
-            console.error("internal request notification error:", notificationError);
-        });
+        if (targetRoles.length) {
+            const actorName = getActorName(user);
+            await createNotificationsForRoles(targetRoles, {
+                type: NOTIFICATION_TYPES.internal_request_created,
+                title: isWarehouseRequest ? "Nueva solicitud interna" : "Nueva transferencia interna",
+                message: isWarehouseRequest
+                    ? `Se solicitan productos en ${getLocationName(destinationLocation)}.`
+                    : `${actorName} transfiere productos hacia ${getLocationName(destinationLocation)}.`,
+                href: "/dashboard/requests",
+                entityType: "request",
+                entityId: createdRequest._id,
+                priority: "high",
+            }).catch((notificationError) => {
+                console.error("internal request notification error:", notificationError);
+            });
+        }
 
         return NextResponse.json(
             {
@@ -548,6 +752,8 @@ export async function POST(request) {
             { status: 201 }
         );
     } catch (error) {
+        await session.abortTransaction().catch(() => {});
+        session.endSession();
         console.error("POST /api/requests error:", error);
 
         if (error?.code === 11000) {
@@ -563,4 +769,3 @@ export async function POST(request) {
         );
     }
 }
-

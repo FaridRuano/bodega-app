@@ -322,7 +322,7 @@ export default function PurchaseRequestReviewModal({
               </div>
 
               <textarea
-                className={`form-input ${styles.receiveNote}`}
+                className={`form-textarea ${styles.receiveNote}`}
                 placeholder="Nota de recepcion opcional"
                 value={receiptNote}
                 onChange={(event) => setReceiptNote(event.target.value)}

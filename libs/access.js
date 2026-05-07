@@ -1,23 +1,22 @@
-export const USER_ROLES = ["admin", "warehouse", "kitchen", "lounge"];
+import { USER_ROLES, normalizeUserRole } from "@libs/userRoles";
 
 export const ACCESS_RULES = [
     { pattern: "/dashboard/config", roles: ["admin"] },
     { pattern: "/dashboard/products", roles: ["admin", "warehouse"] },
-    { pattern: "/dashboard/inventory", roles: ["admin", "warehouse", "kitchen", "lounge"] },
+    { pattern: "/dashboard/inventory", roles: ["admin", "warehouse", "kitchen", "loung"] },
     { pattern: "/dashboard/kitchen", roles: ["admin", "kitchen"] },
-    { pattern: "/dashboard/lounge", roles: ["admin", "lounge"] },
+    { pattern: "/dashboard/lounge", roles: ["admin", "loung"] },
     { pattern: "/dashboard/movements", roles: ["admin", "warehouse"] },
-    { pattern: "/dashboard/notifications", roles: ["admin", "warehouse", "kitchen", "lounge"] },
-    { pattern: "/dashboard/receiving", roles: ["warehouse", "kitchen", "lounge"] },
-    { pattern: "/dashboard/daily-control", roles: ["admin", "kitchen", "lounge"] },
+    { pattern: "/dashboard/notifications", roles: ["admin", "warehouse", "kitchen", "loung"] },
+    { pattern: "/dashboard/receiving", roles: ["warehouse", "kitchen", "loung"] },
+    { pattern: "/dashboard/daily-control", roles: ["admin", "kitchen", "loung"] },
     { pattern: "/dashboard/production", roles: ["admin", "kitchen"] },
     { pattern: "/dashboard/purchases/history", roles: ["admin"] },
-    { pattern: "/dashboard/purchase-requests", roles: ["admin", "warehouse", "kitchen", "lounge"] },
-    { pattern: "/dashboard/purchases", roles: ["admin", "warehouse", "kitchen", "lounge"] },
+    { pattern: "/dashboard/purchases", roles: ["admin", "warehouse", "kitchen", "loung"] },
 ];
 
 export function isValidRole(role) {
-    return USER_ROLES.includes(role);
+    return USER_ROLES.includes(normalizeUserRole(role));
 }
 
 export function hasAnyRole(userRole, allowedRoles = []) {
@@ -25,18 +24,19 @@ export function hasAnyRole(userRole, allowedRoles = []) {
         return true;
     }
 
-    return allowedRoles.includes(userRole);
+    const normalizedRole = normalizeUserRole(userRole);
+    return allowedRoles.map((role) => normalizeUserRole(role)).includes(normalizedRole);
 }
 
 export function getRoleLabel(role) {
-    switch (role) {
+    switch (normalizeUserRole(role)) {
         case "admin":
             return "Sistema";
         case "warehouse":
             return "Bodeguero";
         case "kitchen":
             return "Chef";
-        case "lounge":
+        case "loung":
             return "Mesero";
         default:
             return "Usuario";

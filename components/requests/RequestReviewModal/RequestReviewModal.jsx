@@ -91,50 +91,53 @@ export default function RequestReviewModal({
 
     if (!open || !request) return null;
 
+    const formId = "request-review-modal";
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
-                className="modal-container modal-container--lg"
+                className="modalDetachedStack modal-container--lg"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
-                    <div className="modal-headerContent">
-                        <div
-                            className={`modal-icon ${isApprove ? "modal-icon--success" : "modal-icon--danger"
-                                }`}
-                        >
-                            {isApprove ? (
-                                <CheckCircle2 size={20} />
-                            ) : (
-                                <XCircle size={20} />
-                            )}
+                <div className="modal-container">
+                    <div className="modal-top">
+                        <div className="modal-headerContent">
+                            <div
+                                className={`modal-icon ${isApprove ? "modal-icon--success" : "modal-icon--danger"
+                                    }`}
+                            >
+                                {isApprove ? (
+                                    <CheckCircle2 size={20} />
+                                ) : (
+                                    <XCircle size={20} />
+                                )}
+                            </div>
+
+                            <div>
+                                <h2 className="modal-title">
+                                    {isApprove ? "Procesar solicitud" : "Rechazar solicitud"}
+                                </h2>
+                                <p className="modal-description">
+                                    {isApprove
+                                        ? "Define las cantidades que avanzan al proceso para cada producto."
+                                        : "Indica el motivo del rechazo."}
+                                </p>
+                            </div>
                         </div>
 
-                        <div>
-                            <h2 className="modal-title">
-                                {isApprove ? "Procesar solicitud" : "Rechazar solicitud"}
-                            </h2>
-                            <p className="modal-description">
-                                {isApprove
-                                    ? "Define las cantidades que avanzan al proceso para cada producto."
-                                    : "Indica el motivo del rechazo."}
-                            </p>
-                        </div>
+                        <button
+                            type="button"
+                            className="modal-close"
+                            onClick={onClose}
+                            aria-label="Cerrar modal"
+                            disabled={isSubmitting}
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        aria-label="Cerrar modal"
-                        disabled={isSubmitting}
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <div className="modal-body">
-                    <form className={styles.form} onSubmit={handleSubmit}>
+                    <div className="modal-body">
+                        <form id={formId} className={styles.form} onSubmit={handleSubmit}>
                         {isApprove ? (
                             <div className={styles.itemsSection}>
                                 {(request.items || []).map((item, index) => {
@@ -226,29 +229,32 @@ export default function RequestReviewModal({
                             />
                         </div>
 
-                        <div className="modal-footer">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={onClose}
-                                disabled={isSubmitting}
-                            >
-                                Cancelar
-                            </button>
+                        </form>
+                    </div>
+                </div>
 
-                            <button
-                                type="submit"
-                                className={`btn ${isApprove ? "btn-primary" : "btn-danger"}`}
-                                disabled={!canSubmit}
-                            >
-                                {isSubmitting
-                                    ? "Procesando..."
-                                    : isApprove
-                                        ? "Procesar"
-                                        : "Rechazar"}
-                            </button>
-                        </div>
-                    </form>
+                <div className="modalDetachedFooter">
+                    <button
+                        type="button"
+                        className="miniAction"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="submit"
+                        form={formId}
+                        className={`miniAction ${isApprove ? "miniActionPrimary" : "miniActionDanger"}`}
+                        disabled={!canSubmit}
+                    >
+                        {isSubmitting
+                            ? "Procesando..."
+                            : isApprove
+                                ? "Procesar"
+                                : "Rechazar"}
+                    </button>
                 </div>
             </div>
         </div>

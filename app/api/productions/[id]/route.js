@@ -75,20 +75,56 @@ function shouldRefreshExpectedOutputs(production) {
     return current.every((item) => Number(item?.quantity || 0) <= 0);
 }
 
+function normalizeExecutionRows(rows = []) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+
+    if (rows.length === 1) {
+        return [
+            {
+                ...rows[0],
+                isMain: true,
+                isByProduct: false,
+            },
+        ];
+    }
+
+    let mainIndex = rows.findIndex(
+        (item) => Boolean(item?.isMain) && !Boolean(item?.isByProduct)
+    );
+
+    if (mainIndex === -1) {
+        mainIndex = rows.findIndex((item) => !Boolean(item?.isByProduct));
+    }
+
+    if (mainIndex === -1) {
+        mainIndex = 0;
+    }
+
+    return rows.map((item, index) => ({
+        ...item,
+        isMain: index === mainIndex,
+        isByProduct: index !== mainIndex,
+    }));
+}
+
 function mergeExecutionResultsWithExpected(
     production,
     incomingResults = []
 ) {
     const expectedOutputs = Array.isArray(production?.expectedOutputs)
-        ? production.expectedOutputs.filter((item) => !item?.isWaste)
+        ? production.expectedOutputs.filter(
+              (item) => !item?.isWaste && isValidObjectId(item?.productId)
+          )
         : [];
     const normalizedIncomingResults = Array.isArray(incomingResults)
-        ? incomingResults.map((item) => ({
-              ...item,
-              destinationLocation: "kitchen",
-              isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
-              isByProduct: Boolean(item.isByProduct),
-          }))
+        ? normalizeExecutionRows(
+              incomingResults.map((item) => ({
+                  ...item,
+                  destinationLocation: "kitchen",
+                  isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+                  isByProduct: Boolean(item.isByProduct),
+              }))
+          )
         : [];
 
     if (!expectedOutputs.length) {
@@ -110,7 +146,16 @@ function mergeExecutionResultsWithExpected(
         };
     }
 
-    const mergedResults = expectedOutputs.map((expectedItem) => {
+    const normalizedExpectedOutputs = normalizeExecutionRows(
+        expectedOutputs.map((item) => ({
+            ...item,
+            destinationLocation: "kitchen",
+            isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+            isByProduct: Boolean(item.isByProduct),
+        }))
+    );
+
+    const mergedResults = normalizedExpectedOutputs.map((expectedItem) => {
         const expectedId = String(expectedItem.productId);
         const expectedIsByProduct = Boolean(expectedItem.isByProduct);
         const matched = normalizedIncomingResults.find(
@@ -120,14 +165,17 @@ function mergeExecutionResultsWithExpected(
         );
 
         return {
-            productId: expectedItem.productId,
-            productCodeSnapshot: expectedItem.productCodeSnapshot || "",
-            productNameSnapshot: expectedItem.productNameSnapshot || "",
-            productTypeSnapshot: expectedItem.productTypeSnapshot || "",
-            unitSnapshot: expectedItem.unitSnapshot,
+            productId: expectedItem.productId || matched?.productId || null,
+            productCodeSnapshot:
+                expectedItem.productCodeSnapshot || matched?.productCodeSnapshot || "",
+            productNameSnapshot:
+                expectedItem.productNameSnapshot || matched?.productNameSnapshot || "",
+            productTypeSnapshot:
+                expectedItem.productTypeSnapshot || matched?.productTypeSnapshot || "",
+            unitSnapshot: expectedItem.unitSnapshot || matched?.unitSnapshot,
             quantity:
                 matched?.quantity === null || matched?.quantity === undefined
-                    ? 0
+                    ? Number(expectedItem.quantity || 0)
                     : Number(matched.quantity),
             recordedWeight:
                 matched?.recordedWeight === null ||
@@ -163,6 +211,70 @@ function mergeExecutionResultsWithExpected(
                 isMain: false,
                 isByProduct: true,
             })),
+    };
+}
+
+function partitionExecutionResultsFromProduction(production) {
+    const explicitOutputs = Array.isArray(production?.outputs) ? production.outputs : [];
+    const explicitByproducts = Array.isArray(production?.byproducts)
+        ? production.byproducts
+        : [];
+    const explicitResults = [...explicitOutputs, ...explicitByproducts];
+
+    const normalizedResults = normalizeExecutionRows(
+        explicitResults.map((item) => ({
+            ...item,
+            destinationLocation: "kitchen",
+            isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+            isByProduct: Boolean(item.isByProduct),
+        }))
+    );
+
+    return {
+        outputs: normalizedResults.filter((item) => !item.isByProduct),
+        byproducts: normalizedResults
+            .filter((item) => item.isByProduct)
+            .map((item) => ({
+                ...item,
+                isMain: false,
+                isByProduct: true,
+            })),
+    };
+}
+
+function sanitizePersistableProductionOutputs(rows = []) {
+    return (rows || []).filter(
+        (item) =>
+            item &&
+            isValidObjectId(item.productId) &&
+            normalizeText(item.productNameSnapshot, 120) &&
+            normalizeText(item.unitSnapshot, 40)
+    );
+}
+
+function partitionValidatedResultsForPersistence(rows = []) {
+    const normalizedRows = normalizeExecutionRows(
+        (rows || []).map((item) => ({
+            ...item,
+            destinationLocation: "kitchen",
+            isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+            isByProduct: Boolean(item.isByProduct),
+        }))
+    );
+
+    return {
+        outputs: sanitizePersistableProductionOutputs(
+            normalizedRows.filter((item) => !item.isByProduct)
+        ),
+        byproducts: sanitizePersistableProductionOutputs(
+            normalizedRows
+                .filter((item) => item.isByProduct)
+                .map((item) => ({
+                    ...item,
+                    isMain: false,
+                    isByProduct: true,
+                }))
+        ),
     };
 }
 
@@ -332,13 +444,10 @@ export async function PATCH(request, { params }) {
                 allowDestination: true,
             });
 
-            const mergedResults = mergeExecutionResultsWithExpected(
-                production,
-                validatedResults
-            );
-
-            production.outputs = mergedResults.outputs;
-            production.byproducts = mergedResults.byproducts;
+            const persistedResults =
+                partitionValidatedResultsForPersistence(validatedResults);
+            production.outputs = persistedResults.outputs;
+            production.byproducts = persistedResults.byproducts;
         }
 
         if (typeof waste !== "undefined") {

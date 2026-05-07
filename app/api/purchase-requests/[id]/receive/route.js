@@ -10,7 +10,11 @@ import {
     normalizeText,
 } from "@libs/purchaseRequests";
 import dbConnect from "@libs/mongodb";
-import { createNotificationsForRoles, NOTIFICATION_TYPES } from "@libs/notifications";
+import {
+    createNotificationsForRoles,
+    createNotificationsForUsers,
+    NOTIFICATION_TYPES,
+} from "@libs/notifications";
 import InventoryMovement from "@models/InventoryMovement";
 import InventoryStock from "@models/InventoryStock";
 import PurchaseBatch from "@models/PurchaseBatch";
@@ -355,15 +359,35 @@ export async function POST(request, { params }) {
         await purchaseRequest.save({ session });
         await session.commitTransaction();
 
-        await createNotificationsForRoles(["admin"], {
-            type: NOTIFICATION_TYPES.purchase_request_received,
-            title: "Recepcion confirmada",
-            message: `${purchaseRequest.requestNumber} ya registro productos recibidos en ${destinationLocationLabel}.`,
-            href: "/dashboard/purchases?tab=requests",
-            entityType: "purchase_request",
-            entityId: purchaseRequest._id,
-            priority: "normal",
-        }).catch((notificationError) => {
+        const notificationJobs = [
+            createNotificationsForRoles(["admin"], {
+                type: NOTIFICATION_TYPES.purchase_request_received,
+                title: "Despacho confirmado",
+                message: "El despacho de la compra fue confirmado.",
+                href: "/dashboard/purchases?tab=requests",
+                entityType: "purchase_request",
+                entityId: purchaseRequest._id,
+                priority: "normal",
+            }, {
+                excludeUserIds: [user.id],
+            }),
+        ];
+
+        if (String(purchaseRequest.requestedBy?._id || purchaseRequest.requestedBy || "") !== String(user.id)) {
+            notificationJobs.push(
+                createNotificationsForUsers([purchaseRequest.requestedBy], {
+                    type: NOTIFICATION_TYPES.purchase_request_received,
+                    title: "Despacho confirmado",
+                    message: "El despacho de la compra fue confirmado.",
+                    href: "/dashboard/purchases?tab=requests",
+                    entityType: "purchase_request",
+                    entityId: purchaseRequest._id,
+                    priority: "normal",
+                })
+            );
+        }
+
+        await Promise.all(notificationJobs).catch((notificationError) => {
             console.error("purchase request received notification error:", notificationError);
         });
 

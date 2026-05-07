@@ -11,6 +11,8 @@ import { getLocationLabel, getRequestTypeLabel } from "@libs/constants/domainLab
 import { buildSearchParams, getStringParam } from "@libs/urlParams";
 import styles from "./page.module.scss";
 
+const AUTO_REFRESH_INTERVAL_MS = 30000;
+
 function formatDate(value) {
   if (!value) return "Sin fecha";
 
@@ -87,7 +89,12 @@ function createInitialFulfillmentData(request) {
     notes: "",
     items: (request?.items || []).map((item) => ({
       itemId: item._id,
-      quantity: "",
+      quantity: String(
+        Math.max(
+          Number(item?.dispatchedQuantity || 0) - Number(item?.receivedQuantity || 0),
+          0
+        )
+      ),
     })),
   };
 }
@@ -170,6 +177,42 @@ export default function ReceivingPage() {
   useEffect(() => {
     loadPage();
   }, []);
+
+  useEffect(() => {
+    const hasBlockingModal =
+      Boolean(selectedPurchaseRequest) ||
+      Boolean(selectedInternalRequest) ||
+      isReceivingPurchase ||
+      isReceivingInternal;
+
+    if (hasBlockingModal) {
+      return undefined;
+    }
+
+    function refreshReceivingSilently() {
+      if (document.visibilityState !== "visible") return;
+      loadPage({ silent: true });
+    }
+
+    const intervalId = window.setInterval(
+      refreshReceivingSilently,
+      AUTO_REFRESH_INTERVAL_MS
+    );
+
+    window.addEventListener("focus", refreshReceivingSilently);
+    document.addEventListener("visibilitychange", refreshReceivingSilently);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshReceivingSilently);
+      document.removeEventListener("visibilitychange", refreshReceivingSilently);
+    };
+  }, [
+    isReceivingInternal,
+    isReceivingPurchase,
+    selectedInternalRequest,
+    selectedPurchaseRequest,
+  ]);
 
   const receivingEntries = useMemo(() => {
     const purchaseEntries = (purchaseRequests || [])

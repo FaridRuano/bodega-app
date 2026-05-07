@@ -26,6 +26,11 @@ function mapMovementItems(items = []) {
 }
 
 function normalizeRequestDocument(request) {
+    const flowKind =
+        request.flowKind ||
+        (request.requestType !== "return" && request.sourceLocation === "warehouse"
+            ? "request"
+            : "transfer");
     const totals = request.totals || {
         requested: 0,
         approved: 0,
@@ -38,6 +43,7 @@ function normalizeRequestDocument(request) {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
+        flowKind,
         status: request.status,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
@@ -173,6 +179,16 @@ export async function POST(request, { params }) {
             );
         }
 
+        if (requestDoc.flowKind === "transfer") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Las transferencias no se rechazan; deben recibirse o cancelarse si aplica.",
+                },
+                { status: 409 }
+            );
+        }
+
         if (requestDoc.requestType === "return") {
             return NextResponse.json(
                 {
@@ -191,6 +207,9 @@ export async function POST(request, { params }) {
         }
 
         const rejectedAt = new Date();
+        const isWarehouseRequest =
+            requestDoc.requestType !== "return" &&
+            requestDoc.sourceLocation === "warehouse";
 
         requestDoc.status = "rejected";
         requestDoc.rejectedBy = user.id;
@@ -210,8 +229,10 @@ export async function POST(request, { params }) {
 
         await createNotificationsForUsers([requestDoc.requestedBy], {
             type: NOTIFICATION_TYPES.internal_request_rejected,
-            title: "Transferencia rechazada",
-            message: `${requestDoc.requestNumber} fue rechazada y requiere revision.`,
+            title: isWarehouseRequest ? "Solicitud rechazada" : "Transferencia rechazada",
+            message: isWarehouseRequest
+                ? `${requestDoc.requestNumber} fue rechazada por bodega y requiere revision.`
+                : `${requestDoc.requestNumber} fue rechazada y requiere revision.`,
             href: "/dashboard/requests",
             entityType: "request",
             entityId: requestDoc._id,

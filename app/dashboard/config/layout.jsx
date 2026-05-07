@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import ConfigTabs from "@components/config/ConfigTabs/ConfigTabs";
 import styles from "./page.module.scss";
 import { redirect } from "next/navigation";
+import { normalizeUserRole } from "@libs/userRoles";
 
 export default async function ConfigLayout({ children }) {
     const session = await auth();
@@ -10,7 +11,7 @@ export default async function ConfigLayout({ children }) {
         redirect("/login");
     }
 
-    if (session.user.role !== "admin") {
+    if (normalizeUserRole(session.user.role, session.user.role || "") !== "admin") {
         redirect("/dashboard");
     }
 

@@ -313,7 +313,7 @@ export default function PurchaseRequestModal({
                 </div>
 
                 <textarea
-                  className={`form-input ${styles.summaryNote}`}
+                  className={`form-textarea ${styles.summaryNote}`}
                   rows={5}
                   placeholder="Nota general opcional"
                   value={requestDraft.requesterNote}

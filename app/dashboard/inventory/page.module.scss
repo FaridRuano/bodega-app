@@ -27,7 +27,16 @@
 
 .heroStatActive {
     border-color: var(--border-strong);
+    outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    outline-offset: 0;
     box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+    background: var(--surface-primary);
+    color: var(--text-primary);
+}
+
+.heroStatActive strong {
+    color: inherit;
 }
 
 .heroStatDanger {
@@ -48,6 +57,33 @@
     color: var(--text-primary);
 }
 
+.heroStatButton.heroStatActive.heroStatDanger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.heroStatButton.heroStatActive.heroStatDanger strong {
+    color: var(--danger);
+}
+
+.heroStatButton.heroStatActive.heroStatMuted {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+}
+
+.heroStatButton.heroStatActive.heroStatMuted strong {
+    color: var(--text-primary);
+}
+
+:global(.heroStatWarning).heroStatActive {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+:global(.heroStatWarning).heroStatActive strong {
+    color: var(--warning);
+}
+
 .headerRow {
     display: flex;
     align-items: center;
@@ -62,6 +98,23 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.iconViewSwitch {
+    flex-wrap: nowrap;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.iconViewSwitch :global(.miniAction) {
+    min-height: 32px;
+}
+
+.iconViewSwitch :global(.miniActionIconOnly) {
+    width: 32px;
+    min-width: 32px;
 }
 
 .clearButton:disabled {
@@ -131,19 +184,45 @@
 
 .productMain {
     width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.95fr) auto;
+    display: flex;
+    flex-direction: column;
     gap: 14px;
-    align-items: center;
+    align-items: stretch;
+}
+
+.productHeader {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .productInfo {
     min-width: 0;
 }
 
+.scopeSummary {
+    width: 100%;
+}
+
+.scopeAmountCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+}
+
+.scopeAmountCard span {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
 .scopeAmountValue {
-    justify-self: end;
-    align-self: start;
     font-size: 30px;
     line-height: 0.95;
     color: var(--text-primary);
@@ -206,7 +285,7 @@
 .footerRow {
     width: 100%;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 12px;
     padding-top: 2px;
@@ -225,11 +304,11 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    justify-content: flex-start;
+    justify-content: flex-end;
 }
 
-.actions :global(.miniAction) {
-    min-width: 0;
+.actions :global(.action-button) {
+    flex-shrink: 0;
 }
 
 .skeletonCard {
@@ -328,6 +407,14 @@
         grid-template-columns: 1fr 1fr;
     }
 
+    .iconViewSwitch {
+        width: auto;
+        display: inline-flex;
+        justify-self: end;
+        margin-left: auto;
+        grid-template-columns: none;
+    }
+
     .headerRow {
         gap: 14px;
         align-items: stretch;
@@ -343,14 +430,12 @@
     }
 
     .productMain {
-        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.95fr);
-        align-items: start;
+        gap: 12px;
     }
 
     .actions,
     .footerRow,
     .skeletonActions {
-        grid-column: 1 / -1;
         width: 100%;
         padding-top: 8px;
     }
@@ -366,14 +451,10 @@
         padding: 14px;
     }
 
-    .productMain {
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .scopeAmountValue {
-        justify-self: end;
-        font-size: 26px;
+    .productHeader,
+    .footerRow {
+        flex-direction: column;
+        align-items: stretch;
     }
 
     .stockSummary,
@@ -389,6 +470,10 @@
     .actions,
     .skeletonActions {
         padding-top: 6px;
+    }
+
+    .actions {
+        justify-content: flex-start;
     }
 }
 
@@ -413,29 +498,18 @@
         gap: 8px;
     }
 
-    .footerRow {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
     .stockSummary,
     .skeletonStockGrid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .actions,
-    .skeletonActions {
-        display: grid;
-        grid-template-columns: 1fr;
     }
 
     .unitMeta {
         white-space: normal;
     }
 
-    .actions :global(.miniAction) {
-        width: 100%;
-        justify-content: center;
+    .iconViewSwitch {
+        justify-self: start;
+        margin-left: 0;
     }
 
     .skeletonAction {

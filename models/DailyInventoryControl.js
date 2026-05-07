@@ -61,6 +61,48 @@ const dailyInventoryControlLineSchema = new Schema(
     { _id: true }
 );
 
+const dailyInventoryControlEditLogSchema = new Schema(
+    {
+        editedBy: {
+            type: Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+        previousNotes: {
+            type: String,
+            trim: true,
+            maxlength: 600,
+            default: "",
+        },
+        newNotes: {
+            type: String,
+            trim: true,
+            maxlength: 600,
+            default: "",
+        },
+        totalIssuedBefore: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        totalIssuedAfter: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        changesCount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        editedAt: {
+            type: Date,
+            default: Date.now,
+        },
+    },
+    { _id: true }
+);
+
 const dailyInventoryControlSchema = new Schema(
     {
         controlNumber: {
@@ -116,6 +158,15 @@ const dailyInventoryControlSchema = new Schema(
             required: true,
             index: true,
         },
+        lastEditedBy: {
+            type: Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
+        editHistory: {
+            type: [dailyInventoryControlEditLogSchema],
+            default: [],
+        },
     },
     {
         timestamps: true,
@@ -127,11 +178,9 @@ dailyInventoryControlSchema.index(
     { unique: true }
 );
 
-dailyInventoryControlSchema.pre("validate", function (next) {
+dailyInventoryControlSchema.pre("validate", function () {
     if (!Array.isArray(this.lines) || this.lines.length === 0) {
-        return next(
-            new Error("El control diario debe registrar al menos un producto.")
-        );
+        throw new Error("El control diario debe registrar al menos un producto.");
     }
 
     const hasMovement = this.lines.some(
@@ -139,13 +188,20 @@ dailyInventoryControlSchema.pre("validate", function (next) {
     );
 
     if (!hasMovement) {
-        return next(
-            new Error("Debes registrar al menos una salida en el control diario.")
-        );
+        throw new Error("Debes registrar al menos una salida en el control diario.");
     }
-
-    return next();
 });
+
+const existingDailyInventoryControlModel = models.DailyInventoryControl;
+
+const shouldRebuildDailyInventoryControlModel =
+    existingDailyInventoryControlModel &&
+    (!existingDailyInventoryControlModel.schema.path("lastEditedBy") ||
+        !existingDailyInventoryControlModel.schema.path("editHistory"));
+
+if (shouldRebuildDailyInventoryControlModel) {
+    delete models.DailyInventoryControl;
+}
 
 const DailyInventoryControl =
     models.DailyInventoryControl ||

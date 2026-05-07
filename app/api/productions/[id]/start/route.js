@@ -9,9 +9,7 @@ import InventoryMovement from "@models/InventoryMovement";
 
 import { requireUserRole } from "@libs/apiAuth";
 import {
-    createNotificationsForRoles,
     createStockAlertNotifications,
-    NOTIFICATION_TYPES,
 } from "@libs/notifications";
 import {
     badRequest,
@@ -203,25 +201,22 @@ export async function POST(_request, { params }) {
         const consumedProductMap = new Map(
             consumedProducts.map((product) => [String(product._id), product])
         );
+        const consumedQuantities = responsePayload?.expectedInputs?.reduce((map, item) => {
+            const key = String(item.productId);
+            map.set(key, Number((Number(map.get(key) || 0) + Number(item.quantity || 0)).toFixed(6)));
+            return map;
+        }, new Map()) || new Map();
 
-        const alertEntries = consumedStocks.map((stock) => ({
-            productId: stock.productId,
-            product: consumedProductMap.get(String(stock.productId)) || {},
-            location: stock.location,
-            quantity: Number(stock.quantity || 0),
+        const alertEntries = Array.from(consumedQuantities.entries()).map(([productId, consumed]) => ({
+            productId,
+            product: consumedProductMap.get(String(productId)) || {},
+            deltaQuantity: -Number(consumed || 0),
         }));
 
         await Promise.all([
-            createNotificationsForRoles(["admin"], {
-                type: NOTIFICATION_TYPES.production_started,
-                title: "Produccion iniciada",
-                message: `${responsePayload?.productionNumber || "Una produccion"} ya esta en proceso en cocina.`,
-                href: "/dashboard/production?status=in_progress",
-                entityType: "production",
-                entityId: responsePayload?._id,
-                priority: "normal",
+            createStockAlertNotifications(alertEntries, {
+                excludeUserIds: [user.id],
             }),
-            createStockAlertNotifications(alertEntries),
         ]).catch((notificationError) => {
             console.error("production started notification error:", notificationError);
         });

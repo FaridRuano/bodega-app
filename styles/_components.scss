@@ -148,6 +148,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-height: 0;
 }
 
 .modal-headerBlock {
@@ -217,6 +218,52 @@
     flex-wrap: wrap;
 }
 
+.modal-footerKeepRow {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.modal-footerKeepRow .miniAction,
+.modal-footerKeepRow .btn {
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.modalDetachedStack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.modalDetachedStack > .modal-container,
+.modalDetachedStack > .modalDetachedFooter {
+    width: 100%;
+}
+
+.modalDetachedStack.modal-container--lg > .modal-container,
+.modalDetachedStack.modal-container--xl > .modal-container {
+    max-width: none;
+}
+
+.modalDetachedFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+}
+
+.modalDetachedFooter .miniAction,
+.modalDetachedFooter .btn {
+    width: auto;
+    flex: 0 0 auto;
+}
+
 
 
 @keyframes modal-enter {
@@ -235,9 +282,30 @@
     .modal-container {
         padding: 16px;
         border-radius: 16px;
-
+        
         max-height: 700px;
         overflow-y: auto;
+    }
+
+    .modal-top {
+        position: sticky;
+        top: -16px;
+        z-index: 3;
+        margin: -16px -16px 0;
+        padding: 16px 16px 8px;
+        background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
+        backdrop-filter: blur(10px);
+    }
+
+    .modal-body {
+        padding: 10px;
+    }
+
+    .modal-body::after {
+        content: "";
+        display: block;
+        min-height: 18px;
+        flex-shrink: 0;
     }
 
     .modal-footer {
@@ -246,6 +314,26 @@
 
     .modal-footer .btn {
         width: 100%;
+    }
+
+    .modal-footerKeepRow {
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+
+    .modal-footerKeepRow .miniAction,
+    .modal-footerKeepRow .btn {
+        width: auto;
+    }
+
+    .modalDetachedFooter {
+        justify-content: flex-end;
+    }
+
+    .modalDetachedFooter .miniAction,
+    .modalDetachedFooter .btn {
+        flex: 0 0 auto;
+        justify-content: center;
     }
 }
 
@@ -381,6 +469,11 @@
 
     -webkit-appearance: none;
     -moz-appearance: none;
+
+    &.area{
+        padding: 5px;
+        border-radius: 20px;
+    }
 }
 
 .selectWrap {

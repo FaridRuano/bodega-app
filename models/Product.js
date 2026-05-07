@@ -105,7 +105,7 @@ const productSchema = new Schema(
     }
 );
 
-productSchema.pre("validate", function (next) {
+productSchema.pre("validate", function () {
     if (this.name && !this.slug) {
         this.slug = slugify(this.name);
     }

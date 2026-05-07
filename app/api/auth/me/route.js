@@ -1,5 +1,6 @@
 import { auth } from "@auth";
 import { NextResponse } from "next/server";
+import { normalizeUserRole } from "@libs/userRoles";
 
 export async function GET() {
     const session = await auth();
@@ -16,6 +17,9 @@ export async function GET() {
 
     return NextResponse.json({
         success: true,
-        user: session.user,
+        user: {
+            ...session.user,
+            role: normalizeUserRole(session.user.role, session.user.role || ""),
+        },
     });
 }

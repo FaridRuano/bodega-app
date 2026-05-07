@@ -11,6 +11,7 @@ export default function ProductAutocomplete({
     disabled = false,
     placeholder = "Buscar por nombre o código...",
     forProductionTemplate = false,
+    options = null,
 }) {
     const wrapperRef = useRef(null);
     const debounceRef = useRef(null);
@@ -71,6 +72,22 @@ export default function ProductAutocomplete({
             return;
         }
 
+        if (Array.isArray(options)) {
+            const normalizedQuery = trimmedQuery.toLowerCase();
+            const nextResults = options
+                .filter((product) => {
+                    const name = String(product?.name || "").toLowerCase();
+                    const code = String(product?.code || "").toLowerCase();
+
+                    return name.includes(normalizedQuery) || code.includes(normalizedQuery);
+                })
+                .slice(0, 20);
+
+            setResults(nextResults);
+            setLoading(false);
+            return;
+        }
+
         clearTimeout(debounceRef.current);
 
         debounceRef.current = setTimeout(async () => {
@@ -110,7 +127,7 @@ export default function ProductAutocomplete({
 
         return () => clearTimeout(debounceRef.current);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [query, showDropdown]);
+    }, [options, query, showDropdown]);
 
     function handleInputChange(event) {
         const nextValue = event.target.value;

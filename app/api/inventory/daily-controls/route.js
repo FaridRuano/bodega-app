@@ -15,9 +15,7 @@ import {
     getReferenceTypeLabel,
 } from "@libs/constants/domainLabels";
 import {
-    createNotificationsForRoles,
     createStockAlertNotifications,
-    NOTIFICATION_TYPES,
 } from "@libs/notifications";
 
 function normalizeLocation(value, fallback = null) {
@@ -48,6 +46,14 @@ function endOfUtcDay(date) {
     return nextDate;
 }
 
+function resolveOpeningQuantity(previousClosingMap, productId, fallbackQuantity = 0) {
+    if (previousClosingMap.has(String(productId))) {
+        return Number(previousClosingMap.get(String(productId)) || 0);
+    }
+
+    return Number(fallbackQuantity || 0);
+}
+
 function formatLine(line) {
     return {
         _id: line._id,
@@ -63,6 +69,53 @@ function formatLine(line) {
         closingQuantity: Number(line.closingQuantity || 0),
         note: line.note || "",
     };
+}
+
+function buildMeaningfulLines(lines = []) {
+    return lines
+        .map((line) => ({
+            productId: String(line.productId || "").trim(),
+            issuedQuantity: Number(line.issuedQuantity || 0),
+            note: String(line.note || "").trim(),
+        }))
+        .filter(
+            (line) =>
+                mongoose.Types.ObjectId.isValid(line.productId) &&
+                line.issuedQuantity > 0
+        );
+}
+
+function sumIssued(lines = []) {
+    return Number(
+        lines
+            .reduce((sum, line) => sum + Number(line.issuedQuantity || 0), 0)
+            .toFixed(6)
+    );
+}
+
+function countChangedLines(previousLines = [], nextLines = []) {
+    const previousMap = new Map(
+        previousLines.map((line) => [String(line.productId), line])
+    );
+    const nextMap = new Map(nextLines.map((line) => [String(line.productId), line]));
+    const productIds = new Set([...previousMap.keys(), ...nextMap.keys()]);
+    let count = 0;
+
+    for (const productId of productIds) {
+        const previousLine = previousMap.get(productId);
+        const nextLine = nextMap.get(productId);
+
+        const previousIssued = Number(previousLine?.issuedQuantity || 0);
+        const nextIssued = Number(nextLine?.issuedQuantity || 0);
+        const previousNote = String(previousLine?.note || "").trim();
+        const nextNote = String(nextLine?.note || "").trim();
+
+        if (previousIssued !== nextIssued || previousNote !== nextNote) {
+            count += 1;
+        }
+    }
+
+    return count;
 }
 
 function formatControl(control) {
@@ -87,21 +140,54 @@ function formatControl(control) {
             ? control.lines.map(formatLine)
             : [],
         registeredBy: control.registeredBy || null,
+        lastEditedBy: control.lastEditedBy || null,
+        correctionsCount: Array.isArray(control.editHistory)
+            ? control.editHistory.length
+            : 0,
+        editHistory: Array.isArray(control.editHistory)
+            ? control.editHistory.map((entry) => ({
+                  _id: entry._id,
+                  editedBy: entry.editedBy || null,
+                  editedAt: entry.editedAt || null,
+                  previousNotes: entry.previousNotes || "",
+                  newNotes: entry.newNotes || "",
+                  totalIssuedBefore: Number(entry.totalIssuedBefore || 0),
+                  totalIssuedAfter: Number(entry.totalIssuedAfter || 0),
+                  changesCount: Number(entry.changesCount || 0),
+              }))
+            : [],
         createdAt: control.createdAt,
         updatedAt: control.updatedAt,
     };
 }
 
 async function buildContext({ location, controlDate }) {
+    const existingControl = await DailyInventoryControl.findOne({
+        location,
+        controlDate: {
+            $gte: startOfUtcDay(controlDate),
+            $lte: endOfUtcDay(controlDate),
+        },
+    })
+        .populate("registeredBy", "firstName lastName username role")
+        .populate("lastEditedBy", "firstName lastName username role")
+        .populate("editHistory.editedBy", "firstName lastName username role")
+        .lean();
+
     const currentStocks = await InventoryStock.find({
         location,
         quantity: { $gt: 0 },
     }).lean();
 
-    const stockProductIds = currentStocks.map((stock) => stock.productId);
+    const trackedProductIds = [
+        ...new Set([
+            ...currentStocks.map((stock) => String(stock.productId)),
+            ...(existingControl?.lines || []).map((line) => String(line.productId)),
+        ]),
+    ];
 
     const trackedProducts = await Product.find({
-        _id: { $in: stockProductIds },
+        _id: { $in: trackedProductIds },
         isActive: true,
         tracksStock: true,
         requiresDailyControl: true,
@@ -124,16 +210,6 @@ async function buildContext({ location, controlDate }) {
         .sort({ controlDate: -1, createdAt: -1 })
         .lean();
 
-    const existingControl = await DailyInventoryControl.findOne({
-        location,
-        controlDate: {
-            $gte: startOfUtcDay(controlDate),
-            $lte: endOfUtcDay(controlDate),
-        },
-    })
-        .populate("registeredBy", "firstName lastName username role")
-        .lean();
-
     const previousClosingMap = new Map(
         (previousControl?.lines || []).map((line) => [
             String(line.productId),
@@ -141,14 +217,30 @@ async function buildContext({ location, controlDate }) {
         ])
     );
 
+    const currentStockMap = new Map(
+        currentStocks.map((stock) => [String(stock.productId), Number(stock.quantity || 0)])
+    );
+    const existingLineMap = new Map(
+        (existingControl?.lines || []).map((line) => [String(line.productId), line])
+    );
     const trackedProductMap = new Map(
         trackedProducts.map((product) => [String(product._id), product])
     );
 
-    const products = currentStocks
-        .map((stock) => {
-            const product = trackedProductMap.get(String(stock.productId));
+    const products = trackedProductIds
+        .map((productId) => {
+            const product = trackedProductMap.get(String(productId));
             if (!product) return null;
+
+            const stockQuantity = Number(currentStockMap.get(String(productId)) || 0);
+            const existingLine = existingLineMap.get(String(productId));
+            const systemQuantityBeforeAdjustment = existingLine
+                ? Number(existingLine.systemQuantityBeforeAdjustment || stockQuantity)
+                : stockQuantity;
+            const issuedQuantity = Number(existingLine?.issuedQuantity || 0);
+            const closingQuantity = existingLine
+                ? Number(existingLine.closingQuantity || 0)
+                : stockQuantity;
 
             return {
                 productId: product._id,
@@ -158,11 +250,15 @@ async function buildContext({ location, controlDate }) {
                 familyNameSnapshot:
                     product.categoryId?.familyId?.name || "Sin familia",
                 categoryNameSnapshot: product.categoryId?.name || "Sin categoria",
-                openingQuantity: previousClosingMap.get(String(product._id)) || 0,
-                systemQuantityBeforeAdjustment: Number(stock.quantity || 0),
-                issuedQuantity: 0,
-                closingQuantity: Number(stock.quantity || 0),
-                note: "",
+                openingQuantity: resolveOpeningQuantity(
+                    previousClosingMap,
+                    product._id,
+                    systemQuantityBeforeAdjustment
+                ),
+                systemQuantityBeforeAdjustment,
+                issuedQuantity,
+                closingQuantity,
+                note: existingLine?.note || "",
             };
         })
         .filter(Boolean)
@@ -226,7 +322,7 @@ export async function GET(request) {
         const { user, response } = await requireUserRole([
             "admin",
             "kitchen",
-            "lounge",
+            "loung",
         ]);
         if (response) return response;
 
@@ -293,6 +389,8 @@ export async function GET(request) {
         const [controls, total] = await Promise.all([
             DailyInventoryControl.find(query)
                 .populate("registeredBy", "firstName lastName username role")
+                .populate("lastEditedBy", "firstName lastName username role")
+                .populate("editHistory.editedBy", "firstName lastName username role")
                 .sort({ controlDate: -1, createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -341,13 +439,13 @@ export async function POST(request) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["kitchen", "lounge"]);
+        const { user, response } = await requireUserRole(["kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
 
         const body = await request.json();
-        const controlDate = startOfUtcDay(new Date());
+        const normalizedDate = normalizeDateOnly(body.date);
         const notes = String(body.notes || "").trim();
         const lines = Array.isArray(body.lines) ? body.lines : [];
 
@@ -363,18 +461,15 @@ export async function POST(request) {
             );
         }
 
-        const today = startOfUtcDay(new Date());
-        if (startOfUtcDay(controlDate).getTime() !== today.getTime()) {
+        if (!normalizedDate) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Por ahora el control diario solo puede registrarse para hoy.",
+                    message: "La fecha del control diario no es válida.",
                 },
                 { status: 400 }
             );
         }
-
-        const normalizedDate = startOfUtcDay(controlDate);
 
         const existingControl = await DailyInventoryControl.findOne({
             location,
@@ -394,17 +489,7 @@ export async function POST(request) {
             );
         }
 
-        const meaningfulLines = lines
-            .map((line) => ({
-                productId: String(line.productId || "").trim(),
-                issuedQuantity: Number(line.issuedQuantity || 0),
-                note: String(line.note || "").trim(),
-            }))
-            .filter(
-                (line) =>
-                    mongoose.Types.ObjectId.isValid(line.productId) &&
-                    line.issuedQuantity > 0
-            );
+        const meaningfulLines = buildMeaningfulLines(lines);
 
         if (meaningfulLines.length === 0) {
             return NextResponse.json(
@@ -477,9 +562,12 @@ export async function POST(request) {
                 productCodeSnapshot: product.code || "",
                 productNameSnapshot: product.name,
                 unitSnapshot: product.unit,
-                openingQuantity:
-                    previousClosingMap.get(String(product._id)) || 0,
                 systemQuantityBeforeAdjustment,
+                openingQuantity: resolveOpeningQuantity(
+                    previousClosingMap,
+                    product._id,
+                    systemQuantityBeforeAdjustment
+                ),
                 issuedQuantity: Number(line.issuedQuantity || 0),
                 closingQuantity: Number(
                     (systemQuantityBeforeAdjustment - totalOut).toFixed(6)
@@ -566,26 +654,20 @@ export async function POST(request) {
 
         const savedControl = await DailyInventoryControl.findById(createdControl._id)
             .populate("registeredBy", "firstName lastName username role")
+            .populate("lastEditedBy", "firstName lastName username role")
+            .populate("editHistory.editedBy", "firstName lastName username role")
             .lean();
 
         const alertEntries = preparedLines.map((line) => ({
             productId: line.productId,
             product: productMap.get(String(line.productId)) || {},
-            location,
-            quantity: Number(line.closingQuantity || 0),
+            deltaQuantity: -Number(line.issuedQuantity || 0),
         }));
 
         await Promise.all([
-            createNotificationsForRoles(["admin"], {
-                type: NOTIFICATION_TYPES.daily_control_closed,
-                title: "Control diario registrado",
-                message: `${controlNumber} fue cerrado para ${getLocationLabel(location)}.`,
-                href: "/dashboard/daily-control",
-                entityType: "daily_control",
-                entityId: createdControl._id,
-                priority: "normal",
+            createStockAlertNotifications(alertEntries, {
+                excludeUserIds: [user.id],
             }),
-            createStockAlertNotifications(alertEntries),
         ]).catch((notificationError) => {
             console.error("daily control notification error:", notificationError);
         });
@@ -609,6 +691,307 @@ export async function POST(request) {
                 success: false,
                 message:
                     error.message || "No se pudo registrar el control diario.",
+            },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PATCH(request) {
+    const session = await mongoose.startSession();
+
+    try {
+        const { user, response } = await requireUserRole(["kitchen", "loung"]);
+        if (response) return response;
+
+        await dbConnect();
+
+        const body = await request.json();
+        const notes = String(body.notes || "").trim();
+        const lines = Array.isArray(body.lines) ? body.lines : [];
+        const location = user.role === "kitchen" ? "kitchen" : "lounge";
+        const normalizedDate = normalizeDateOnly(body.date);
+
+        if (!normalizedDate) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "La fecha del control diario no es válida.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const existingControl = await DailyInventoryControl.findOne({
+            location,
+            controlDate: {
+                $gte: startOfUtcDay(normalizedDate),
+                $lte: endOfUtcDay(normalizedDate),
+            },
+        }).session(session);
+
+        if (!existingControl) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "No existe un cierre diario registrado para corregir hoy.",
+                },
+                { status: 404 }
+            );
+        }
+
+        const meaningfulLines = buildMeaningfulLines(lines);
+
+        if (meaningfulLines.length === 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Debes registrar al menos una salida.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const previousControl = await DailyInventoryControl.findOne({
+            location,
+            controlDate: { $lt: normalizedDate },
+        })
+            .sort({ controlDate: -1, createdAt: -1 })
+            .lean();
+
+        const previousClosingMap = new Map(
+            (previousControl?.lines || []).map((line) => [
+                String(line.productId),
+                Number(line.closingQuantity || 0),
+            ])
+        );
+
+        const existingLineMap = new Map(
+            (existingControl.lines || []).map((line) => [String(line.productId), line])
+        );
+        const previousIssuedMap = new Map(
+            (existingControl.lines || []).map((line) => [
+                String(line.productId),
+                Number(line.issuedQuantity || 0),
+            ])
+        );
+        const allProductIds = [
+            ...new Set([
+                ...meaningfulLines.map((line) => line.productId),
+                ...Array.from(existingLineMap.keys()),
+            ]),
+        ];
+
+        const [products, stocks] = await Promise.all([
+            Product.find({
+                _id: { $in: allProductIds },
+                tracksStock: true,
+            }).lean(),
+            InventoryStock.find({
+                productId: { $in: allProductIds },
+                location,
+            }).session(session),
+        ]);
+
+        const productMap = new Map(
+            products.map((product) => [String(product._id), product])
+        );
+        const stockMap = new Map(
+            stocks.map((stock) => [String(stock.productId), stock])
+        );
+
+        session.startTransaction();
+
+        for (const productId of allProductIds) {
+            if (!stockMap.has(String(productId))) {
+                const createdStock = new InventoryStock({
+                    productId,
+                    location,
+                    quantity: 0,
+                    reservedQuantity: 0,
+                    availableQuantity: 0,
+                });
+                await createdStock.save({ session });
+                stockMap.set(String(productId), createdStock);
+            }
+        }
+
+        const preparedLines = [];
+        const movementDate = new Date();
+
+        for (const line of meaningfulLines) {
+            const product = productMap.get(line.productId);
+            const stock = stockMap.get(line.productId);
+
+            if (!product || !stock) {
+                throw new Error(
+                    "Uno de los productos del control diario no existe o no tiene stock en la ubicacion."
+                );
+            }
+
+            const previousLine = existingLineMap.get(line.productId);
+            const previousIssued = Number(previousLine?.issuedQuantity || 0);
+            const currentStockQuantity = Number(stock.quantity || 0);
+            const adjustedSystemQuantity = previousLine
+                ? Number(previousLine.systemQuantityBeforeAdjustment || 0)
+                : Number((currentStockQuantity + Number(line.issuedQuantity || 0)).toFixed(6));
+            const deltaIssued = Number(
+                (Number(line.issuedQuantity || 0) - previousIssued).toFixed(6)
+            );
+
+            if (deltaIssued > 0 && currentStockQuantity < deltaIssued) {
+                throw new Error(
+                    `No hay stock suficiente para corregir la salida de "${product.name}".`
+                );
+            }
+
+            preparedLines.push({
+                productId: product._id,
+                productCodeSnapshot: product.code || "",
+                productNameSnapshot: product.name,
+                unitSnapshot: product.unit,
+                openingQuantity: resolveOpeningQuantity(
+                    previousClosingMap,
+                    product._id,
+                    adjustedSystemQuantity
+                ),
+                systemQuantityBeforeAdjustment: adjustedSystemQuantity,
+                issuedQuantity: Number(line.issuedQuantity || 0),
+                closingQuantity: Number(
+                    (adjustedSystemQuantity - Number(line.issuedQuantity || 0)).toFixed(6)
+                ),
+                note: line.note || "",
+            });
+        }
+
+        for (const productId of allProductIds) {
+            const stock = stockMap.get(String(productId));
+            const previousIssued = Number(previousIssuedMap.get(String(productId)) || 0);
+            const nextLine = preparedLines.find(
+                (line) => String(line.productId) === String(productId)
+            );
+            const nextIssued = Number(nextLine?.issuedQuantity || 0);
+            const deltaIssued = Number((nextIssued - previousIssued).toFixed(6));
+
+            if (deltaIssued === 0) continue;
+
+            stock.quantity = Number((Number(stock.quantity || 0) - deltaIssued).toFixed(6));
+            stock.lastMovementAt = movementDate;
+            await stock.save({ session });
+        }
+
+        await InventoryMovement.deleteMany({
+            referenceType: "daily_control",
+            referenceId: existingControl._id,
+        }).session(session);
+
+        const movementDocs = preparedLines.map((line) => ({
+            productId: line.productId,
+            movementType: "adjustment_out",
+            quantity: line.issuedQuantity,
+            unitSnapshot: line.unitSnapshot,
+            fromLocation: location,
+            referenceType: "daily_control",
+            referenceId: existingControl._id,
+            notes:
+                line.note ||
+                `Salida corregida en control diario ${existingControl.controlNumber}`,
+            performedBy: user.id,
+            movementDate,
+        }));
+
+        if (movementDocs.length > 0) {
+            await InventoryMovement.insertMany(movementDocs, { session });
+        }
+
+        const previousNotes = existingControl.notes || "";
+        const previousLines = Array.isArray(existingControl.lines)
+            ? existingControl.lines.map((line) => ({
+                  productId: line.productId,
+                  issuedQuantity: Number(line.issuedQuantity || 0),
+                  note: line.note || "",
+              }))
+            : [];
+        const totalIssuedBefore = sumIssued(previousLines);
+        const totalIssuedAfter = sumIssued(preparedLines);
+
+        existingControl.notes = notes;
+        existingControl.lines = preparedLines;
+        existingControl.summary = {
+            productsCount: preparedLines.length,
+            totalIssuedQuantity: totalIssuedAfter,
+            totalClosingQuantity: Number(
+                preparedLines
+                    .reduce((sum, line) => sum + Number(line.closingQuantity || 0), 0)
+                    .toFixed(6)
+            ),
+        };
+        existingControl.lastEditedBy = user.id;
+        existingControl.editHistory.push({
+            editedBy: user.id,
+            previousNotes,
+            newNotes: notes,
+            totalIssuedBefore,
+            totalIssuedAfter,
+            changesCount: countChangedLines(previousLines, preparedLines),
+            editedAt: movementDate,
+        });
+
+        await existingControl.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        const savedControl = await DailyInventoryControl.findById(existingControl._id)
+            .populate("registeredBy", "firstName lastName username role")
+            .populate("lastEditedBy", "firstName lastName username role")
+            .populate("editHistory.editedBy", "firstName lastName username role")
+            .lean();
+
+        const alertEntries = [];
+        for (const productId of allProductIds) {
+            const previousIssued = Number(previousIssuedMap.get(String(productId)) || 0);
+            const nextLine = preparedLines.find(
+                (line) => String(line.productId) === String(productId)
+            );
+            const nextIssued = Number(nextLine?.issuedQuantity || 0);
+            const deltaIssued = Number((nextIssued - previousIssued).toFixed(6));
+
+            if (deltaIssued <= 0) continue;
+
+            alertEntries.push({
+                productId,
+                product: productMap.get(String(productId)) || {},
+                deltaQuantity: -deltaIssued,
+            });
+        }
+
+        if (alertEntries.length > 0) {
+            await createStockAlertNotifications(alertEntries, {
+                excludeUserIds: [user.id],
+            }).catch((notificationError) => {
+                console.error("daily control correction notification error:", notificationError);
+            });
+        }
+
+        return NextResponse.json(
+            {
+                success: true,
+                message: "Control diario corregido correctamente.",
+                data: formatControl(savedControl),
+            },
+            { status: 200 }
+        );
+    } catch (error) {
+        await session.abortTransaction().catch(() => {});
+        session.endSession();
+
+        console.error("PATCH /api/inventory/daily-controls error:", error);
+
+        return NextResponse.json(
+            {
+                success: false,
+                message: error.message || "No se pudo corregir el control diario.",
             },
             { status: 500 }
         );

@@ -213,19 +213,14 @@ export async function GET(request) {
 
         const skip = (page - 1) * limit;
 
-        const [products, total] = await Promise.all([
-            Product.find(query)
-                .populate({
-                    path: "categoryId",
-                    model: Category,
-                    select: "name slug isActive",
-                })
-                .sort({ name: 1 })
-                .skip(hasPagination ? skip : 0)
-                .limit(hasPagination ? limit : 1000)
-                .lean(),
-            Product.countDocuments(query),
-        ]);
+        const products = await Product.find(query)
+            .populate({
+                path: "categoryId",
+                model: Category,
+                select: "name slug isActive",
+            })
+            .sort({ createdAt: -1 })
+            .lean();
 
         const inventoryMap = await buildInventoryMap(
             products.map((product) => product._id)

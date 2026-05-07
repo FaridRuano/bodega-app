@@ -7,6 +7,11 @@ export const REQUEST_TYPES = [
     "return",
 ];
 
+export const REQUEST_FLOW_KINDS = [
+    "request",
+    "transfer",
+];
+
 export const REQUEST_STATUSES = [
     "pending",
     "approved",
@@ -242,6 +247,14 @@ const requestSchema = new Schema(
             enum: REQUEST_TYPES,
             required: [true, "Request type is required."],
             default: "operation",
+            index: true,
+        },
+
+        flowKind: {
+            type: String,
+            enum: REQUEST_FLOW_KINDS,
+            required: [true, "Flow kind is required."],
+            default: "request",
             index: true,
         },
 

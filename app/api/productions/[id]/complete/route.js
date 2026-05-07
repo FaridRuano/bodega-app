@@ -10,9 +10,7 @@ import { buildValidatedProductionItems } from "@libs/productionUtils";
 
 import { requireUserRole } from "@libs/apiAuth";
 import {
-    createNotificationsForRoles,
     createStockAlertNotifications,
-    NOTIFICATION_TYPES,
 } from "@libs/notifications";
 import {
     badRequest,
@@ -64,9 +62,63 @@ function buildFallbackRows(items = [], predicate = () => true) {
         }));
 }
 
+function normalizeExecutionRows(rows = []) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+
+    if (rows.length === 1) {
+        return [
+            {
+                ...rows[0],
+                isMain: true,
+                isByProduct: false,
+            },
+        ];
+    }
+
+    let mainIndex = rows.findIndex(
+        (item) => Boolean(item?.isMain) && !Boolean(item?.isByProduct)
+    );
+
+    if (mainIndex === -1) {
+        mainIndex = rows.findIndex((item) => !Boolean(item?.isByProduct));
+    }
+
+    if (mainIndex === -1) {
+        mainIndex = 0;
+    }
+
+    return rows.map((item, index) => ({
+        ...item,
+        isMain: index === mainIndex,
+        isByProduct: index !== mainIndex,
+    }));
+}
+
+function partitionValidatedResultsForPersistence(rows = []) {
+    const normalizedRows = normalizeExecutionRows(
+        (rows || []).map((item) => ({
+            ...item,
+            destinationLocation: "kitchen",
+            isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+            isByProduct: Boolean(item.isByProduct),
+        }))
+    );
+
+    return {
+        outputRows: normalizedRows.filter((item) => !item.isByProduct),
+        byproductRows: normalizedRows
+            .filter((item) => item.isByProduct)
+            .map((item) => ({
+                ...item,
+                isMain: false,
+                isByProduct: true,
+            })),
+    };
+}
+
 function partitionProductionResults(production) {
     const expectedOutputs = Array.isArray(production.expectedOutputs)
-        ? production.expectedOutputs
+        ? production.expectedOutputs.filter((item) => isValidObjectId(item?.productId))
         : [];
 
     const explicitOutputs = Array.isArray(production.outputs) ? production.outputs : [];
@@ -81,12 +133,14 @@ function partitionProductionResults(production) {
             ? explicitResults
             : buildFallbackRows(expectedOutputs, () => true);
 
-    const normalizedResults = (baseResults || []).map((item) => ({
-        ...item,
-        destinationLocation: "kitchen",
-        isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
-        isByProduct: Boolean(item.isByProduct),
-    }));
+    const normalizedResults = normalizeExecutionRows(
+        (baseResults || []).map((item) => ({
+            ...item,
+            destinationLocation: "kitchen",
+            isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+            isByProduct: Boolean(item.isByProduct),
+        }))
+    );
 
     return {
         outputRows: normalizedResults.filter((item) => !item.isByProduct),
@@ -99,15 +153,19 @@ function mergeExecutionResultsWithExpected(
     incomingResults = []
 ) {
     const expectedOutputs = Array.isArray(production?.expectedOutputs)
-        ? production.expectedOutputs.filter((item) => !item?.isWaste)
+        ? production.expectedOutputs.filter(
+              (item) => !item?.isWaste && isValidObjectId(item?.productId)
+          )
         : [];
     const normalizedIncomingResults = Array.isArray(incomingResults)
-        ? incomingResults.map((item) => ({
-              ...item,
-              destinationLocation: "kitchen",
-              isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
-              isByProduct: Boolean(item.isByProduct),
-          }))
+        ? normalizeExecutionRows(
+              incomingResults.map((item) => ({
+                  ...item,
+                  destinationLocation: "kitchen",
+                  isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+                  isByProduct: Boolean(item.isByProduct),
+              }))
+          )
         : [];
 
     if (!expectedOutputs.length) {
@@ -129,7 +187,16 @@ function mergeExecutionResultsWithExpected(
         };
     }
 
-    const mergedResults = expectedOutputs.map((expectedItem) => {
+    const normalizedExpectedOutputs = normalizeExecutionRows(
+        expectedOutputs.map((item) => ({
+            ...item,
+            destinationLocation: "kitchen",
+            isMain: Boolean(item.isMain) && !Boolean(item.isByProduct),
+            isByProduct: Boolean(item.isByProduct),
+        }))
+    );
+
+    const mergedResults = normalizedExpectedOutputs.map((expectedItem) => {
         const expectedId = String(expectedItem.productId);
         const expectedIsByProduct = Boolean(expectedItem.isByProduct);
         const matched = normalizedIncomingResults.find(
@@ -139,14 +206,17 @@ function mergeExecutionResultsWithExpected(
         );
 
         return {
-            productId: expectedItem.productId,
-            productCodeSnapshot: expectedItem.productCodeSnapshot || "",
-            productNameSnapshot: expectedItem.productNameSnapshot || "",
-            productTypeSnapshot: expectedItem.productTypeSnapshot || "",
-            unitSnapshot: expectedItem.unitSnapshot,
+            productId: expectedItem.productId || matched?.productId || null,
+            productCodeSnapshot:
+                expectedItem.productCodeSnapshot || matched?.productCodeSnapshot || "",
+            productNameSnapshot:
+                expectedItem.productNameSnapshot || matched?.productNameSnapshot || "",
+            productTypeSnapshot:
+                expectedItem.productTypeSnapshot || matched?.productTypeSnapshot || "",
+            unitSnapshot: expectedItem.unitSnapshot || matched?.unitSnapshot,
             quantity:
                 matched?.quantity === null || matched?.quantity === undefined
-                    ? 0
+                    ? Number(expectedItem.quantity || 0)
                     : Number(matched.quantity),
             recordedWeight:
                 matched?.recordedWeight === null ||
@@ -234,6 +304,8 @@ export async function POST(request, { params }) {
         }
 
         const { results, outputs, byproducts, waste } = body || {};
+        let resolvedOutputRows = null;
+        let resolvedByproductRows = null;
 
         if (
             typeof results !== "undefined" ||
@@ -263,15 +335,13 @@ export async function POST(request, { params }) {
                 allowDestination: true,
             });
 
-            const mergedResults = mergeExecutionResultsWithExpected(
-                production,
-                validatedResults
-            );
+            const persistedResults =
+                partitionValidatedResultsForPersistence(validatedResults);
 
-            production.outputs =
-                mergedResults.outputRows || mergedResults.outputs || [];
-            production.byproducts =
-                mergedResults.byproductRows || mergedResults.byproducts || [];
+            production.outputs = persistedResults.outputRows || [];
+            production.byproducts = persistedResults.byproductRows || [];
+            resolvedOutputRows = persistedResults.outputRows || [];
+            resolvedByproductRows = persistedResults.byproductRows || [];
         }
 
         if (typeof waste !== "undefined") {
@@ -303,19 +373,26 @@ export async function POST(request, { params }) {
         }
 
         const {
-            outputRows: fixedOutputRows,
-            byproductRows: fixedByproductRows,
+            outputRows: derivedOutputRows,
+            byproductRows: derivedByproductRows,
         } = partitionProductionResults(production);
 
-        const positiveOutputRows = fixedOutputRows.filter(
-            (item) => Number(item.quantity || 0) > 0
+        const fixedOutputRows = resolvedOutputRows || derivedOutputRows;
+        const fixedByproductRows = resolvedByproductRows || derivedByproductRows;
+
+        production.outputs = fixedOutputRows;
+        production.byproducts = fixedByproductRows;
+
+        const positiveMainOutputRows = fixedOutputRows.filter(
+            (item) => Boolean(item.isMain) && Number(item.quantity || 0) > 0
         );
         const positiveByproductRows = fixedByproductRows.filter(
             (item) => Number(item.quantity || 0) > 0
         );
+
         if (
             (!Array.isArray(fixedOutputRows) && !Array.isArray(fixedByproductRows)) ||
-            positiveOutputRows.length === 0
+            positiveMainOutputRows.length === 0
         ) {
             await session.abortTransaction();
             session.endSession();
@@ -336,7 +413,7 @@ export async function POST(request, { params }) {
         }
 
         const groupedOutputs = groupItemsByProductAndLocation(
-            positiveOutputRows,
+            fixedOutputRows.filter((item) => Number(item.quantity || 0) > 0),
             (item) => item.destinationLocation || "warehouse"
         );
 
@@ -523,29 +600,13 @@ export async function POST(request, { params }) {
             ])
         );
 
-        const alertEntries = affectedEntries.map((entry) => {
-            const stock = affectedStockMap.get(
-                `${String(entry.productId)}::${String(entry.location)}`
-            );
-
-            return {
-                productId: entry.productId,
-                product: affectedProductMap.get(String(entry.productId)) || {},
-                location: entry.location,
-                quantity: Number(stock?.quantity || 0),
-            };
-        });
+        const alertEntries = affectedEntries.map((entry) => ({
+            productId: entry.productId,
+            product: affectedProductMap.get(String(entry.productId)) || {},
+            deltaQuantity: Number(entry.quantity || 0),
+        }));
 
         await Promise.all([
-            createNotificationsForRoles(["admin"], {
-                type: NOTIFICATION_TYPES.production_completed,
-                title: "Produccion completada",
-                message: `${completed?.productionNumber || "Una produccion"} ya fue completada.`,
-                href: "/dashboard/production?status=completed",
-                entityType: "production",
-                entityId: completed?._id,
-                priority: "normal",
-            }),
             createStockAlertNotifications(alertEntries),
         ]).catch((notificationError) => {
             console.error("production completed notification error:", notificationError);

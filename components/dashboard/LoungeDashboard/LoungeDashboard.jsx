@@ -189,7 +189,7 @@ export default function LoungeDashboard({ inventoryItems = [], requests = [] }) 
                 <section className={styles.panel}>
                     <SectionHeader
                         title="Ultimas o pendientes"
-                        description="Solicitudes que requieren seguimiento desde lounge."
+                        description="Solicitudes que requieren seguimiento desde salon."
                         href="/dashboard/requests"
                         hrefLabel="Ver solicitudes"
                     />

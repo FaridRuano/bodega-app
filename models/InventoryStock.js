@@ -46,7 +46,7 @@ const inventoryStockSchema = new Schema(
     }
 );
 
-inventoryStockSchema.pre("validate", function (next) {
+inventoryStockSchema.pre("validate", function () {
     const quantity = Number(this.quantity || 0);
     const reservedQuantity = Number(this.reservedQuantity || 0);
 

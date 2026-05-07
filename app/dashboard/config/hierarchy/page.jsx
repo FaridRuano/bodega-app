@@ -700,7 +700,7 @@ export default function HierarchyPage() {
                                         >
                                             <button
                                                 type="button"
-                                                className={styles.cardToggle}
+                                                className={`${styles.cardToggle} ${styles.familyCardToggle}`}
                                                 onClick={() => toggleFamilyExpansion(family._id)}
                                             >
                                                 <div className={styles.cardSummary}>
@@ -708,7 +708,13 @@ export default function HierarchyPage() {
                                                         <h4 className={styles.cardTitle}>
                                                             {family.name}
                                                         </h4>
-                                                        <p className={styles.cardCountText}>
+                                                        <p
+                                                            className={`${styles.cardCountText} ${
+                                                                !isExpanded
+                                                                    ? styles.familyCountCollapsed
+                                                                    : ""
+                                                            }`}
+                                                        >
                                                             {family.categories.length} categorias
                                                         </p>
                                                     </div>

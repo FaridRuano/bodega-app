@@ -6,6 +6,41 @@ import dbConnect from "@libs/mongodb";
 import Category from "@models/Category";
 import ProductFamily from "@models/ProductFamily";
 
+async function hydrateCategoriesWithFamilies(categories) {
+  const familyIds = [
+    ...new Set(
+      categories
+        .map((category) => String(category.familyId || "").trim())
+        .filter((familyId) => /^[a-f\d]{24}$/i.test(familyId))
+    ),
+  ];
+
+  if (familyIds.length === 0) {
+    return categories.map((category) => ({
+      ...category,
+      familyId: null,
+    }));
+  }
+
+  const families = await ProductFamily.find(
+    { _id: { $in: familyIds } },
+    { name: 1, slug: 1, description: 1 }
+  ).lean();
+
+  const familyMap = new Map(
+    families.map((family) => [String(family._id), family])
+  );
+
+  return categories.map((category) => {
+    const familyId = String(category.familyId || "").trim();
+
+    return {
+      ...category,
+      familyId: familyMap.get(familyId) || null,
+    };
+  });
+}
+
 export async function GET() {
   try {
     const { response } = await requireAuthenticatedUser();
@@ -14,14 +49,15 @@ export async function GET() {
     await dbConnect();
 
     const categories = await Category.find({})
-      .populate("familyId", "name slug description")
       .sort({ sortOrder: 1, name: 1 })
       .lean();
+
+    const hydratedCategories = await hydrateCategoriesWithFamilies(categories);
 
     return NextResponse.json(
       {
         success: true,
-        data: categories,
+        data: hydratedCategories,
       },
       { status: 200 }
     );

@@ -137,7 +137,7 @@ export async function POST(request) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
@@ -180,7 +180,7 @@ export async function POST(request) {
         }
 
         const isKitchenUser = user.role === "kitchen";
-        const isLoungeUser = user.role === "lounge";
+        const isLoungeUser = user.role === "loung";
 
         if (isKitchenUser) {
             const isAllowedMovement =
@@ -326,25 +326,20 @@ export async function POST(request) {
         await session.commitTransaction();
         session.endSession();
 
-        const alertLocations = Array.from(
-            new Set(
-                [location, fromLocation, toLocation]
-                    .map((value) => String(value || "").trim().toLowerCase())
-                    .filter(Boolean)
-            )
-        );
-        const alertStocks = await InventoryStock.find({
-            productId,
-            location: { $in: alertLocations },
-        }).lean();
-
         await createStockAlertNotifications(
-            alertStocks.map((stock) => ({
-                productId: stock.productId,
-                product,
-                location: stock.location,
-                quantity: Number(stock.quantity || 0),
-            }))
+            [
+                {
+                    productId,
+                    product,
+                    deltaQuantity:
+                    movementType === "adjustment_in"
+                            ? quantity
+                            : movementType === "adjustment_out" || movementType === "waste"
+                                ? -quantity
+                                : 0,
+                },
+            ],
+            { excludeUserIds: [user.id] }
         ).catch((notificationError) => {
             console.error("inventory movement stock alert notification error:", notificationError);
         });

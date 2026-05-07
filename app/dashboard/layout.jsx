@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import DashboardShell from "@components/dashboard/shell/DashboardShell";
 import { redirect } from "next/navigation";
+import { normalizeUserRole } from "@libs/userRoles";
 
 
 export default async function DashboardLayout({ children }) {
@@ -10,5 +11,14 @@ export default async function DashboardLayout({ children }) {
         redirect("/login");
     }
 
-    return <DashboardShell user={session.user}>{children}</DashboardShell>;
+    return (
+        <DashboardShell
+            user={{
+                ...session.user,
+                role: normalizeUserRole(session.user.role, session.user.role || ""),
+            }}
+        >
+            {children}
+        </DashboardShell>
+    );
 }

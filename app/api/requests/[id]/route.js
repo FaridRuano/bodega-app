@@ -2,10 +2,13 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
 import { requireAuthenticatedUser, requireUserRole } from "@libs/apiAuth";
+import { createNotificationsForRoles, NOTIFICATION_TYPES } from "@libs/notifications";
 import dbConnect from "@libs/mongodb";
 import Request from "@models/Request";
 import Product from "@models/Product";
 import InventoryStock from "@models/InventoryStock";
+
+const OPERATION_LOCATIONS = ["kitchen", "lounge"];
 
 function getLocationName(location) {
     switch (location) {
@@ -14,10 +17,16 @@ function getLocationName(location) {
         case "kitchen":
             return "cocina";
         case "lounge":
-            return "lounge";
+            return "salon";
         default:
             return location || "ubicacion";
     }
+}
+
+function getOperationalLocationFromRole(role) {
+    if (role === "warehouse") return "warehouse";
+    if (role === "loung") return "lounge";
+    return "kitchen";
 }
 
 function isValidObjectId(value) {
@@ -30,6 +39,42 @@ function normalizeText(value = "") {
 
 function normalizeNullableText(value = "") {
     return normalizeText(value) || "";
+}
+
+function normalizeLocation(value, fallback = null) {
+    const normalized = normalizeText(value).toLowerCase();
+    if (!normalized) return fallback;
+    return ["warehouse", "kitchen", "lounge"].includes(normalized) ? normalized : null;
+}
+
+function normalizeRequestType(value, fallback = "operation") {
+    const normalized = normalizeText(value).toLowerCase();
+    if (!normalized) return fallback;
+    return ["operation", "return", "production"].includes(normalized)
+        ? normalized
+        : fallback;
+}
+
+function getRequestFlowKind(requestDoc) {
+    return requestDoc?.requestType !== "return" && requestDoc?.sourceLocation === "warehouse"
+        ? "request"
+        : "transfer";
+}
+
+function normalizeFlowKind(value, fallback = "request") {
+    const normalized = normalizeText(value).toLowerCase();
+    if (!normalized) return fallback;
+    return ["request", "transfer"].includes(normalized) ? normalized : null;
+}
+
+function getInventoryLocations({ requestType, sourceLocation, destinationLocation }) {
+    const isWarehouseRequest =
+        requestType !== "return" && sourceLocation === "warehouse";
+
+    return {
+        isWarehouseRequest,
+        inventorySourceLocation: isWarehouseRequest ? "warehouse" : sourceLocation,
+    };
 }
 
 function mapMovementItems(items = []) {
@@ -64,6 +109,11 @@ function getUserName(user) {
 }
 
 function normalizeRequestDocument(request) {
+    const flowKind =
+        request.flowKind ||
+        (request.requestType !== "return" && request.sourceLocation === "warehouse"
+            ? "request"
+            : "transfer");
     const totals = request.totals || {
         requested: 0,
         approved: 0,
@@ -78,6 +128,7 @@ function normalizeRequestDocument(request) {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
+        flowKind,
         status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
@@ -216,7 +267,7 @@ export async function GET(_request, { params }) {
 
 export async function PATCH(request, { params }) {
     try {
-        const { user, response } = await requireUserRole(["kitchen", "lounge"]);
+        const { user, response } = await requireUserRole(["kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
@@ -251,29 +302,62 @@ export async function PATCH(request, { params }) {
 
         const body = await request.json();
 
-        const destinationLocation = normalizeText(body.destinationLocation).toLowerCase();
-        const operationalLocation = user.role === "lounge" ? "lounge" : "kitchen";
-        const requestType = destinationLocation === "warehouse" ? "return" : "operation";
+        const operationalLocation = getOperationalLocationFromRole(user.role);
+        const flowKind = normalizeFlowKind(body.flowKind, "request");
+        const requestedDestinationLocation = normalizeLocation(body.destinationLocation);
+        const requestType = normalizeRequestType(body.requestType, "operation");
+        const sourceLocation = flowKind === "request" ? "warehouse" : operationalLocation;
+        const destinationLocation =
+            flowKind === "request" ? operationalLocation : requestedDestinationLocation;
         const isReturnRequest = requestType === "return";
+        const { isWarehouseRequest, inventorySourceLocation } = getInventoryLocations({
+            requestType,
+            sourceLocation,
+            destinationLocation,
+        });
         const justification = normalizeNullableText(body.justification);
         const notes = normalizeNullableText(body.notes);
         const rawItems = Array.isArray(body.items) ? body.items : [];
 
-        if (!destinationLocation) {
+        if (!flowKind) {
             return NextResponse.json(
-                { success: false, message: "La ubicacion destino no es valida." },
+                { success: false, message: "El tipo de flujo no es válido." },
                 { status: 400 }
             );
         }
 
-        if (destinationLocation === operationalLocation) {
+        if (!sourceLocation || !destinationLocation) {
+            return NextResponse.json(
+                { success: false, message: "Las ubicaciones no son validas." },
+                { status: 400 }
+            );
+        }
+
+        if (destinationLocation === sourceLocation) {
             return NextResponse.json(
                 { success: false, message: "La ubicacion destino debe ser diferente al origen." },
                 { status: 400 }
             );
         }
 
-        if (!["warehouse", "kitchen", "lounge"].includes(destinationLocation)) {
+        if (flowKind === "request") {
+            if (sourceLocation !== "warehouse" || destinationLocation !== operationalLocation) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Las solicitudes deben salir de bodega hacia tu ubicación.",
+                    },
+                    { status: 400 }
+                );
+            }
+        }
+
+        if (
+            !isReturnRequest &&
+            flowKind === "transfer" &&
+            destinationLocation !== "warehouse" &&
+            !OPERATION_LOCATIONS.includes(destinationLocation)
+        ) {
             return NextResponse.json(
                 { success: false, message: "La ubicacion destino no es valida." },
                 { status: 400 }
@@ -320,13 +404,10 @@ export async function PATCH(request, { params }) {
         const productMap = new Map(
             products.map((product) => [String(product._id), product])
         );
-        const shouldValidateSourceStock = requestType === "return";
-        const stocks = shouldValidateSourceStock
-            ? await InventoryStock.find({
-                productId: { $in: productIds },
-                location: operationalLocation,
-            }).lean()
-            : [];
+        const stocks = await InventoryStock.find({
+            productId: { $in: productIds },
+            location: inventorySourceLocation,
+        }).lean();
         const stockMap = new Map(stocks.map((stock) => [String(stock.productId), stock]));
 
         requestDoc.items = rawItems.map((item) => {
@@ -350,9 +431,9 @@ export async function PATCH(request, { params }) {
                 );
             }
 
-            if (shouldValidateSourceStock && requestedQuantity > available) {
+            if (requestedQuantity > available) {
                 throw new Error(
-                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${getLocationName(requestDoc.sourceLocation)}.`
+                    `La cantidad solicitada de ${product.name} supera el stock disponible en ${getLocationName(inventorySourceLocation)}.`
                 );
             }
 
@@ -371,7 +452,7 @@ export async function PATCH(request, { params }) {
         requestDoc.justification = justification;
         requestDoc.notes = notes;
         requestDoc.requestType = requestType;
-        requestDoc.sourceLocation = operationalLocation;
+        requestDoc.sourceLocation = sourceLocation;
         requestDoc.destinationLocation = destinationLocation;
 
         requestDoc.addActivity({
@@ -410,7 +491,7 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
@@ -490,7 +571,7 @@ export async function DELETE(request, { params }) {
             );
         }
 
-        if (["kitchen", "lounge"].includes(user.role) && requestDoc.status !== "pending") {
+        if (["kitchen", "loung"].includes(user.role) && requestDoc.status !== "pending") {
             return NextResponse.json(
                 {
                     success: false,
@@ -519,6 +600,30 @@ export async function DELETE(request, { params }) {
         });
 
         await requestDoc.save();
+
+        const requestFlowKind = getRequestFlowKind(requestDoc);
+
+        if (requestFlowKind === "transfer") {
+            const actorName = getUserName(user) || "Usuario";
+
+            await createNotificationsForRoles(
+                ["warehouse"],
+                {
+                    type: NOTIFICATION_TYPES.internal_request_rejected,
+                    title: "Transferencia cancelada",
+                    message: `${actorName} canceló la transferencia hacia ${getLocationName(requestDoc.destinationLocation)}.`,
+                    href: "/dashboard/requests",
+                    entityType: "request",
+                    entityId: requestDoc._id,
+                    priority: "normal",
+                },
+                {
+                    excludeUserIds: [user.id],
+                }
+            ).catch((notificationError) => {
+                console.error("internal request cancelled notification error:", notificationError);
+            });
+        }
 
         const populated = await getRequestById(requestDoc._id);
 

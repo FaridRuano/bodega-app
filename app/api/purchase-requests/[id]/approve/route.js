@@ -72,7 +72,7 @@ export async function POST(request, { params }) {
         await createNotificationsForUsers([purchaseRequest.requestedBy], {
             type: NOTIFICATION_TYPES.purchase_request_approved,
             title: "Solicitud de compra aprobada",
-            message: `${purchaseRequest.requestNumber} fue aprobada y ya entra al flujo de compra.`,
+            message: "Se aprobó tu solicitud y ya está pendiente de compra.",
             href: "/dashboard/purchases?tab=requests",
             entityType: "purchase_request",
             entityId: purchaseRequest._id,

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { USER_ROLES, normalizeUserRole } from "@libs/userRoles";
 
 const UserSchema = new mongoose.Schema(
     {
@@ -38,8 +39,9 @@ const UserSchema = new mongoose.Schema(
         },
         role: {
             type: String,
-            enum: ["admin", "kitchen", "warehouse", "lounge"],
+            enum: USER_ROLES,
             default: "kitchen",
+            set: (value) => normalizeUserRole(value, value),
         },
         isActive: {
             type: Boolean,
@@ -69,4 +71,15 @@ UserSchema.virtual("fullName").get(function () {
     return `${this.firstName} ${this.lastName}`;
 });
 
-export default mongoose.models.User || mongoose.model("User", UserSchema);
+const existingUserModel = mongoose.models.User;
+const existingRoleEnum = existingUserModel?.schema?.path("role")?.enumValues || [];
+const shouldRebuildUserModel =
+    existingUserModel &&
+    JSON.stringify(existingRoleEnum) !== JSON.stringify(USER_ROLES);
+
+const User =
+    shouldRebuildUserModel
+        ? (delete mongoose.models.User, mongoose.model("User", UserSchema))
+        : existingUserModel || mongoose.model("User", UserSchema);
+
+export default User;

@@ -22,6 +22,7 @@ import styles from "./page.module.scss";
 
 const PAGE_SIZE = 12;
 const PURCHASE_DRAFT_STORAGE_KEY = "purchase-execution-draft:v1";
+const AUTO_REFRESH_INTERVAL_MS = 30000;
 
 const REQUEST_STATUS_LABELS = {
   pending: "Pendiente",
@@ -108,7 +109,7 @@ function getDefaultRequestLocationForRole(role = "") {
   switch (String(role || "").trim()) {
     case "kitchen":
       return "kitchen";
-    case "lounge":
+    case "loung":
       return "lounge";
     case "warehouse":
     case "admin":
@@ -416,6 +417,53 @@ export default function PurchasesPage() {
   }, [page, search, statusFilter]);
 
   useEffect(() => {
+    const hasBlockingModal =
+      requestModalOpen ||
+      purchaseModalOpen ||
+      reviewModalOpen ||
+      Boolean(dispatchBatchTarget) ||
+      Boolean(cancelRequestTarget) ||
+      Boolean(deleteRequestTarget);
+
+    if (hasBlockingModal) {
+      return undefined;
+    }
+
+    function refreshPageSilently() {
+      if (document.visibilityState !== "visible") return;
+      loadPage({ silent: true });
+    }
+
+    refreshPageSilently();
+
+    const intervalId = window.setInterval(
+      refreshPageSilently,
+      AUTO_REFRESH_INTERVAL_MS
+    );
+
+    window.addEventListener("focus", refreshPageSilently);
+    document.addEventListener("visibilitychange", refreshPageSilently);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshPageSilently);
+      document.removeEventListener("visibilitychange", refreshPageSilently);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    requestModalOpen,
+    purchaseModalOpen,
+    reviewModalOpen,
+    dispatchBatchTarget,
+    cancelRequestTarget,
+    deleteRequestTarget,
+    page,
+    search,
+    statusFilter,
+    activeTab,
+  ]);
+
+  useEffect(() => {
     if (!isAdmin || (builderFamilies.length && builderCategories.length)) return;
 
     let isCancelled = false;
@@ -596,7 +644,7 @@ export default function PurchasesPage() {
     ];
 
     if (isAdmin) {
-      baseStats.push({ label: "Por ejecutar", value: shoppingList.length });
+      baseStats.push({ label: "Por comprar", value: shoppingList.length });
       baseStats.push({ label: "Compras", value: batchesTotal });
     } else {
       baseStats.push({ label: "Completadas", value: summary?.completed || 0 });
@@ -1507,7 +1555,7 @@ export default function PurchasesPage() {
                 <div className={styles.panelHeader}>
                   <div>
                     <span className="panelEyebrow">Consolidado</span>
-                    <h2 className={styles.panelTitle}>Pendiente por ejecutar</h2>
+                    <h2 className={styles.panelTitle}>Pendiente de comprar</h2>
                   </div>
                 </div>
 

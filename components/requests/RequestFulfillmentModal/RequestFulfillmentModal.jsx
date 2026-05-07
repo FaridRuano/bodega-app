@@ -81,60 +81,63 @@ export default function RequestFulfillmentModal({
 
     if (!open || !request) return null;
 
+    const formId = "request-fulfillment-modal";
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
-                className="modal-container modal-container--lg"
+                className="modalDetachedStack modal-container--lg"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-header">
-                    <div className="modal-headerContent">
-                        <div
-                            className={`modal-icon ${isDispatch ? "modal-icon--warning" : "modal-icon--success"
-                                }`}
-                        >
-                            {isDispatch ? (
-                                <Truck size={20} />
-                            ) : (
-                                <PackageCheck size={20} />
-                            )}
+                <div className="modal-container">
+                    <div className="modal-top">
+                        <div className="modal-headerContent">
+                            <div
+                                className={`modal-icon ${isDispatch ? "modal-icon--warning" : "modal-icon--success"
+                                    }`}
+                            >
+                                {isDispatch ? (
+                                    <Truck size={20} />
+                                ) : (
+                                    <PackageCheck size={20} />
+                                )}
+                            </div>
+
+                            <div>
+                                <h2 className="modal-title">
+                                    {isDispatch
+                                        ? isReturnRequest
+                                            ? "Despachar transferencia"
+                                            : "Despachar solicitud"
+                                        : isReturnRequest
+                                            ? "Confirmar ingreso en bodega"
+                                            : "Confirmar recepción"}
+                                </h2>
+                                <p className="modal-description">
+                                    {isDispatch
+                                        ? isReturnRequest
+                                            ? "Registra las cantidades que se trasladarán hacia bodega."
+                                            : "Registra las cantidades que serán despachadas desde inventario."
+                                        : isReturnRequest
+                                            ? "Confirma las cantidades que ingresan a bodega."
+                                            : "Confirma las cantidades recibidas."}
+                                </p>
+                            </div>
                         </div>
 
-                        <div>
-                            <h2 className="modal-title">
-                                {isDispatch
-                                    ? isReturnRequest
-                                        ? "Despachar devolución"
-                                        : "Despachar solicitud"
-                                    : isReturnRequest
-                                        ? "Confirmar ingreso en bodega"
-                                        : "Confirmar recepción"}
-                            </h2>
-                            <p className="modal-description">
-                                {isDispatch
-                                    ? isReturnRequest
-                                        ? "Registra las cantidades que saldrán desde cocina hacia bodega."
-                                        : "Registra las cantidades que serán despachadas desde inventario."
-                                    : isReturnRequest
-                                        ? "Confirma las cantidades devueltas que ingresan a bodega."
-                                        : "Confirma las cantidades recibidas."}
-                            </p>
-                        </div>
+                        <button
+                            type="button"
+                            className="modal-close"
+                            onClick={onClose}
+                            aria-label="Cerrar modal"
+                            disabled={isSubmitting}
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        aria-label="Cerrar modal"
-                        disabled={isSubmitting}
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <div className="modal-body">
-                    <form className={styles.form} onSubmit={handleFormSubmit}>
+                    <div className="modal-body">
+                        <form id={formId} className={styles.form} onSubmit={handleFormSubmit}>
                         <div className={styles.itemsSection}>
                             {(request.items || []).map((item, index) => {
                                 const requested = toNumber(item.requestedQuantity);
@@ -224,7 +227,7 @@ export default function RequestFulfillmentModal({
                                 placeholder={
                                     isDispatch
                                         ? isReturnRequest
-                                            ? "Notas del envío a bodega"
+                                            ? "Notas del traslado a bodega"
                                             : "Notas de despacho"
                                         : isReturnRequest
                                             ? "Notas de ingreso en bodega"
@@ -234,33 +237,36 @@ export default function RequestFulfillmentModal({
                             />
                         </div>
 
-                        <div className="modal-footer">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={onClose}
-                                disabled={isSubmitting}
-                            >
-                                Cancelar
-                            </button>
+                        </form>
+                    </div>
+                </div>
 
-                            <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={isSubmitting || !hasAtLeastOneQuantity}
-                            >
-                                {isSubmitting
-                                    ? "Procesando..."
-                                    : isDispatch
-                                        ? isReturnRequest
-                                            ? "Confirmar salida"
-                                            : "Confirmar despacho"
-                                        : isReturnRequest
-                                            ? "Confirmar ingreso"
-                                            : "Confirmar recepción"}
-                            </button>
-                        </div>
-                    </form>
+                <div className="modalDetachedFooter">
+                    <button
+                        type="button"
+                        className="miniAction"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="submit"
+                        form={formId}
+                        className="miniAction miniActionPrimary"
+                        disabled={isSubmitting || !hasAtLeastOneQuantity}
+                    >
+                        {isSubmitting
+                            ? "Procesando..."
+                            : isDispatch
+                                ? isReturnRequest
+                                    ? "Confirmar salida"
+                                    : "Confirmar despacho"
+                                : isReturnRequest
+                                    ? "Confirmar ingreso"
+                                    : "Confirmar recepción"}
+                    </button>
                 </div>
             </div>
         </div>

@@ -224,7 +224,7 @@ export async function POST(request, { params }) {
         await createNotificationsForUsers(requesterIds, {
             type: NOTIFICATION_TYPES.purchase_batch_dispatched,
             title: "Compra despachada",
-            message: `${batch.batchNumber} ya fue despachada y queda pendiente de confirmacion de recibido.`,
+            message: "Tu compra ya fue despachada y está esperando confirmación.",
             href: "/dashboard/receiving",
             entityType: "purchase_batch",
             entityId: batch._id,

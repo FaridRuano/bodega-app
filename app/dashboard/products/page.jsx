@@ -205,8 +205,7 @@ export default function ProductsPage() {
           typeFilter === "all" || product.productType === typeFilter;
 
         return matchesSearch && matchesCategory && matchesStatus && matchesType;
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      });
   }, [products, search, categoryFilter, statusFilter, typeFilter]);
 
   const paginatedProducts = useMemo(() => {

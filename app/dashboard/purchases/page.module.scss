@@ -375,11 +375,6 @@
   border-bottom: 0;
 }
 
-.summaryNote {
-  min-height: 104px;
-  resize: vertical;
-}
-
 .builderRowSelected {
   border-color: color-mix(in srgb, var(--brand-primary, var(--info)) 32%, var(--border-subtle));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-primary, var(--info)) 16%, transparent);

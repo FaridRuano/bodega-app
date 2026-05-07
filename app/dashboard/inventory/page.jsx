@@ -28,6 +28,7 @@ import { getUnitLabel } from "@libs/constants/units";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
 
 const PAGE_SIZE = PAGE_LIMITS.inventory;
+const AUTO_REFRESH_INTERVAL_MS = 30000;
 const INVENTORY_SCOPE_LABELS = {
   all: "General",
   warehouse: "Bodega",
@@ -38,9 +39,9 @@ const INVENTORY_SCOPE_LABELS = {
 function getAvailableScopesForRole(role = "") {
   switch (String(role || "").trim()) {
     case "kitchen":
-      return ["all", "kitchen"];
-    case "lounge":
-      return ["all", "lounge"];
+      return ["all", "kitchen", "warehouse", "lounge"];
+    case "loung":
+      return ["all", "lounge", "warehouse", "kitchen"];
     case "warehouse":
       return ["all", "warehouse"];
     case "admin":
@@ -113,10 +114,13 @@ export default function InventoryPage() {
   );
   const activeScope = availableScopes.includes(scope) ? scope : availableScopes[0] || "all";
   const isGeneralScope = activeScope === "all";
+  const operationalScope = currentUser?.role === "loung" ? "lounge" : currentUser?.role;
   const canManageCurrentScope =
     currentUser?.role === "admin" ||
     currentUser?.role === "warehouse" ||
-    (!isGeneralScope && ["kitchen", "lounge"].includes(currentUser?.role || "") && currentUser?.role === activeScope);
+    (!isGeneralScope &&
+      ["kitchen", "loung"].includes(currentUser?.role || "") &&
+      operationalScope === activeScope);
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
   const heroEyebrow = isGeneralScope ? "Inventario" : scopeLabel;
   const heroTitle = isGeneralScope ? "Control de existencias" : `Inventario de ${scopeLabel.toLowerCase()}`;
@@ -124,7 +128,9 @@ export default function InventoryPage() {
     ? "Revisa stock por ubicacion y cambia entre tarjetas o seguimiento desde un solo modulo."
     : `Consulta solo productos con stock en ${scopeLabel.toLowerCase()} y registra ajustes rapidos.`;
   const shouldUseQuickAdjustModal =
-    !isGeneralScope && ["kitchen", "lounge"].includes(currentUser?.role || "") && currentUser?.role === activeScope;
+    !isGeneralScope &&
+    ["kitchen", "loung"].includes(currentUser?.role || "") &&
+    operationalScope === activeScope;
 
   const hasActiveFilters =
     Boolean(searchTerm.trim()) ||
@@ -192,9 +198,13 @@ export default function InventoryPage() {
     }
   }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, viewMode]);
 
-  async function fetchInventory() {
+  async function fetchInventory(options = {}) {
+    const { silent = false } = options;
+
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       setLoadError("");
 
       const params = new URLSearchParams();
@@ -239,12 +249,16 @@ export default function InventoryPage() {
       });
     } catch (error) {
       console.error(error);
-      setLoadError(error.message || "No se pudo obtener el inventario.");
-      setProducts([]);
-      setSummary(null);
-      setPagination({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
+      if (!silent) {
+        setLoadError(error.message || "No se pudo obtener el inventario.");
+        setProducts([]);
+        setSummary(null);
+        setPagination({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -302,6 +316,35 @@ export default function InventoryPage() {
       setCategoryFilter("");
     }
   }, [categoryFilter, filteredCategories]);
+
+  useEffect(() => {
+    const hasBlockingModal =
+      movementModal.open || productPickerOpen || dialogModal.open;
+
+    if (hasBlockingModal) {
+      return undefined;
+    }
+
+    function refreshInventorySilently() {
+      if (document.visibilityState !== "visible") return;
+      fetchInventory({ silent: true });
+    }
+
+    const intervalId = window.setInterval(
+      refreshInventorySilently,
+      AUTO_REFRESH_INTERVAL_MS
+    );
+
+    window.addEventListener("focus", refreshInventorySilently);
+    document.addEventListener("visibilitychange", refreshInventorySilently);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshInventorySilently);
+      document.removeEventListener("visibilitychange", refreshInventorySilently);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogModal.open, movementModal.open, productPickerOpen]);
 
   function toggleAlertFilter(nextFilter) {
     setAlertFilter((prev) => (prev === nextFilter ? "" : nextFilter));
@@ -436,6 +479,7 @@ export default function InventoryPage() {
               type="button"
               className={`compactStat ${styles.heroStatButton} ${!alertFilter ? styles.heroStatActive : ""}`}
               onClick={() => setAlertFilter("")}
+              aria-pressed={!alertFilter}
             >
               <Boxes size={14} />
               <span>
@@ -446,6 +490,7 @@ export default function InventoryPage() {
               type="button"
               className={`compactStat ${styles.heroStatButton} ${styles.heroStatDanger} ${alertFilter === "low" ? styles.heroStatActive : ""}`}
               onClick={() => toggleAlertFilter("low")}
+              aria-pressed={alertFilter === "low"}
             >
               <PackageSearch size={14} />
               <span>
@@ -456,6 +501,7 @@ export default function InventoryPage() {
               type="button"
               className={`compactStat ${styles.heroStatButton} heroStatWarning ${alertFilter === "warning" ? styles.heroStatActive : ""}`}
               onClick={() => toggleAlertFilter("warning")}
+              aria-pressed={alertFilter === "warning"}
             >
               <AlertTriangle size={14} />
               <span>
@@ -466,6 +512,7 @@ export default function InventoryPage() {
               type="button"
               className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${alertFilter === "out" ? styles.heroStatActive : ""}`}
               onClick={() => toggleAlertFilter("out")}
+              aria-pressed={alertFilter === "out"}
             >
               <Warehouse size={14} />
               <span>
@@ -526,22 +573,24 @@ export default function InventoryPage() {
             ))}
           </div>
 
-          <div className={styles.viewSwitch}>
+          <div className={`${styles.viewSwitch} ${styles.iconViewSwitch}`}>
             <button
               type="button"
-              className={`miniAction ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
+              className={`miniAction miniActionIconOnly ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
               onClick={() => setViewMode("cards")}
+              aria-label="Tarjetas"
             >
               <LayoutGrid size={14} />
-              Tarjetas
+              <span className="miniActionLabel">Tarjetas</span>
             </button>
             <button
               type="button"
-              className={`miniAction ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
+              className={`miniAction miniActionIconOnly ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
               onClick={() => setViewMode("compact")}
+              aria-label="Seguimiento"
             >
               <List size={14} />
-              Seguimiento
+              <span className="miniActionLabel">Seguimiento</span>
             </button>
           </div>
         </div>
@@ -653,28 +702,31 @@ export default function InventoryPage() {
                     style={{ animationDelay: `${0.03 * (index % PAGE_SIZE)}s` }}
                   >
                     <div className={styles.productMain}>
-                      <div className={styles.productInfo}>
-                        <div className={styles.productTitleRow}>
-                          <h3 className={styles.productName}>{product.name}</h3>
-                          <span className={`${styles.statusBadge} ${getStatusClass(product.status, styles)}`}>
-                            {getInventoryStatusLabel(product.status)}
-                          </span>
-                        </div>
+                      <div className={styles.productHeader}>
+                        <div className={styles.productInfo}>
+                          <div className={styles.productTitleRow}>
+                            <h3 className={styles.productName}>{product.name}</h3>
+                            <span className={`${styles.statusBadge} ${getStatusClass(product.status, styles)}`}>
+                              {getInventoryStatusLabel(product.status)}
+                            </span>
+                          </div>
 
-                        {!isGeneralScope ? (
                           <p className={styles.unitMeta}>
                             {product.code || "Sin codigo"} · {product.categoryName || "Sin categoria"} · {getUnitLabel(product.unit)}
                           </p>
-                        ) : null}
+                        </div>
                       </div>
 
                       {!isGeneralScope ? (
-                        <strong className={styles.scopeAmountValue}>
-                          {product.inventory?.[activeScope] || 0}
-                        </strong>
-                      ) : null}
-
-                      {isGeneralScope ? (
+                        <div className={styles.scopeSummary}>
+                          <div className={styles.scopeAmountCard}>
+                            <span>{scopeLabel}</span>
+                            <strong className={styles.scopeAmountValue}>
+                              {product.inventory?.[activeScope] || 0}
+                            </strong>
+                          </div>
+                        </div>
+                      ) : (
                         <div className={styles.stockSummary}>
                           <div className={styles.stockBlock}>
                             <span>Total</span>
@@ -696,44 +748,47 @@ export default function InventoryPage() {
                             <strong>{product.inventory?.lounge || 0}</strong>
                           </div>
                         </div>
-                      ) : null}
+                      )}
                     </div>
 
                     <div className={styles.footerRow}>
-                      {isGeneralScope ? (
-                        <span className={styles.unitMeta}>{getUnitLabel(product.unit)}</span>
-                      ) : (
-                        <span className={styles.unitMeta}>{getUnitLabel(product.unit)}</span>
-                      )}
-
                       {canManageCurrentScope ? (
                         <div className={styles.actions}>
                           <button
                             type="button"
-                            className="miniAction miniActionPrimary"
+                            className="action-button action-button--neutral"
                             onClick={() => openMovementModal("entry", product)}
+                            aria-label="Agregar"
                           >
-                            <ArrowDownToLine size={14} />
-                            Agregar
+                            <span className="action-button__icon">
+                              <ArrowDownToLine size={14} />
+                            </span>
+                            <span className="action-button__label">Agregar</span>
                           </button>
 
                           <button
                             type="button"
-                            className="miniAction"
+                            className="action-button action-button--neutral"
                             onClick={() => openMovementModal("exit", product)}
+                            aria-label="Retirar"
                           >
-                            <ArrowUpFromLine size={14} />
-                            Retirar
+                            <span className="action-button__icon">
+                              <ArrowUpFromLine size={14} />
+                            </span>
+                            <span className="action-button__label">Retirar</span>
                           </button>
 
                           {isGeneralScope ? (
                             <button
                               type="button"
-                              className="miniAction"
+                              className="action-button action-button--neutral"
                               onClick={() => openMovementModal("transfer", product)}
+                              aria-label="Transferir"
                             >
-                              <ArrowRightLeft size={14} />
-                              Transferir
+                              <span className="action-button__icon">
+                                <ArrowRightLeft size={14} />
+                              </span>
+                              <span className="action-button__label">Transferir</span>
                             </button>
                           ) : null}
                         </div>
@@ -801,4 +856,3 @@ export default function InventoryPage() {
     </>
   );
 }
-

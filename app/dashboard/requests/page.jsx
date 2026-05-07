@@ -23,6 +23,7 @@ import {
 } from "@libs/constants/domainLabels";
 
 const PAGE_SIZE = PAGE_LIMITS.requests;
+const AUTO_REFRESH_INTERVAL_MS = 30000;
 
 function createEmptyRequestItem() {
   return {
@@ -33,14 +34,21 @@ function createEmptyRequestItem() {
   };
 }
 
-function createInitialFormData(destinationLocation = "warehouse", operationalLocation = "kitchen") {
-  const isReturnRequest = destinationLocation === "warehouse";
+function createInitialFormData(flowKind = "request", operationalLocation = "kitchen") {
+  const isRequestFlow = flowKind === "request";
+  const sourceLocation = isRequestFlow ? "warehouse" : operationalLocation;
+  const destinationLocation = isRequestFlow
+    ? operationalLocation
+    : operationalLocation === "lounge"
+      ? "warehouse"
+      : "lounge";
 
   return {
-    requestType: isReturnRequest ? "return" : "operation",
-    sourceLocation: operationalLocation,
+    flowKind,
+    requestType: "operation",
+    sourceLocation,
     destinationLocation,
-    requestPurpose: isReturnRequest ? "return_to_warehouse" : "",
+    requestPurpose: "",
     notes: "",
     items: [createEmptyRequestItem()],
   };
@@ -98,6 +106,24 @@ function getPersonName(user) {
   return getUserDisplayName(user, "Usuario");
 }
 
+function getRequestFlowKind(request, operationalLocation = "kitchen") {
+  if (request?.flowKind === "request" || request?.flowKind === "transfer") {
+    return request.flowKind;
+  }
+
+  return request?.requestType !== "return" && request?.sourceLocation === "warehouse"
+    ? "request"
+    : "transfer";
+}
+
+function getRequestFlowLabel(request) {
+  return getRequestFlowKind(request) === "request" ? "Solicitud" : "Transferencia";
+}
+
+function getInventorySourceLocation(formData) {
+  return formData?.sourceLocation || "warehouse";
+}
+
 export default function RequestsPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -152,9 +178,13 @@ export default function RequestsPage() {
     createInitialFulfillmentData
   );
 
-  async function fetchRequests() {
+  async function fetchRequests(options = {}) {
+    const { silent = false } = options;
+
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
 
       const response = await fetch("/api/requests");
       const result = await response.json();
@@ -170,13 +200,15 @@ export default function RequestsPage() {
       console.error(error);
       setAllRequests([]);
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }
 
   async function fetchProducts() {
     try {
-      const response = await fetch("/api/products");
+      const response = await fetch("/api/products", { cache: "no-store" });
       const result = await response.json();
 
       if (!response.ok || !result.success) {
@@ -259,6 +291,34 @@ export default function RequestsPage() {
   }, []);
 
   useEffect(() => {
+    const hasBlockingModal =
+      formModal.open || detailsOpen || reviewModal.open || fulfillmentModal.open;
+
+    if (hasBlockingModal) {
+      return undefined;
+    }
+
+    function refreshRequestsSilently() {
+      if (document.visibilityState !== "visible") return;
+      fetchRequests({ silent: true });
+    }
+
+    const intervalId = window.setInterval(
+      refreshRequestsSilently,
+      AUTO_REFRESH_INTERVAL_MS
+    );
+
+    window.addEventListener("focus", refreshRequestsSilently);
+    document.addEventListener("visibilitychange", refreshRequestsSilently);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshRequestsSilently);
+      document.removeEventListener("visibilitychange", refreshRequestsSilently);
+    };
+  }, [detailsOpen, formModal.open, fulfillmentModal.open, reviewModal.open]);
+
+  useEffect(() => {
     setPage(1);
   }, [search, statusFilter, requestTypeFilter]);
 
@@ -275,13 +335,16 @@ export default function RequestsPage() {
     }
   }, [page, pathname, router, search, searchParams, statusFilter, requestTypeFilter]);
 
+  const operationalLocation = getOperationalLocation();
   const requestsByType = useMemo(() => {
     if (requestTypeFilter === "all") {
       return allRequests;
     }
 
-    return allRequests.filter((request) => request.requestType === requestTypeFilter);
-  }, [allRequests, requestTypeFilter]);
+    return allRequests.filter(
+      (request) => getRequestFlowKind(request, operationalLocation) === requestTypeFilter
+    );
+  }, [allRequests, operationalLocation, requestTypeFilter]);
 
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -329,11 +392,20 @@ export default function RequestsPage() {
   }, [requestsByType]);
 
   function getOperationalLocation() {
-    return currentUser?.role === "lounge" ? "lounge" : "kitchen";
+    if (currentUser?.role === "loung") return "lounge";
+    if (currentUser?.role === "warehouse") return "warehouse";
+    return "kitchen";
   }
 
   function getDestinationOptions() {
     const operationalLocation = getOperationalLocation();
+
+    if (operationalLocation === "warehouse") {
+      return [
+        { value: "kitchen", label: "Cocina" },
+        { value: "lounge", label: "Salon" },
+      ];
+    }
 
     if (operationalLocation === "lounge") {
       return [
@@ -349,7 +421,16 @@ export default function RequestsPage() {
   }
 
   const destinationOptions = getDestinationOptions();
-  const canCreateRequests = ["kitchen", "lounge"].includes(currentUser?.role);
+  const availableProducts = useMemo(() => {
+    const sourceLocation = getInventorySourceLocation(formData);
+
+    return (products || []).filter((product) => {
+      const available = Number(product?.inventory?.[sourceLocation] || 0);
+      return available > 0;
+    });
+  }, [formData, products]);
+  const canCreateTransfers = ["warehouse", "kitchen", "loung"].includes(currentUser?.role);
+  const canCreateRequests = ["kitchen", "loung"].includes(currentUser?.role);
   const isAdmin = currentUser?.role === "admin";
   const heroEyebrow = isAdmin ? "Auditoria" : "Operacion";
   const heroTitle = isAdmin ? "Auditoria de solicitudes" : "Solicitudes internas";
@@ -365,18 +446,12 @@ export default function RequestsPage() {
     : "Revisa tus solicitudes activas y el avance de cada movimiento.";
 
   function resetFormState() {
-    setFormData(createInitialFormData("warehouse", getOperationalLocation()));
+    setFormData(createInitialFormData("request", getOperationalLocation()));
   }
 
-  function openCreateModal() {
-    setFormData(
-      createInitialFormData(
-        requestTypeFilter === "operation"
-          ? (getOperationalLocation() === "lounge" ? "kitchen" : "lounge")
-          : "warehouse",
-        getOperationalLocation()
-      )
-    );
+  async function openCreateModal(flowKind = "request") {
+    await fetchProducts();
+    setFormData(createInitialFormData(flowKind, getOperationalLocation()));
     setFormModal({
       open: true,
       mode: "create",
@@ -386,7 +461,10 @@ export default function RequestsPage() {
   function openEditModal() {
     if (!selectedRequest) return;
 
+    const flowKind = getRequestFlowKind(selectedRequest, getOperationalLocation());
+
     setFormData({
+      flowKind,
       requestType: selectedRequest.requestType || "operation",
       sourceLocation: selectedRequest.sourceLocation || getOperationalLocation(),
       destinationLocation: selectedRequest.destinationLocation || "kitchen",
@@ -437,18 +515,14 @@ export default function RequestsPage() {
 
   function handleFormChange(event) {
     const { name, value } = event.target;
+    const isTransferFlow = (formData.flowKind || "request") === "transfer";
 
     setFormData((prev) => ({
       ...prev,
-      requestType:
-        name === "destinationLocation"
-          ? (value === "warehouse" ? "return" : "operation")
-          : prev.requestType,
+      requestType: prev.flowKind === "transfer" ? "operation" : prev.requestType,
       requestPurpose:
-        name === "destinationLocation"
-          ? (value === "warehouse"
-            ? (prev.requestPurpose === "return_to_warehouse" ? prev.requestPurpose : "return_to_warehouse")
-            : (prev.requestPurpose === "return_to_warehouse" ? "" : prev.requestPurpose))
+        name === "destinationLocation" && isTransferFlow
+          ? ""
           : prev.requestPurpose,
       [name]: value,
     }));
@@ -507,8 +581,7 @@ export default function RequestsPage() {
         notes: item.notes || "",
       }))
       .filter((item) => item.productId && item.requestedQuantity > 0);
-    const shouldValidateSourceStock = formData.requestType === "return";
-    const sourceInventoryKey = formData.sourceLocation || "warehouse";
+    const sourceInventoryKey = getInventorySourceLocation(formData);
 
     if (!formData.requestPurpose) {
       openDialogModal({
@@ -528,22 +601,20 @@ export default function RequestsPage() {
       return;
     }
 
-    if (shouldValidateSourceStock) {
-      const invalidByInventory = cleanedItems.find((item) => {
-        const product = products.find((productItem) => productItem._id === item.productId);
-        const available = Number(product?.inventory?.[sourceInventoryKey] || 0);
-        return Number(item.requestedQuantity || 0) > available;
-      });
+    const invalidByInventory = cleanedItems.find((item) => {
+      const product = products.find((productItem) => productItem._id === item.productId);
+      const available = Number(product?.inventory?.[sourceInventoryKey] || 0);
+      return Number(item.requestedQuantity || 0) > available;
+    });
 
-      if (invalidByInventory) {
-        const product = products.find((productItem) => productItem._id === invalidByInventory.productId);
-        openDialogModal({
-          title: "Cantidad no disponible",
-          message: `La cantidad de ${product?.name || "este producto"} supera el stock disponible en ${getLocationLabel(sourceInventoryKey).toLowerCase()}.`,
-          variant: "warning",
-        });
-        return;
-      }
+    if (invalidByInventory) {
+      const product = products.find((productItem) => productItem._id === invalidByInventory.productId);
+      openDialogModal({
+        title: "Cantidad no disponible",
+        message: `La cantidad de ${product?.name || "este producto"} supera el stock disponible en ${getLocationLabel(sourceInventoryKey).toLowerCase()}.`,
+        variant: "warning",
+      });
+      return;
     }
 
     try {
@@ -552,6 +623,7 @@ export default function RequestsPage() {
       const isEdit = formModal.mode === "edit" && selectedRequest?._id;
 
       const payload = {
+        flowKind: formData.flowKind || "request",
         requestType: formData.requestType,
         sourceLocation: formData.sourceLocation,
         destinationLocation: formData.destinationLocation,
@@ -580,6 +652,7 @@ export default function RequestsPage() {
       }
 
       closeFormModal();
+      await fetchProducts();
       await fetchRequests();
 
       if (selectedRequest?._id) {
@@ -700,6 +773,7 @@ export default function RequestsPage() {
       }
 
       closeReviewModal();
+      await fetchProducts();
       await fetchRequests();
       await refreshSelectedRequest(selectedRequest._id);
     } catch (error) {
@@ -716,12 +790,20 @@ export default function RequestsPage() {
 
   function openFulfillmentModal(mode) {
     if (!selectedRequest) return;
+    const isDispatch = mode === "dispatch";
 
     setFulfillmentData({
       notes: "",
       items: (selectedRequest.items || []).map((item) => ({
         itemId: item._id,
-        quantity: "",
+        quantity: String(
+          Math.max(
+            isDispatch
+              ? Number(item.approvedQuantity || 0) - Number(item.dispatchedQuantity || 0)
+              : Number(item.dispatchedQuantity || 0) - Number(item.receivedQuantity || 0),
+            0
+          )
+        ),
       })),
     });
 
@@ -828,6 +910,7 @@ export default function RequestsPage() {
       }
 
       closeFulfillmentModal();
+      await fetchProducts();
       await fetchRequests();
       await refreshSelectedRequest(selectedRequest._id);
     } catch (error) {
@@ -933,34 +1016,36 @@ export default function RequestsPage() {
         </div>
       </section>
 
-      {canCreateRequests ? (
+      {canCreateTransfers || canCreateRequests ? (
         <div className={styles.headerRow}>
           <div className={styles.actionGroup}>
-            <button
-              type="button"
-              className="miniAction"
-              onClick={() => {
-                setRequestTypeFilter("return");
-                setFormData(createInitialFormData("warehouse", getOperationalLocation()));
-                setFormModal({ open: true, mode: "create" });
-              }}
-            >
-              <Plus size={14} />
-              Nueva transferencia
-            </button>
+            {canCreateTransfers ? (
+              <button
+                type="button"
+                className="miniAction miniActionBalanced"
+                onClick={() => {
+                  setRequestTypeFilter("transfer");
+                  openCreateModal("transfer");
+                }}
+              >
+                <Plus size={14} />
+                Nueva transferencia
+              </button>
+            ) : null}
 
-            <button
-              type="button"
-              className="miniAction miniActionPrimary"
-              onClick={() => {
-                setRequestTypeFilter("operation");
-                setFormData(createInitialFormData(getOperationalLocation() === "lounge" ? "kitchen" : "lounge", getOperationalLocation()));
-                setFormModal({ open: true, mode: "create" });
-              }}
-            >
-              <Plus size={14} />
-              Nueva solicitud
-            </button>
+            {canCreateRequests ? (
+              <button
+                type="button"
+                className="miniAction miniActionBalanced miniActionPrimary"
+                onClick={() => {
+                  setRequestTypeFilter("request");
+                  openCreateModal("request");
+                }}
+              >
+                <Plus size={14} />
+                Nueva solicitud
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -992,17 +1077,17 @@ export default function RequestsPage() {
           </button>
           <button
             type="button"
-            className={`miniAction ${requestTypeFilter === "return" ? "miniActionPrimary" : ""}`}
-            onClick={() => setRequestTypeFilter("return")}
+            className={`miniAction ${requestTypeFilter === "transfer" ? "miniActionPrimary" : ""}`}
+            onClick={() => setRequestTypeFilter("transfer")}
           >
             Transferencias
           </button>
           <button
             type="button"
-            className={`miniAction ${requestTypeFilter === "operation" ? "miniActionPrimary" : ""}`}
-            onClick={() => setRequestTypeFilter("operation")}
+            className={`miniAction ${requestTypeFilter === "request" ? "miniActionPrimary" : ""}`}
+            onClick={() => setRequestTypeFilter("request")}
           >
-            Internas
+            Solicitudes
           </button>
           <button
             type="button"
@@ -1038,7 +1123,7 @@ export default function RequestsPage() {
                       {request.requestNumber}
                     </p>
                     <p className={styles.requestMeta}>
-                      {getRequestTypeLabel(request.requestType)}{" "}
+                      {getRequestFlowLabel(request)}{" "}
                       · {getPersonName(request.requestedBy)}
                     </p>
                   </div>
@@ -1108,6 +1193,7 @@ export default function RequestsPage() {
       <RequestFormModal
         open={formModal.open}
         mode={formModal.mode}
+        flowKind={formData.flowKind || "request"}
         formData={formData}
         destinationOptions={destinationOptions}
         onChange={handleFormChange}
@@ -1118,6 +1204,7 @@ export default function RequestsPage() {
         onSubmit={handleSubmitForm}
         isSubmitting={isSubmitting}
         products={products}
+        productOptions={availableProducts}
       />
 
       <RequestDetailsModal
@@ -1172,4 +1259,3 @@ export default function RequestsPage() {
     </>
   );
 }
-

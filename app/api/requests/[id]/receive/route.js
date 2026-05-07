@@ -5,7 +5,7 @@ import { requireUserRole } from "@libs/apiAuth";
 import { getLocationLabel } from "@libs/constants/domainLabels";
 import dbConnect from "@libs/mongodb";
 import {
-    createNotificationsForRoles,
+    createNotificationsForUsers,
     createStockAlertNotifications,
     NOTIFICATION_TYPES,
 } from "@libs/notifications";
@@ -25,6 +25,20 @@ function normalizeNullableText(value = "") {
     return normalizeText(value) || "";
 }
 
+function getInventoryLocations(requestDoc) {
+    const isReturnRequest = requestDoc.requestType === "return";
+    const isWarehouseRequest =
+        !isReturnRequest && requestDoc.sourceLocation === "warehouse";
+
+    return {
+        isReturnRequest,
+        isWarehouseRequest,
+        inventoryDestinationLocation: isWarehouseRequest
+            ? requestDoc.destinationLocation
+            : requestDoc.destinationLocation,
+    };
+}
+
 function mapMovementItems(items = []) {
     return (items || []).map((item) => ({
         requestItemId: item.requestItemId || null,
@@ -33,6 +47,11 @@ function mapMovementItems(items = []) {
 }
 
 function normalizeRequestDocument(request) {
+    const flowKind =
+        request.flowKind ||
+        (request.requestType !== "return" && request.sourceLocation === "warehouse"
+            ? "request"
+            : "transfer");
     const totals = request.totals || {
         requested: 0,
         approved: 0,
@@ -47,6 +66,7 @@ function normalizeRequestDocument(request) {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
+        flowKind,
         status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
@@ -147,7 +167,7 @@ export async function POST(request, { params }) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
@@ -183,7 +203,11 @@ export async function POST(request, { params }) {
             throw new Error("La solicitud no existe.");
         }
 
-        const isReturnRequest = requestDoc.requestType === "return";
+        const {
+            isReturnRequest,
+            isWarehouseRequest,
+            inventoryDestinationLocation,
+        } = getInventoryLocations(requestDoc);
         if (isReturnRequest) {
             await session.abortTransaction();
             session.endSession();
@@ -196,9 +220,17 @@ export async function POST(request, { params }) {
             );
         }
 
+        const destinationRole =
+            inventoryDestinationLocation === "kitchen"
+                ? "kitchen"
+                : inventoryDestinationLocation === "lounge"
+                    ? "loung"
+                    : inventoryDestinationLocation === "warehouse"
+                        ? "warehouse"
+                        : "";
         const canReceive = isReturnRequest
             ? ["admin", "warehouse"].includes(user.role)
-            : ["admin", "kitchen", "lounge"].includes(user.role);
+            : ["admin", destinationRole].includes(user.role);
 
         if (!canReceive) {
             await session.abortTransaction();
@@ -302,7 +334,10 @@ export async function POST(request, { params }) {
                 continue;
             }
 
-            const stock = await getOrCreateStock(requestItem.productId, requestDoc.destinationLocation);
+            const stock = await getOrCreateStock(
+                requestItem.productId,
+                inventoryDestinationLocation
+            );
             stock.quantity = Number(stock.quantity || 0) + receivedQuantity;
             stock.lastMovementAt = receivedAt;
             await stock.save({ session });
@@ -343,9 +378,9 @@ export async function POST(request, { params }) {
             type: "receive",
             performedBy: user.id,
             performedAt: receivedAt,
-            title: isReturnRequest ? "Devolución recibida" : "Recepción registrada",
+            title: isReturnRequest ? "Ingreso en bodega confirmado" : "Recepción registrada",
             description: notes || (isReturnRequest
-                ? "Bodega confirmó la recepción de la devolución."
+                ? "Bodega confirmó el ingreso de los productos."
                 : "Se registró una recepción para la solicitud."),
             items: receiptLogItems,
         });
@@ -363,7 +398,7 @@ export async function POST(request, { params }) {
                 .lean(),
             InventoryStock.find({
                 productId: { $in: productIds },
-                location: requestDoc.destinationLocation,
+                location: inventoryDestinationLocation,
             }).lean(),
         ]);
 
@@ -374,20 +409,34 @@ export async function POST(request, { params }) {
             location: stock.location,
             quantity: Number(stock.quantity || 0),
         }));
+        const dispatcherUserIds = Array.from(
+            new Set(
+                (requestDoc.dispatches || [])
+                    .map((dispatch) => String(dispatch?.dispatchedBy || "").trim())
+                    .filter(Boolean)
+                    .filter((dispatchedBy) => dispatchedBy !== String(user.id))
+            )
+        );
 
         await Promise.all([
-            createNotificationsForRoles(["admin"], {
-                type: NOTIFICATION_TYPES.internal_request_received,
-                title: "Transferencia confirmada",
-                message: `${requestDoc.requestNumber} ya fue confirmada en ${getLocationLabel(
-                    requestDoc.destinationLocation
-                )}.`,
-                href: "/dashboard/requests",
-                entityType: "request",
-                entityId: requestDoc._id,
-                priority: "normal",
-            }),
-            createStockAlertNotifications(stockAlerts),
+            dispatcherUserIds.length
+                ? createNotificationsForUsers(dispatcherUserIds, {
+                    type: NOTIFICATION_TYPES.internal_request_received,
+                    title: "Despacho recibido",
+                    message: isWarehouseRequest
+                        ? `${requestDoc.requestNumber} fue recibido por ${getLocationLabel(
+                            requestDoc.sourceLocation
+                        )}.`
+                        : `${requestDoc.requestNumber} fue recibido en ${getLocationLabel(
+                            inventoryDestinationLocation
+                        )}.`,
+                    href: "/dashboard/requests",
+                    entityType: "request",
+                    entityId: requestDoc._id,
+                    priority: "normal",
+                })
+                : Promise.resolve([]),
+            Promise.resolve([]),
         ]).catch((notificationError) => {
             console.error("internal request received notification error:", notificationError);
         });

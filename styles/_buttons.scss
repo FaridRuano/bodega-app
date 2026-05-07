@@ -132,6 +132,29 @@
     box-shadow: none;
 }
 
+.miniActionLabel {
+    display: inline-flex;
+    align-items: center;
+}
+
+.miniActionIconOnly {
+    justify-content: center;
+    gap: 0;
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+}
+
+.miniActionIconOnly .miniActionLabel {
+    display: none;
+}
+
+.miniActionBalanced {
+    min-width: 172px;
+    justify-content: center;
+    white-space: nowrap;
+}
+
 .miniActionPrimary {
     background: var(--accent);
     color: var(--text-inverse);
@@ -216,5 +239,14 @@
     .miniAction {
         width: 100%;
         justify-content: center;
+    }
+
+    .miniActionBalanced {
+        min-width: 0;
+    }
+
+    .miniActionIconOnly {
+        width: 36px;
+        min-width: 36px;
     }
 }

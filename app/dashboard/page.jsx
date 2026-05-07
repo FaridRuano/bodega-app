@@ -71,7 +71,7 @@ function getRequestDate(request) {
 function getScopedInventoryTotal(item, role) {
     if (role === "warehouse") return Number(item.inventory?.warehouse || 0);
     if (role === "kitchen") return Number(item.inventory?.kitchen || 0);
-    if (role === "lounge") return Number(item.inventory?.lounge || 0);
+    if (role === "loung") return Number(item.inventory?.lounge || 0);
     return Number(item.inventory?.total || 0);
 }
 
@@ -211,7 +211,7 @@ export default function DashboardPage() {
                 const purchaseRequestParams = new URLSearchParams();
                 const productionParams = new URLSearchParams();
 
-                if (["kitchen", "lounge"].includes(user.role)) {
+                if (["kitchen", "loung"].includes(user.role)) {
                     requestParams.set("requestedBy", currentUserId);
                     purchaseRequestParams.set("mine", "true");
                 }
@@ -258,10 +258,10 @@ export default function DashboardPage() {
                 } else {
                     tasks.push(Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) }));
 
-                    if (["kitchen", "lounge"].includes(user.role)) {
+                    if (["kitchen", "loung"].includes(user.role)) {
                         tasks.push(
                             fetch(
-                                `/api/inventory/daily-controls?mode=context&location=${user.role}&date=${today}`,
+                                `/api/inventory/daily-controls?mode=context&location=${user.role === "loung" ? "lounge" : user.role}&date=${today}`,
                                 { cache: "no-store" }
                             )
                         );
@@ -332,7 +332,12 @@ export default function DashboardPage() {
     const dashboard = useMemo(() => {
         const role = user?.role || "";
         const userId = String(user?.id || user?._id || "");
-        const locationRole = ["warehouse", "kitchen", "lounge"].includes(role) ? role : null;
+        const locationRole =
+            role === "loung"
+                ? "lounge"
+                : ["warehouse", "kitchen"].includes(role)
+                  ? role
+                  : null;
         const inventoryItems = data.inventoryItems || [];
         const requests = data.requests || [];
         const purchaseRequests = data.purchaseRequests || [];
@@ -395,14 +400,14 @@ export default function DashboardPage() {
             admin: "Centro de control",
             warehouse: "Panel de bodega",
             kitchen: "Panel de cocina",
-            lounge: "Panel de salon",
+            loung: "Panel de salon",
         };
 
         const heroDescriptionMap = {
             admin: "Consulta todo lo que requiere atención inmediata en compras, solicitudes, producción, inventario y cierres diarios.",
             warehouse: "Aprueba, despacha y controla lo pendiente en bodega desde una sola vista operativa.",
             kitchen: "Revisa lo pendiente de cocina, lo que debes recibir, producir o cerrar hoy.",
-            lounge: "Mantén a mano lo pendiente de salon: solicitudes, recepciones, stock y cierre diario.",
+            loung: "Mantén a mano lo pendiente de salon: solicitudes, recepciones, stock y cierre diario.",
         };
 
         const todayClosed =
@@ -488,7 +493,7 @@ export default function DashboardPage() {
                     caption: "Continuar procesos activos",
                 },
             ],
-            lounge: [
+            loung: [
                 {
                     href: "/dashboard/requests",
                     icon: ClipboardList,
@@ -649,7 +654,7 @@ export default function DashboardPage() {
                     tone: stockAlerts.length ? "danger" : "default",
                 },
             ],
-            lounge: [
+            loung: [
                 {
                     href: "/dashboard/requests",
                     icon: ClipboardList,
@@ -717,7 +722,7 @@ export default function DashboardPage() {
                 value: getRequestStatusLabel(item.status),
                 date: formatDate(getRequestDate(item)),
             })),
-            lounge: recentRequests.map((item) => ({
+            loung: recentRequests.map((item) => ({
                 id: item._id,
                 href: `/dashboard/requests?search=${encodeURIComponent(item.requestNumber || "")}`,
                 title: item.requestNumber || "Solicitud",
@@ -752,7 +757,7 @@ export default function DashboardPage() {
                 value: PRODUCTION_STATUS_LABELS[item.status] || item.status,
                 date: formatDate(item.startedAt || item.createdAt),
             })),
-            lounge: recentPurchaseRequests.map((item) => ({
+            loung: recentPurchaseRequests.map((item) => ({
                 id: item._id,
                 href: `/dashboard/purchases?tab=requests&search=${encodeURIComponent(item.requestNumber || "")}`,
                 title: item.requestNumber || "Solicitud de compra",
@@ -778,7 +783,7 @@ export default function DashboardPage() {
                 { label: "Recibir", value: pendingInternalReceipts.length + pendingPurchaseReceipts.length, tone: "heroStatSuccess" },
                 { label: "Producir", value: activeProductions.length + draftProductions.length, tone: "heroStatInfo" },
             ],
-            lounge: [
+            loung: [
                 { label: "Salon", value: formatNumber(localInventoryTotal), tone: "" },
                 { label: "Recibir", value: pendingInternalReceipts.length + pendingPurchaseReceipts.length, tone: "heroStatSuccess" },
                 { label: "Alertas", value: stockAlerts.length, tone: "heroStatWarning" },

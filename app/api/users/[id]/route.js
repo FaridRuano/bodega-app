@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import User from "@models/User";
+import { isValidUserRole, normalizeUserRole } from "@libs/userRoles";
 
 function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id);
@@ -12,6 +13,13 @@ function isValidObjectId(id) {
 function normalizeOptionalEmail(value) {
     const normalized = String(value || "").trim().toLowerCase();
     return normalized || undefined;
+}
+
+function serializeUser(user) {
+    return {
+        ...user,
+        role: normalizeUserRole(user?.role, user?.role || ""),
+    };
 }
 
 export async function GET(_, { params }) {
@@ -48,7 +56,7 @@ export async function GET(_, { params }) {
         return NextResponse.json(
             {
                 success: true,
-                data: user,
+                data: serializeUser(user),
             },
             { status: 200 }
         );
@@ -190,7 +198,19 @@ export async function PATCH(request, { params }) {
         }
 
         if (typeof role === "string") {
-            user.role = role;
+            const normalizedRole = normalizeUserRole(role, "");
+
+            if (!isValidUserRole(normalizedRole)) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "El rol seleccionado no es válido.",
+                    },
+                    { status: 400 }
+                );
+            }
+
+            user.role = normalizedRole;
         }
 
         if (typeof isActive === "boolean") {
@@ -238,7 +258,7 @@ export async function PATCH(request, { params }) {
             {
                 success: true,
                 message: "Usuario actualizado correctamente.",
-                data: userObject,
+                data: serializeUser(userObject),
             },
             { status: 200 }
         );

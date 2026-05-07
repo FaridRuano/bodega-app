@@ -4,6 +4,7 @@ import {
     getInventoryStatusLabel,
     getLocationLabel,
 } from "@libs/constants/domainLabels";
+import InventoryStock from "@models/InventoryStock";
 import Notification from "@models/Notification";
 import User from "@models/User";
 
@@ -145,9 +146,14 @@ export async function createNotificationsForUsers(userIds = [], payload = {}) {
     );
 }
 
-export async function createNotificationsForRoles(roles = [], payload = {}) {
+export async function createNotificationsForRoles(roles = [], payload = {}, options = {}) {
     const normalizedRoles = Array.from(
         new Set((roles || []).map((value) => String(value || "").trim()).filter(Boolean))
+    );
+    const excludedUserIds = new Set(
+        (options.excludeUserIds || [])
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
     );
 
     if (!normalizedRoles.length) return [];
@@ -162,11 +168,13 @@ export async function createNotificationsForRoles(roles = [], payload = {}) {
     if (!users.length) return [];
 
     return createNotifications(
-        users.map((user) => ({
-            ...payload,
-            userId: user._id,
-            role: user.role,
-        }))
+        users
+            .filter((user) => !excludedUserIds.has(String(user._id)))
+            .map((user) => ({
+                ...payload,
+                userId: user._id,
+                role: user.role,
+            }))
     );
 }
 
@@ -191,35 +199,111 @@ export function getInventoryAlertStatus(product = {}, quantity = 0) {
     return "ok";
 }
 
-export async function createStockAlertNotifications(entries = []) {
+function getInventoryAlertRank(status) {
+    switch (status) {
+        case "warning":
+            return 1;
+        case "low":
+            return 2;
+        case "out":
+            return 3;
+        default:
+            return 0;
+    }
+}
+
+export async function createStockAlertNotifications(entries = [], options = {}) {
     const normalizedEntries = (entries || [])
         .map((entry) => {
             const productId = toObjectId(entry.productId);
             if (!productId) return null;
 
-            const location = String(entry.location || "").trim().toLowerCase();
-            if (!location) return null;
-
             const product = entry.product || {};
-            const quantity = Number(entry.quantity || 0);
-            const status = getInventoryAlertStatus(product, quantity);
-
-            if (!["low", "warning", "out"].includes(status)) return null;
+            const deltaQuantity = Number(entry.deltaQuantity || 0);
+            if (!Number.isFinite(deltaQuantity) || deltaQuantity >= 0) return null;
 
             return {
                 productId,
                 product,
-                location,
-                quantity,
-                status,
+                deltaQuantity,
             };
         })
         .filter(Boolean);
 
     if (!normalizedEntries.length) return [];
 
+    const groupedEntries = Array.from(
+        normalizedEntries.reduce((map, entry) => {
+            const key = String(entry.productId);
+            const current = map.get(key) || {
+                productId: entry.productId,
+                product: entry.product || {},
+                deltaQuantity: 0,
+            };
+
+            current.deltaQuantity += Number(entry.deltaQuantity || 0);
+            if (!current.product?.name && entry.product) {
+                current.product = entry.product;
+            }
+
+            map.set(key, current);
+            return map;
+        }, new Map()).values()
+    ).filter((entry) => Number(entry.deltaQuantity || 0) < 0);
+
+    if (!groupedEntries.length) return [];
+
+    const productIds = groupedEntries.map((entry) => entry.productId);
+    const stocks = await InventoryStock.find({
+        productId: { $in: productIds },
+    })
+        .select("productId quantity")
+        .lean();
+
+    const totalsByProductId = new Map();
+
+    for (const stock of stocks) {
+        const key = String(stock.productId);
+        totalsByProductId.set(
+            key,
+            Number((Number(totalsByProductId.get(key) || 0) + Number(stock.quantity || 0)).toFixed(6))
+        );
+    }
+
+    const alertableEntries = groupedEntries
+        .map((entry) => {
+            const currentTotal = Number(totalsByProductId.get(String(entry.productId)) || 0);
+            const previousTotal = Number(
+                (currentTotal - Number(entry.deltaQuantity || 0)).toFixed(6)
+            );
+            const currentStatus = getInventoryAlertStatus(entry.product, currentTotal);
+            const previousStatus = getInventoryAlertStatus(entry.product, previousTotal);
+
+            if (!["low", "warning", "out"].includes(currentStatus)) return null;
+
+            const currentRank = getInventoryAlertRank(currentStatus);
+            const previousRank = getInventoryAlertRank(previousStatus);
+
+            if (currentRank <= previousRank) return null;
+
+            return {
+                ...entry,
+                currentTotal,
+                currentStatus,
+            };
+        })
+        .filter(Boolean);
+
+    if (!alertableEntries.length) return [];
+
+    const excludedUserIds = new Set(
+        (options.excludeUserIds || [])
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+    );
+
     const users = await User.find({
-        role: { $in: ["admin", ...new Set(normalizedEntries.map((entry) => entry.location))] },
+        role: { $in: ["admin"] },
         isActive: true,
     })
         .select("_id role")
@@ -229,28 +313,32 @@ export async function createStockAlertNotifications(entries = []) {
 
     const notificationItems = [];
 
-    for (const entry of normalizedEntries) {
+    for (const entry of alertableEntries) {
         for (const user of users) {
-            if (user.role !== "admin" && user.role !== entry.location) continue;
+            if (excludedUserIds.has(String(user._id))) continue;
+
+            const statusMessage =
+                entry.currentStatus === "warning"
+                    ? "entró en el punto de reposición"
+                    : entry.currentStatus === "low"
+                        ? "quedó en stock bajo"
+                        : "quedó sin stock";
 
             notificationItems.push({
                 userId: user._id,
                 role: user.role,
                 type: NOTIFICATION_TYPES.stock_alert,
                 title: "Alerta de stock",
-                message: `${entry.product.name || "Producto"} quedo en ${getInventoryStatusLabel(
-                    entry.status,
-                    "alerta"
-                ).toLowerCase()} en ${getLocationLabel(entry.location)}.`,
-                href: `/dashboard/inventory?scope=${entry.location}`,
+                message: `${entry.product.name || "Producto"} ${statusMessage} en el sistema.`,
+                href: "/dashboard/inventory",
                 entityType: "product",
                 entityId: entry.productId,
-                priority: entry.status === "out" ? "high" : "normal",
-                dedupeKey: `stock:${String(entry.productId)}:${entry.location}:${entry.status}`,
+                priority: entry.currentStatus === "out" ? "high" : "normal",
+                dedupeKey: "",
                 metadata: {
-                    location: entry.location,
-                    quantity: entry.quantity,
-                    status: entry.status,
+                    quantity: entry.currentTotal,
+                    status: entry.currentStatus,
+                    scope: "system",
                 },
             });
         }

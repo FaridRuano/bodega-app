@@ -1,7 +1,11 @@
+import { normalizeUserRole } from "@libs/userRoles";
+
 export const LOCATION_LABELS = {
     warehouse: "Bodega",
     kitchen: "Cocina",
+    loung: "Salon",
     lounge: "Salon",
+    salon: "Salon",
     production: "Produccion",
     system: "Sistema",
 };
@@ -72,7 +76,13 @@ export function getLabel(map, value, fallback = "-") {
 }
 
 export function getLocationLabel(value, fallback = "Sistema") {
-    return getLabel(LOCATION_LABELS, value, fallback);
+    const normalizedRole = normalizeUserRole(value, "");
+    const normalizedValue =
+        normalizedRole === "loung"
+            ? "loung"
+            : String(value || "").trim().toLowerCase();
+
+    return getLabel(LOCATION_LABELS, normalizedValue, fallback);
 }
 
 export function getMovementTypeLabel(value, fallback = "Movimiento") {

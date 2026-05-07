@@ -12,6 +12,32 @@ function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id);
 }
 
+async function hydrateCategoryWithFamily(category) {
+    if (!category) {
+        return null;
+    }
+
+    const familyId = String(category.familyId || "").trim();
+
+    if (!familyId || !isValidObjectId(familyId)) {
+        return {
+            ...category,
+            familyId: null,
+        };
+    }
+
+    const family = await ProductFamily.findById(familyId, {
+        name: 1,
+        slug: 1,
+        description: 1,
+    }).lean();
+
+    return {
+        ...category,
+        familyId: family || null,
+    };
+}
+
 export async function GET(_, context) {
     try {
         const { response } = await requireAuthenticatedUser();
@@ -31,9 +57,7 @@ export async function GET(_, context) {
             );
         }
 
-        const category = await Category.findById(id)
-            .populate("familyId", "name slug description")
-            .lean();
+        const category = await Category.findById(id).lean();
 
         if (!category) {
             return NextResponse.json(
@@ -48,7 +72,7 @@ export async function GET(_, context) {
         return NextResponse.json(
             {
                 success: true,
-                data: category,
+                data: await hydrateCategoryWithFamily(category),
             },
             { status: 200 }
         );

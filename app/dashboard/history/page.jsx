@@ -90,17 +90,21 @@ function getPurchaseBatchStatusLabel(status) {
 function getRequestActionLabel(activity, request) {
   if (activity?.title) return activity.title;
 
+  const isTransferFlow =
+    request?.flowKind === "transfer" ||
+    (request?.flowKind !== "request" && request?.requestType === "return");
+
   switch (activity?.type) {
     case "request_created":
       return "Solicitud creada";
     case "approved":
       return "Solicitud en proceso";
     case "dispatch":
-      return request?.requestType === "return"
+      return isTransferFlow
         ? "Transferencia despachada"
         : "Despacho registrado";
     case "receive":
-      return request?.requestType === "return"
+      return isTransferFlow
         ? "Transferencia recibida"
         : "Recepción registrada";
     case "rejected":
@@ -723,7 +727,7 @@ export default function HistoryPage() {
             movementsParams.set("location", "kitchen");
           }
 
-          if (user.role === "lounge") {
+          if (user.role === "loung") {
             movementsParams.set("location", "lounge");
           }
         }

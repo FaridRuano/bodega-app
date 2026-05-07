@@ -20,6 +20,21 @@ function normalizeNullableText(value = "") {
     return normalizeText(value) || "";
 }
 
+function getInventoryLocations(requestDoc) {
+    const isReturnRequest = requestDoc.requestType === "return";
+    const isWarehouseRequest =
+        !isReturnRequest && requestDoc.sourceLocation === "warehouse";
+
+    return {
+        isReturnRequest,
+        isWarehouseRequest,
+        inventorySourceLocation: isWarehouseRequest ? "warehouse" : requestDoc.sourceLocation,
+        inventoryDestinationLocation: isWarehouseRequest
+            ? requestDoc.sourceLocation
+            : requestDoc.destinationLocation,
+    };
+}
+
 function isHandledDispatchError(message = "") {
     return [
         "La solicitud no existe.",
@@ -46,6 +61,11 @@ function mapMovementItems(items = []) {
 }
 
 function normalizeRequestDocument(request) {
+    const flowKind =
+        request.flowKind ||
+        (request.requestType !== "return" && request.sourceLocation === "warehouse"
+            ? "request"
+            : "transfer");
     const totals = request.totals || {
         requested: 0,
         approved: 0,
@@ -60,6 +80,7 @@ function normalizeRequestDocument(request) {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
+        flowKind,
         status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
@@ -160,7 +181,7 @@ export async function POST(request, { params }) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "lounge"]);
+        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
@@ -196,18 +217,37 @@ export async function POST(request, { params }) {
             throw new Error("La solicitud no existe.");
         }
 
-        const isReturnRequest = requestDoc.requestType === "return";
+        if (requestDoc.flowKind === "transfer") {
+            await session.abortTransaction();
+            session.endSession();
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Las transferencias se registran despachadas al crearlas.",
+                },
+                { status: 409 }
+            );
+        }
+
+        const {
+            isReturnRequest,
+            isWarehouseRequest,
+            inventorySourceLocation,
+            inventoryDestinationLocation,
+        } = getInventoryLocations(requestDoc);
         const sourceLocationRole =
             requestDoc.sourceLocation === "kitchen"
                 ? "kitchen"
                 : requestDoc.sourceLocation === "lounge"
-                    ? "lounge"
+                    ? "loung"
                     : requestDoc.sourceLocation === "warehouse"
                         ? "warehouse"
                         : "";
         const canDispatch = isReturnRequest
-            ? ["admin", "kitchen", "lounge"].includes(user.role)
-            : ["admin", "warehouse"].includes(user.role) || user.role === sourceLocationRole;
+            ? ["admin", "kitchen", "loung"].includes(user.role)
+            : isWarehouseRequest
+                ? ["admin", "warehouse"].includes(user.role)
+                : ["admin", "warehouse"].includes(user.role) || user.role === sourceLocationRole;
 
         if (!canDispatch) {
             await session.abortTransaction();
@@ -317,7 +357,10 @@ export async function POST(request, { params }) {
                 continue;
             }
 
-            const stock = await getOrCreateStock(requestItem.productId, requestDoc.sourceLocation);
+            const stock = await getOrCreateStock(
+                requestItem.productId,
+                inventorySourceLocation
+            );
 
             if (Number(stock.availableQuantity || 0) < dispatchQuantity) {
                 throw new Error("Stock insuficiente para completar el despacho.");
@@ -332,7 +375,7 @@ export async function POST(request, { params }) {
             if (isReturnRequest) {
                 const destinationStock = await getOrCreateStock(
                     requestItem.productId,
-                    requestDoc.destinationLocation
+                    inventoryDestinationLocation
                 );
 
                 destinationStock.quantity = Number(destinationStock.quantity || 0) + dispatchQuantity;
@@ -358,8 +401,8 @@ export async function POST(request, { params }) {
                 movementType: isReturnRequest ? "request_return" : "request_dispatch",
                 quantity: dispatchQuantity,
                 unitSnapshot: requestItem.unitSnapshot,
-                fromLocation: requestDoc.sourceLocation,
-                toLocation: requestDoc.destinationLocation,
+                fromLocation: inventorySourceLocation,
+                toLocation: inventoryDestinationLocation,
                 referenceType: "request",
                 referenceId: requestDoc._id,
                 notes,
@@ -404,9 +447,9 @@ export async function POST(request, { params }) {
             type: "dispatch",
             performedBy: user.id,
             performedAt: dispatchedAt,
-            title: isReturnRequest ? "Devolución despachada" : "Despacho registrado",
+            title: isReturnRequest ? "Transferencia despachada" : "Despacho registrado",
             description: notes || (isReturnRequest
-                ? "Se registró el envío de una devolución hacia bodega."
+                ? "Se registró el traslado de productos hacia bodega."
                 : "Se registró un despacho para la solicitud."),
             items: dispatchLogItems,
         });
@@ -417,7 +460,7 @@ export async function POST(request, { params }) {
                 performedBy: user.id,
                 performedAt: dispatchedAt,
                 title: "Ingreso en bodega registrado",
-                description: notes || "La devolucion quedo registrada en bodega sin confirmacion adicional.",
+                description: notes || "Los productos ingresaron a bodega sin confirmación adicional.",
                 items: receiptLogItems,
             });
         }
@@ -431,8 +474,10 @@ export async function POST(request, { params }) {
         if (!isReturnRequest) {
             await createNotificationsForUsers([requestDoc.requestedBy], {
                 type: NOTIFICATION_TYPES.internal_request_dispatched,
-                title: "Transferencia despachada",
-                message: `${requestDoc.requestNumber} ya fue despachada y esta lista para recibir.`,
+                title: isWarehouseRequest ? "Solicitud despachada" : "Transferencia despachada",
+                message: isWarehouseRequest
+                    ? `${requestDoc.requestNumber} ya fue despachada por bodega y esta lista para recibir.`
+                    : `${requestDoc.requestNumber} ya fue despachada y esta lista para recibir.`,
                 href: "/dashboard/receiving",
                 entityType: "request",
                 entityId: requestDoc._id,
@@ -468,4 +513,3 @@ export async function POST(request, { params }) {
         );
     }
 }
-

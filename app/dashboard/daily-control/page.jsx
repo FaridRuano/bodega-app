@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     ClipboardCheck,
+    LayoutGrid,
+    List,
     RefreshCcw,
     Search,
     ShieldCheck,
@@ -49,6 +51,15 @@ function formatNumber(value) {
     }).format(Number(value || 0));
 }
 
+function normalizeIssuedInput(value, maxAllowed) {
+    if (value === "") return "";
+
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) return "";
+
+    return String(Math.min(numericValue, Math.max(Number(maxAllowed || 0), 0)));
+}
+
 function formatShortDate(value) {
     if (!value) return getTodayValue();
 
@@ -61,11 +72,24 @@ function formatShortDate(value) {
     }
 }
 
-function buildInitialLineValues(products = []) {
+function buildInitialLineValues(products = [], existingLines = []) {
+    const existingMap = new Map(
+        existingLines.map((line) => [
+            String(line.productId),
+            {
+                issuedQuantity:
+                    Number(line.issuedQuantity || 0) > 0
+                        ? String(line.issuedQuantity)
+                        : "",
+                note: line.note || "",
+            },
+        ])
+    );
+
     return Object.fromEntries(
         products.map((product) => [
             String(product.productId),
-            {
+            existingMap.get(String(product.productId)) || {
                 issuedQuantity: "",
                 note: "",
             },
@@ -73,20 +97,26 @@ function buildInitialLineValues(products = []) {
     );
 }
 
+function buildInitialNotes(nextContext) {
+    return nextContext?.existingControl?.notes || "";
+}
+
 export default function DailyControlPage() {
     const [currentUser, setCurrentUser] = useState(null);
-    const [selectedLocation, setSelectedLocation] = useState("kitchen");
+    const [selectedLocation, setSelectedLocation] = useState("");
     const [context, setContext] = useState(null);
     const [controls, setControls] = useState([]);
     const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
     const [summary, setSummary] = useState({ total: 0, kitchen: 0, lounge: 0 });
     const [lineFilter, setLineFilter] = useState("");
+    const [viewMode, setViewMode] = useState("cards");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [historyLocation, setHistoryLocation] = useState("");
     const [page, setPage] = useState(1);
     const [controlNotes, setControlNotes] = useState("");
     const [lineValues, setLineValues] = useState({});
+    const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [isLoadingContext, setIsLoadingContext] = useState(true);
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
@@ -101,8 +131,8 @@ export default function DailyControlPage() {
     const isAdmin = currentUser?.role === "admin";
     const todayDate = getTodayValue();
     const effectiveLocation = isAdmin
-        ? selectedLocation
-        : currentUser?.role === "lounge"
+        ? selectedLocation || "kitchen"
+        : currentUser?.role === "loung"
           ? "lounge"
           : "kitchen";
 
@@ -118,7 +148,7 @@ export default function DailyControlPage() {
 
                 setCurrentUser(result?.user || null);
 
-                if (result?.user?.role === "lounge") {
+                if (result?.user?.role === "loung") {
                     setSelectedLocation("lounge");
                 }
             } catch (error) {
@@ -151,14 +181,14 @@ export default function DailyControlPage() {
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                throw new Error(
-                    result.message || "No se pudo obtener el contexto del control diario."
-                );
+                console.error(result);
+                setContext(null);
+                return;
             }
 
             setContext(result.data || null);
-            setControlNotes("");
-            setLineValues(buildInitialLineValues(result.data?.products || []));
+            resetControlForm(result.data || null);
+            setIsCorrectionOpen(false);
         } catch (error) {
             console.error(error);
             setContext(null);
@@ -184,8 +214,13 @@ export default function DailyControlPage() {
                 limit: "10",
             });
 
-            if (dateFrom) params.set("dateFrom", dateFrom);
-            if (dateTo) params.set("dateTo", dateTo);
+            if (viewMode === "list" && dateFrom) {
+                params.set("dateFrom", dateFrom);
+                params.set("dateTo", dateFrom);
+            } else {
+                if (dateFrom) params.set("dateFrom", dateFrom);
+                if (dateTo) params.set("dateTo", dateTo);
+            }
             if (historyLocation) params.set("location", historyLocation);
 
             const response = await fetch(
@@ -195,9 +230,11 @@ export default function DailyControlPage() {
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                throw new Error(
-                    result.message || "No se pudo obtener el historial de control."
-                );
+                console.error(result);
+                setControls([]);
+                setMeta({ page: 1, limit: 10, total: 0, pages: 1 });
+                setSummary({ total: 0, kitchen: 0, lounge: 0 });
+                return;
             }
 
             setControls(result.data || []);
@@ -223,7 +260,17 @@ export default function DailyControlPage() {
         if (!currentUser?.role) return;
         loadHistory();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentUser?.role, page, dateFrom, dateTo, historyLocation, isAdmin]);
+    }, [currentUser?.role, page, dateFrom, dateTo, historyLocation, isAdmin, viewMode]);
+
+    function resetControlForm(nextContext = context) {
+        setControlNotes(buildInitialNotes(nextContext));
+        setLineValues(
+            buildInitialLineValues(
+                nextContext?.products || [],
+                nextContext?.existingControl?.lines || []
+            )
+        );
+    }
 
     const filteredProducts = useMemo(() => {
         const products = context?.products || [];
@@ -276,6 +323,19 @@ export default function DailyControlPage() {
         );
     }, [filteredProducts, lineValues]);
 
+    const hasInvalidIssuedLines = useMemo(() => {
+        const products = context?.products || [];
+
+        return products.some((product) => {
+            const issuedQuantity = Number(
+                lineValues[String(product.productId)]?.issuedQuantity || 0
+            );
+            const maxAllowed = Number(product.systemQuantityBeforeAdjustment || 0);
+
+            return issuedQuantity > maxAllowed;
+        });
+    }, [context?.products, lineValues]);
+
     const hasMeaningfulLines = useMemo(
         () =>
             Object.values(lineValues).some(
@@ -303,6 +363,25 @@ export default function DailyControlPage() {
     }, [context?.existingControl, context?.products?.length, isAdmin, summary]);
 
     function updateLineValue(productId, field, value) {
+        if (field === "issuedQuantity") {
+            const matchedProduct = (context?.products || []).find(
+                (product) => String(product.productId) === String(productId)
+            );
+            const maxAllowed = Number(
+                matchedProduct?.systemQuantityBeforeAdjustment || 0
+            );
+
+            setLineValues((prev) => ({
+                ...prev,
+                [productId]: {
+                    ...prev[productId],
+                    note: prev[productId]?.note || "",
+                    issuedQuantity: normalizeIssuedInput(value, maxAllowed),
+                },
+            }));
+            return;
+        }
+
         setLineValues((prev) => ({
             ...prev,
             [productId]: {
@@ -319,6 +398,7 @@ export default function DailyControlPage() {
             setIsSubmitting(true);
 
             const payload = {
+                date: todayDate,
                 location: effectiveLocation,
                 notes: controlNotes,
                 lines: Object.entries(lineValues).map(([productId, values]) => ({
@@ -328,25 +408,35 @@ export default function DailyControlPage() {
                 })),
             };
 
+            const isEditingExistingControl = Boolean(context?.existingControl?._id);
             const response = await fetch("/api/inventory/daily-controls", {
-                method: "POST",
+                method: isEditingExistingControl ? "PATCH" : "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
             const result = await response.json();
 
             if (!response.ok || !result.success) {
-                throw new Error(
-                    result.message || "No se pudo registrar el control diario."
-                );
+                setDialog({
+                    open: true,
+                    title: "No se pudo registrar",
+                    message:
+                        result.message || "No se pudo registrar el control diario.",
+                    variant: "danger",
+                });
+                return;
             }
 
             setConfirmOpen(false);
             setDialog({
                 open: true,
-                title: "Cierre registrado",
+                title: isEditingExistingControl
+                    ? "Cambios guardados"
+                    : "Cierre registrado",
                 message:
-                    "El cierre del turno fue guardado y el inventario ya quedó actualizado.",
+                    isEditingExistingControl
+                        ? "Los cambios del cierre fueron guardados y el inventario ya fue recalculado."
+                        : "El cierre del turno fue guardado y el inventario ya quedó actualizado.",
                 variant: "success",
             });
 
@@ -367,7 +457,7 @@ export default function DailyControlPage() {
     function handleOpenConfirm(event) {
         event.preventDefault();
 
-        if (!hasMeaningfulLines || isSubmitting) return;
+        if (!hasMeaningfulLines || hasInvalidIssuedLines || isSubmitting) return;
 
         setConfirmOpen(true);
     }
@@ -445,24 +535,30 @@ export default function DailyControlPage() {
                         </button>
                     </div>
 
-                    {isAdmin ? (
-                        <div className={styles.scopeSwitch}>
-                            {LOCATION_OPTIONS.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    className={`miniAction ${
-                                        selectedLocation === option.value
-                                            ? "miniActionPrimary"
-                                            : ""
-                                    }`}
-                                    onClick={() => setSelectedLocation(option.value)}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                    ) : null}
+                    <div className={styles.iconViewSwitch}>
+                        <button
+                            type="button"
+                            className={`miniAction miniActionIconOnly ${
+                                viewMode === "cards" ? "miniActionPrimary" : ""
+                            }`}
+                            onClick={() => setViewMode("cards")}
+                            aria-label="Tarjetas"
+                        >
+                            <LayoutGrid size={14} />
+                            <span className="miniActionLabel">Tarjetas</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`miniAction miniActionIconOnly ${
+                                viewMode === "list" ? "miniActionPrimary" : ""
+                            }`}
+                            onClick={() => setViewMode("list")}
+                            aria-label="Lista"
+                        >
+                            <List size={14} />
+                            <span className="miniActionLabel">Lista</span>
+                        </button>
+                    </div>
                 </div>
 
                 {!isAdmin ? (
@@ -489,15 +585,34 @@ export default function DailyControlPage() {
                                             context.existingControl.registeredBy,
                                             "Sin responsable"
                                         )}{" "}
-                                        · No se puede registrar un segundo cierre hoy.
+                                        · Puedes corregir este cierre si necesitas ajustar cantidades.
                                     </p>
+                                    <div className={styles.lockedActions}>
+                                        <button
+                                            type="button"
+                                            className="miniAction"
+                                            onClick={() => {
+                                                resetControlForm();
+                                                setIsCorrectionOpen((current) => !current);
+                                            }}
+                                        >
+                                            {isCorrectionOpen
+                                                ? "Ocultar"
+                                                : "Modificar"}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        ) : (context?.products || []).length === 0 ? (
+                        ) : null}
+
+                        {!isLoadingContext &&
+                        (context?.products || []).length === 0 &&
+                        !context?.existingControl ? (
                             <div className={styles.emptyState}>
                                 No hay productos con control diario y stock disponible en esta ubicación.
                             </div>
-                        ) : (
+                        ) : !isLoadingContext &&
+                          (!context?.existingControl || isCorrectionOpen) ? (
                             <form onSubmit={handleOpenConfirm} className={styles.registerForm}>
                                 <div className={styles.filterRow}>
                                     <div className="form-field">
@@ -517,12 +632,137 @@ export default function DailyControlPage() {
                                 <div className={styles.registerGrid}>
                                     <section className={styles.catalogCard}>
                                         <div className={styles.cardHeader}>
-                                            <h3 className={styles.cardTitle}>Productos del cierre</h3>
-                                            <p className={styles.cardDescription}>
-                                                Registra solo lo que realmente salió durante el turno.
-                                            </p>
+                                            <div>
+                                                <h3 className={styles.cardTitle}>
+                                                    {context?.existingControl
+                                                        ? "Modificar cierre del día"
+                                                        : "Productos del cierre"}
+                                                </h3>
+                                                <p className={styles.cardDescription}>
+                                                    {context?.existingControl
+                                                        ? "Ajusta solo lo que realmente salió para dejar el cierre correcto."
+                                                        : "Registra solo lo que realmente salió durante el turno."}
+                                                </p>
+                                            </div>
+
                                         </div>
 
+                                        {viewMode === "list" ? (
+                                            <div className={styles.compactList}>
+                                                {filteredProducts.length === 0 ? (
+                                                    <div className={styles.emptyInline}>
+                                                        No hay productos que coincidan con tu búsqueda.
+                                                    </div>
+                                                ) : (
+                                                    <div className={styles.compactTable}>
+                                                        <div className={styles.compactHeader}>
+                                                            <span>Producto</span>
+                                                            <span>Antes</span>
+                                                            <span>Salió</span>
+                                                            <span>Queda</span>
+                                                            <span>Nota</span>
+                                                        </div>
+
+                                                        {filteredProducts.map((product, productIndex) => {
+                                                            const values =
+                                                                lineValues[String(product.productId)] || {};
+                                                            const before = Number(
+                                                                product.systemQuantityBeforeAdjustment ||
+                                                                    0
+                                                            );
+                                                            const issued = Number(
+                                                                values.issuedQuantity || 0
+                                                            );
+                                                            const closing = Math.max(
+                                                                before - issued,
+                                                                0
+                                                            );
+
+                                                            return (
+                                                                <div
+                                                                    key={String(product.productId)}
+                                                                    className={`${styles.compactRow} fadeScaleIn`}
+                                                                    style={{
+                                                                        animationDelay: `${Math.min(
+                                                                            productIndex,
+                                                                            10
+                                                                        ) * 0.02}s`,
+                                                                    }}
+                                                                >
+                                                                    <div
+                                                                        className={
+                                                                            styles.compactProduct
+                                                                        }
+                                                                    >
+                                                                        <strong>
+                                                                            {
+                                                                                product.productNameSnapshot
+                                                                            }
+                                                                        </strong>
+                                                                        <span>
+                                                                            {product.categoryNameSnapshot ||
+                                                                                "Sin categoría"}{" "}
+                                                                            ·{" "}
+                                                                            {getUnitLabel(
+                                                                                product.unitSnapshot
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span>
+                                                                        {formatNumber(before)}
+                                                                    </span>
+                                                                    <div>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            step="0.0001"
+                                                                            max={before}
+                                                                            value={
+                                                                                values.issuedQuantity ||
+                                                                                ""
+                                                                            }
+                                                                            onChange={(event) =>
+                                                                                updateLineValue(
+                                                                                    String(
+                                                                                        product.productId
+                                                                                    ),
+                                                                                    "issuedQuantity",
+                                                                                    event.target
+                                                                                        .value
+                                                                                )
+                                                                            }
+                                                                            className="form-input"
+                                                                            placeholder="0"
+                                                                        />
+                                                                    </div>
+                                                                    <span>
+                                                                        {formatNumber(closing)}
+                                                                    </span>
+                                                                    <div>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={values.note || ""}
+                                                                            onChange={(event) =>
+                                                                                updateLineValue(
+                                                                                    String(
+                                                                                        product.productId
+                                                                                    ),
+                                                                                    "note",
+                                                                                    event.target
+                                                                                        .value
+                                                                                )
+                                                                            }
+                                                                            className="form-input"
+                                                                            placeholder="Opcional"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
                                         <div className={styles.familyList}>
                                             {groupedProducts.length === 0 ? (
                                                 <div className={styles.emptyInline}>
@@ -598,6 +838,7 @@ export default function DailyControlPage() {
                                                                                     type="number"
                                                                                     min="0"
                                                                                     step="0.0001"
+                                                                                    max={before}
                                                                                     value={values.issuedQuantity || ""}
                                                                                     onChange={(event) =>
                                                                                         updateLineValue(
@@ -638,6 +879,7 @@ export default function DailyControlPage() {
                                                 ))
                                             )}
                                         </div>
+                                        )}
                                     </section>
 
                                     <aside className={styles.summaryCard}>
@@ -680,17 +922,36 @@ export default function DailyControlPage() {
                                             />
                                         </div>
 
-                                        <button
-                                            type="submit"
-                                            className="miniAction miniActionPrimary"
-                                            disabled={!hasMeaningfulLines || isSubmitting}
-                                        >
-                                            Registrar cierre
-                                        </button>
+                                        <div className={styles.summaryActions}>
+                                            {context?.existingControl ? (
+                                                <button
+                                                    type="button"
+                                                    className="miniAction"
+                                                    onClick={() => resetControlForm()}
+                                                    disabled={isSubmitting}
+                                                >
+                                                    Reiniciar
+                                                </button>
+                                            ) : null}
+
+                                            <button
+                                                                                                            type="submit"
+                                                                                                            className="miniAction miniActionPrimary"
+                                                                                                            disabled={
+                                                                                                                !hasMeaningfulLines ||
+                                                                                                                hasInvalidIssuedLines ||
+                                                                                                                isSubmitting
+                                                                                                            }
+                                                                                                        >
+                                                                                                            {context?.existingControl
+                                                                                                                ? "Guardar"
+                                                    : "Registrar cierre"}
+                                            </button>
+                                        </div>
                                     </aside>
                                 </div>
                             </form>
-                        )}
+                        ) : null}
                     </section>
                 ) : null}
 
@@ -716,7 +977,14 @@ export default function DailyControlPage() {
                                 <div className="selectWrap">
                                     <select
                                         value={historyLocation}
-                                        onChange={(event) => setHistoryLocation(event.target.value)}
+                                        onChange={(event) => {
+                                            const nextLocation = event.target.value;
+                                            setHistoryLocation(nextLocation);
+                                            if (nextLocation) {
+                                                setSelectedLocation(nextLocation);
+                                            }
+                                            setPage(1);
+                                        }}
                                         className="form-input"
                                     >
                                         <option value="">Todas las ubicaciones</option>
@@ -729,25 +997,49 @@ export default function DailyControlPage() {
                                 </div>
                             </div>
 
-                            <div className={styles.filterField}>
-                                <span className={styles.filterLabel}>Desde</span>
-                                <input
-                                    type="date"
-                                    value={dateFrom}
-                                    onChange={(event) => setDateFrom(event.target.value)}
-                                    className="form-input"
-                                />
-                            </div>
+                            {viewMode === "list" ? (
+                                <div className={styles.filterField}>
+                                    <span className={styles.filterLabel}>Día</span>
+                                    <input
+                                        type="date"
+                                        value={dateFrom}
+                                        onChange={(event) => {
+                                            setDateFrom(event.target.value);
+                                            setDateTo("");
+                                            setPage(1);
+                                        }}
+                                        className="form-input"
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    <div className={styles.filterField}>
+                                        <span className={styles.filterLabel}>Desde</span>
+                                        <input
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={(event) => {
+                                                setDateFrom(event.target.value);
+                                                setPage(1);
+                                            }}
+                                            className="form-input"
+                                        />
+                                    </div>
 
-                            <div className={styles.filterField}>
-                                <span className={styles.filterLabel}>Hasta</span>
-                                <input
-                                    type="date"
-                                    value={dateTo}
-                                    onChange={(event) => setDateTo(event.target.value)}
-                                    className="form-input"
-                                />
-                            </div>
+                                    <div className={styles.filterField}>
+                                        <span className={styles.filterLabel}>Hasta</span>
+                                        <input
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={(event) => {
+                                                setDateTo(event.target.value);
+                                                setPage(1);
+                                            }}
+                                            className="form-input"
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             <div className={styles.filterAction}>
                                 <span className={styles.filterLabel}>Accion</span>
@@ -758,6 +1050,7 @@ export default function DailyControlPage() {
                                         setDateFrom("");
                                         setDateTo("");
                                         setHistoryLocation("");
+                                        setSelectedLocation("");
                                         setPage(1);
                                     }}
                                 >
@@ -774,84 +1067,159 @@ export default function DailyControlPage() {
                             </div>
                         ) : (
                             <>
-                                <div className={styles.historyList}>
-                                    {controls.map((control, index) => (
-                                        <article
-                                            key={control._id}
-                                            className={`${styles.historyRow} fadeScaleIn`}
-                                            style={{
-                                                animationDelay: `${Math.min(index, 10) * 0.03}s`,
-                                            }}
-                                        >
-                                            <div className={styles.historyHeader}>
-                                                <div>
-                                                    <h3 className={styles.historyTitle}>
-                                                        {control.controlNumber}
-                                                    </h3>
-                                                    <p className={styles.historyMeta}>
-                                                        {control.locationLabel} ·{" "}
-                                                        {formatDate(control.controlDate)}
-                                                    </p>
-                                                </div>
-
-                                                <div className={styles.historyStats}>
-                                                    <span className="compactStat">
-                                                        <span>
-                                                            Productos{" "}
-                                                            <strong>{control.summary.productsCount}</strong>
-                                                        </span>
-                                                    </span>
-                                                    <span className="compactStat heroStatInfo">
-                                                        <span>
-                                                            Salida{" "}
+                                {viewMode === "list" ? (
+                                    <div className={styles.historyTableStack}>
+                                        {controls.map((control, index) => (
+                                            <section
+                                                key={control._id}
+                                                className={`${styles.historyTableSection} fadeScaleIn`}
+                                                style={{
+                                                    animationDelay: `${Math.min(index, 10) * 0.03}s`,
+                                                }}
+                                            >
+                                                <div className={styles.historyTableTop}>
+                                                    <div>
+                                                        <h3 className={styles.historyTitle}>
+                                                            {control.controlNumber}
+                                                        </h3>
+                                                        <p className={styles.historyMeta}>
+                                                            {control.locationLabel} ·{" "}
+                                                            {formatDate(control.controlDate)} ·
+                                                            {" "}Registrado por{" "}
                                                             <strong>
-                                                                {formatNumber(
-                                                                    control.summary.totalIssuedQuantity
+                                                                {getUserDisplayName(
+                                                                    control.registeredBy,
+                                                                    "Sin responsable"
                                                                 )}
                                                             </strong>
-                                                        </span>
-                                                    </span>
-                                                    <span className="compactStat heroStatSuccess">
-                                                        <span>
-                                                            Queda{" "}
-                                                            <strong>
-                                                                {formatNumber(
-                                                                    control.summary.totalClosingQuantity
-                                                                )}
-                                                            </strong>
-                                                        </span>
-                                                    </span>
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            <p className={styles.historyMeta}>
-                                                Registrado por{" "}
-                                                <strong>
-                                                    {getUserDisplayName(
-                                                        control.registeredBy,
-                                                        "Sin responsable"
-                                                    )}
-                                                </strong>
-                                            </p>
+                                                <div className={styles.historyTableWrap}>
+                                                    <div className={styles.historyTableHeader}>
+                                                        <span>Producto</span>
+                                                        <span>Antes</span>
+                                                        <span>Salió</span>
+                                                        <span>Queda</span>
+                                                    </div>
 
-                                            <div className={styles.lineGrid}>
-                                                {control.lines.slice(0, 4).map((line) => (
-                                                    <div
-                                                        key={line._id}
-                                                        className={styles.linePill}
-                                                    >
-                                                        <strong>{line.productNameSnapshot}</strong>
-                                                        <span>
-                                                            Inicio {formatNumber(line.openingQuantity)} ·
-                                                            Salió {formatNumber(line.issuedQuantity)} ·
-                                                            Queda {formatNumber(line.closingQuantity)}
+                                                    {control.lines.map((line) => (
+                                                        <div
+                                                            key={line._id}
+                                                            className={styles.historyTableRow}
+                                                        >
+                                                            <span>{line.productNameSnapshot}</span>
+                                                            <span>
+                                                                {formatNumber(
+                                                                    line.systemQuantityBeforeAdjustment
+                                                                )}
+                                                            </span>
+                                                            <span>
+                                                                {formatNumber(
+                                                                    line.issuedQuantity
+                                                                )}
+                                                            </span>
+                                                            <span>
+                                                                {formatNumber(
+                                                                    line.closingQuantity
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </section>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className={styles.historyList}>
+                                        {controls.map((control, index) => (
+                                            <article
+                                                key={control._id}
+                                                className={`${styles.historyRow} fadeScaleIn`}
+                                                style={{
+                                                    animationDelay: `${Math.min(index, 10) * 0.03}s`,
+                                                }}
+                                            >
+                                                <div className={styles.historyHeader}>
+                                                    <div>
+                                                        <h3 className={styles.historyTitle}>
+                                                            {control.controlNumber}
+                                                        </h3>
+                                                        <p className={styles.historyMeta}>
+                                                            {control.locationLabel} ·{" "}
+                                                            {formatDate(control.controlDate)}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className={styles.historyStats}>
+                                                        <span className="compactStat">
+                                                            <span>
+                                                                Productos{" "}
+                                                                <strong>{control.summary.productsCount}</strong>
+                                                            </span>
+                                                        </span>
+                                                        <span className="compactStat heroStatInfo">
+                                                            <span>
+                                                                Salida{" "}
+                                                                <strong>
+                                                                    {formatNumber(
+                                                                        control.summary.totalIssuedQuantity
+                                                                    )}
+                                                                </strong>
+                                                            </span>
+                                                        </span>
+                                                        <span className="compactStat heroStatSuccess">
+                                                            <span>
+                                                                Queda{" "}
+                                                                <strong>
+                                                                    {formatNumber(
+                                                                        control.summary.totalClosingQuantity
+                                                                    )}
+                                                                </strong>
+                                                            </span>
                                                         </span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </article>
-                                    ))}
-                                </div>
+                                                </div>
+
+                                                <p className={styles.historyMeta}>
+                                                    Registrado por{" "}
+                                                    <strong>
+                                                        {getUserDisplayName(
+                                                            control.registeredBy,
+                                                            "Sin responsable"
+                                                        )}
+                                                    </strong>
+                                                </p>
+
+                                                <div className={styles.lineGrid}>
+                                                    {control.lines.slice(0, 4).map((line) => (
+                                                        <div
+                                                            key={line._id}
+                                                            className={styles.linePill}
+                                                        >
+                                                            <strong>{line.productNameSnapshot}</strong>
+                                                            <span>
+                                                                Antes{" "}
+                                                                {formatNumber(
+                                                                    line.systemQuantityBeforeAdjustment
+                                                                )}{" "}
+                                                                ·{" "}
+                                                                Salió {formatNumber(line.issuedQuantity)} ·
+                                                                Queda {formatNumber(line.closingQuantity)}
+                                                            </span>
+                                                            {line.note ? (
+                                                                <em className={styles.lineNote}>
+                                                                    Nota: {line.note}
+                                                                </em>
+                                                            ) : null}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                )}
 
                                 <PaginationBar
                                     page={meta.page}
@@ -878,13 +1246,25 @@ export default function DailyControlPage() {
 
             <ConfirmModal
                 open={confirmOpen}
-                title="Registrar cierre del día"
-                description={`Se guardará el cierre de ${getLocationLabel(
+                title={
+                    context?.existingControl
+                        ? "Guardar cambios"
+                        : "Registrar cierre del día"
+                }
+                description={`${
+                    context?.existingControl
+                        ? "Se actualizará"
+                        : "Se guardará"
+                } el cierre de ${getLocationLabel(
                     effectiveLocation
                 ).toLowerCase()} con una salida total de ${formatNumber(
                     lineSummary.issued
                 )}.`}
-                confirmLabel="Registrar cierre"
+                confirmLabel={
+                    context?.existingControl
+                        ? "Guardar"
+                        : "Registrar cierre"
+                }
                 cancelLabel="Cancelar"
                 variant="warning"
                 isSubmitting={isSubmitting}

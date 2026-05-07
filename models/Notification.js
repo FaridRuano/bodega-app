@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { USER_ROLES, normalizeUserRole } from "@libs/userRoles";
 
 const NotificationSchema = new mongoose.Schema(
     {
@@ -10,8 +11,12 @@ const NotificationSchema = new mongoose.Schema(
         },
         role: {
             type: String,
-            enum: ["admin", "warehouse", "kitchen", "lounge"],
+            enum: USER_ROLES,
             default: null,
+            set: (value) => {
+                if (value == null) return null;
+                return normalizeUserRole(value, value);
+            },
         },
         type: {
             type: String,

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+    Eye,
     Factory,
     Play,
     Plus,
@@ -633,7 +634,7 @@ export default function ProductionPage() {
                                                     }
                                                 >
                                                     <span className="action-button__icon">
-                                                        <XCircle size={15} />
+                                                        <Eye size={15} />
                                                     </span>
                                                     <span className="action-button__label">
                                                         Ver detalle
@@ -652,7 +653,7 @@ export default function ProductionPage() {
                                                     }
                                                 >
                                                     <span className="action-button__icon">
-                                                        <Play size={15} />
+                                                        <Eye size={15} />
                                                     </span>
                                                     <span className="action-button__label">
                                                         Ver detalle

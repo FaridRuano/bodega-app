@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { normalizeUserRole } from "@libs/userRoles";
 
 const ROLE_OPTIONS = [
     { value: "kitchen", label: "Chef" },
     { value: "warehouse", label: "Bodeguero" },
-    { value: "lounge", label: "Mesero" },
+    { value: "loung", label: "Mesero" },
 ];
 
 function buildInitialForm(initialData, isEdit, emptyForm) {
@@ -19,7 +20,7 @@ function buildInitialForm(initialData, isEdit, emptyForm) {
         lastName: initialData.lastName || "",
         username: initialData.username || "",
         email: initialData.email || "",
-        role: initialData.role || "kitchen",
+        role: normalizeUserRole(initialData.role, "kitchen"),
         isActive:
             typeof initialData.isActive === "boolean"
                 ? initialData.isActive
@@ -110,8 +111,14 @@ export default function UserModal({
     }
 
     useEffect(() => {
-        setForm(initialForm);
-        setLocalError("");
+        const timeoutId = window.setTimeout(() => {
+            setForm(initialForm);
+            setLocalError("");
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
     }, [initialForm, open]);
 
     useEffect(() => {

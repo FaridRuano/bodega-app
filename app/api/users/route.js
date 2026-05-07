@@ -4,10 +4,18 @@ import bcrypt from "bcryptjs";
 import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import User from "@models/User";
+import { isValidUserRole, normalizeUserRole } from "@libs/userRoles";
 
 function normalizeOptionalEmail(value) {
   const normalized = String(value || "").trim().toLowerCase();
   return normalized || undefined;
+}
+
+function serializeUser(user) {
+  return {
+    ...user,
+    role: normalizeUserRole(user?.role, user?.role || ""),
+  };
 }
 
 export async function GET() {
@@ -25,7 +33,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: true,
-        data: users,
+        data: users.map((user) => serializeUser(user)),
       },
       { status: 200 }
     );
@@ -134,6 +142,18 @@ export async function POST(request) {
       }
     }
 
+    const normalizedRole = normalizeUserRole(role, "");
+
+    if (!isValidUserRole(normalizedRole)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "El rol seleccionado no es válido.",
+        },
+        { status: 400 }
+      );
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const userData = {
@@ -141,7 +161,7 @@ export async function POST(request) {
       lastName: lastName.trim(),
       username: normalizedUsername,
       password: hashedPassword,
-      role,
+      role: normalizedRole,
       isActive: Boolean(isActive),
     };
 
@@ -156,7 +176,7 @@ export async function POST(request) {
       {
         success: true,
         message: "Usuario creado correctamente.",
-        data: userObject,
+        data: serializeUser(userObject),
       },
       { status: 201 }
     );

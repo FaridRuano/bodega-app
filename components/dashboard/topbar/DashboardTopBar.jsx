@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, BellRing, CheckCheck, Menu } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import styles from "./dashboard-topbar.module.scss";
@@ -17,7 +17,6 @@ const routeTitles = {
   "/dashboard/config/categories": { eyebrow: "Sistema", title: "Jerarquia" },
   "/dashboard/config/hierarchy": { eyebrow: "Sistema", title: "Jerarquia" },
   "/dashboard/requests": { eyebrow: "Modulo", title: "Solicitudes" },
-  "/dashboard/purchase-requests": { eyebrow: "Compras", title: "Compras" },
   "/dashboard/purchases": { eyebrow: "Compras", title: "Compras" },
   "/dashboard/purchases/history": { eyebrow: "Compras", title: "Historial" },
   "/dashboard/notifications": { eyebrow: "Actividad", title: "Notificaciones" },
@@ -159,7 +158,7 @@ export default function DashboardTopbar({ user, onOpenSidebar }) {
     [filteredNotifications]
   );
 
-  async function loadNotifications({ silent = false } = {}) {
+  const loadNotifications = useCallback(async ({ silent = false } = {}) => {
     try {
       if (!silent) setIsLoadingNotifications(true);
 
@@ -195,6 +194,7 @@ export default function DashboardTopbar({ user, onOpenSidebar }) {
             const desktopNotification = new window.Notification(notification.title, {
               body: notification.message,
               tag: notification._id,
+              icon: "/noti-icon.jpg",
             });
 
             desktopNotification.onclick = () => {
@@ -219,7 +219,7 @@ export default function DashboardTopbar({ user, onOpenSidebar }) {
     } finally {
       if (!silent) setIsLoadingNotifications(false);
     }
-  }
+  }, [router]);
 
   async function updateNotifications(action, ids = []) {
     try {
@@ -272,7 +272,7 @@ export default function DashboardTopbar({ user, onOpenSidebar }) {
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -280,7 +280,27 @@ export default function DashboardTopbar({ user, onOpenSidebar }) {
     }, 30000);
 
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    function handleWindowFocus() {
+      loadNotifications({ silent: true });
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        loadNotifications({ silent: true });
+      }
+    }
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadNotifications]);
 
   useEffect(() => {
     function handleClickOutside(event) {

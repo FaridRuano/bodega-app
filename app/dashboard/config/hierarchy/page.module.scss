@@ -37,7 +37,7 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px;
-    max-height: calc(100vh - 220px);
+    height: calc(100vh - 220px);
     border: 1px solid var(--border-subtle);
     border-radius: 18px;
     background: var(--surface-primary);
@@ -69,6 +69,7 @@
 .familyList,
 .categorySections {
     flex: 1;
+    height: 100%;
     min-height: 0;
     overflow-y: auto;
     padding-right: 4px;
@@ -92,6 +93,8 @@
 
 .familyCard,
 .categoryCard {
+    display: flex;
+    flex-direction: column;
     border: 1px solid var(--border-subtle);
     border-radius: 16px;
     background: linear-gradient(180deg, var(--surface-primary), var(--surface-secondary));
@@ -100,6 +103,16 @@
         transform 0.18s ease,
         box-shadow 0.18s ease;
     overflow: hidden;
+}
+
+.familyCard {
+    min-height: 44px;
+    height: auto;
+}
+
+.categoryCard {
+    min-height: 44px;
+    height: auto;
 }
 
 .familyCard:hover,
@@ -114,10 +127,15 @@
 }
 
 .cardToggle {
+    flex-shrink: 0;
     width: 100%;
     padding: 12px 13px;
     text-align: left;
     background: transparent;
+}
+
+.familyCardToggle {
+    padding: 9px 12px;
 }
 
 .cardSummary {
@@ -143,6 +161,10 @@
     color: var(--text-muted);
 }
 
+.familyCountCollapsed {
+    display: none;
+}
+
 .chevron {
     color: var(--text-muted);
     transition: transform 0.24s ease;
@@ -153,27 +175,40 @@
 }
 
 .cardDetails {
-    display: grid;
-    grid-template-rows: 0fr;
+    max-height: 0;
     opacity: 0;
     transition:
-        grid-template-rows 0.28s ease,
+        max-height 0.28s ease,
         opacity 0.22s ease;
+    overflow: hidden;
 }
 
 .cardDetailsOpen {
-    grid-template-rows: 1fr;
+    max-height: 420px;
     opacity: 1;
 }
 
 .cardDetailsInner {
     min-height: 0;
-    overflow: hidden;
+    overflow: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: 0 13px 13px;
     border-top: 1px solid var(--border-subtle);
+}
+
+.cardDetailsInner::-webkit-scrollbar {
+    width: 6px;
+}
+
+.cardDetailsInner::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+}
+
+.cardDetailsInner::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .cardDescription {
@@ -248,12 +283,40 @@
 .categorySection {
     display: flex;
     flex-direction: column;
+    flex: 0 0 auto;
+    height: fit-content;
+    max-height: min(52vh, 520px);
     gap: 8px;
     padding: 12px;
     border: 1px solid var(--border-subtle);
     border-radius: 16px;
     background: var(--surface-secondary);
     transition: opacity 0.24s ease, transform 0.24s ease;
+    overflow: hidden;
+}
+
+.categoryList {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.sectionHeader {
+    flex-shrink: 0;
+}
+
+.categoryList::-webkit-scrollbar {
+    width: 6px;
+}
+
+.categoryList::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+}
+
+.categoryList::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .sectionHeader {
@@ -437,5 +500,17 @@
     .sectionHeader {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .categorySection {
+        max-height: min(48vh, 420px);
+    }
+
+    .familyCard {
+        min-height: 56px;
+    }
+
+    .categoryCard {
+        min-height: 56px;
     }
 }

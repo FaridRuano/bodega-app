@@ -26,6 +26,11 @@ function mapMovementItems(items = []) {
 }
 
 function normalizeRequestDocument(request) {
+    const flowKind =
+        request.flowKind ||
+        (request.requestType !== "return" && request.sourceLocation === "warehouse"
+            ? "request"
+            : "transfer");
     const totals = request.totals || {
         requested: 0,
         approved: 0,
@@ -40,6 +45,7 @@ function normalizeRequestDocument(request) {
         _id: request._id,
         requestNumber: request.requestNumber,
         requestType: request.requestType,
+        flowKind,
         status: normalizedStatus,
         sourceLocation: request.sourceLocation,
         destinationLocation: request.destinationLocation,
@@ -177,6 +183,16 @@ export async function POST(request, { params }) {
             );
         }
 
+        if (requestDoc.flowKind === "transfer") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Las transferencias no requieren aprobación.",
+                },
+                { status: 409 }
+            );
+        }
+
         if (requestDoc.requestType === "return") {
             return NextResponse.json(
                 {
@@ -283,6 +299,9 @@ export async function POST(request, { params }) {
         }
 
         const approvedAt = new Date();
+        const isWarehouseRequest =
+            requestDoc.requestType !== "return" &&
+            requestDoc.sourceLocation === "warehouse";
 
         requestDoc.approvedBy = user.id;
         requestDoc.approvedAt = approvedAt;
@@ -306,8 +325,10 @@ export async function POST(request, { params }) {
 
         await createNotificationsForUsers([requestDoc.requestedBy], {
             type: NOTIFICATION_TYPES.internal_request_approved,
-            title: "Transferencia aprobada",
-            message: `${requestDoc.requestNumber} fue aprobada y ya puede prepararse.`,
+            title: isWarehouseRequest ? "Solicitud aprobada" : "Transferencia aprobada",
+            message: isWarehouseRequest
+                ? `${requestDoc.requestNumber} fue aprobada por bodega y ya puede prepararse.`
+                : `${requestDoc.requestNumber} fue aprobada y ya puede prepararse.`,
             href: "/dashboard/requests",
             entityType: "request",
             entityId: requestDoc._id,

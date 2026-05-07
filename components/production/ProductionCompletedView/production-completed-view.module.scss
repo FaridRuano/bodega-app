@@ -24,6 +24,13 @@
     color: var(--text-secondary);
 }
 
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.summaryCard,
 .statusBox,
 .card {
     padding: 18px;
@@ -41,6 +48,16 @@
     background: var(--success-soft);
 }
 
+.summaryCard {
+    display: grid;
+    gap: 8px;
+}
+
+.summaryLabel {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
 .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -48,6 +65,24 @@
 .sectionTitle {
     margin: 0 0 12px;
     color: var(--text-primary);
+}
+
+.detailSection {
+    display: grid;
+    gap: 10px;
+}
+
+.detailSection + .detailSection {
+    margin-top: 16px;
+}
+
+.sectionMiniHeader {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 .list {
@@ -72,15 +107,120 @@
     margin: 6px 0 0;
 }
 
+.detailCard,
+.movementCard {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-subtle);
+}
+
+.detailCardDanger {
+    border-color: color-mix(in srgb, var(--danger, #dc2626) 25%, var(--border-subtle));
+    background: color-mix(in srgb, var(--danger, #dc2626) 6%, var(--surface-secondary));
+}
+
+.detailTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.metricRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.metricPill {
+    min-width: 140px;
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-subtle);
+}
+
+.metricPill span {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.mainBadge,
+.secondaryBadge,
+.wasteBadge,
+.movementBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.mainBadge {
+    color: var(--success);
+    background: var(--success-soft);
+}
+
+.secondaryBadge {
+    color: var(--text-primary);
+    background: var(--surface-primary);
+    border: 1px solid var(--border-subtle);
+}
+
+.wasteBadge {
+    color: var(--text-on-accent);
+    background: var(--danger, #dc2626);
+}
+
+.movementBadge {
+    color: var(--text-primary);
+    background: var(--surface-primary);
+    border: 1px solid var(--border-subtle);
+}
+
+.movementConsumption {
+    color: var(--text-primary);
+    background: var(--surface-primary);
+}
+
+.movementOutput {
+    color: var(--success);
+    background: var(--success-soft);
+}
+
+.movementWaste {
+    color: var(--text-on-accent);
+    background: var(--danger, #dc2626);
+}
+
+.movementHelper {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+}
+
 @media (max-width: 900px) {
     .header,
+    .summaryGrid,
     .grid {
         grid-template-columns: 1fr;
     }
 
     .row,
-    .emptyState {
+    .emptyState,
+    .detailTop {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .metricPill {
+        width: 100%;
     }
 }

@@ -10,7 +10,7 @@ export const getProductionTypeLabel = (type) => {
         case "transformation":
             return "Transformación";
         case "cutting":
-            return "Corte";
+            return "Despiece";
         case "preparation":
             return "Preparación";
         case "portioning":

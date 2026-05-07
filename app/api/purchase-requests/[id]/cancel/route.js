@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAuthenticatedUser } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
-import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notifications";
+import { createNotificationsForRoles, NOTIFICATION_TYPES } from "@libs/notifications";
 import PurchaseRequest from "@models/PurchaseRequest";
 import { isValidObjectId, normalizeNullableText } from "@libs/purchaseRequests";
 
@@ -57,8 +57,8 @@ export async function POST(request, { params }) {
 
         await purchaseRequest.save();
 
-        if (String(purchaseRequest.requestedBy) !== String(user.id)) {
-            await createNotificationsForUsers([purchaseRequest.requestedBy], {
+        if (String(user.role) !== "admin") {
+            await createNotificationsForRoles(["admin"], {
                 type: NOTIFICATION_TYPES.purchase_request_cancelled,
                 title: "Solicitud de compra cancelada",
                 message: `${purchaseRequest.requestNumber} fue cancelada.`,
@@ -66,6 +66,8 @@ export async function POST(request, { params }) {
                 entityType: "purchase_request",
                 entityId: purchaseRequest._id,
                 priority: "normal",
+            }, {
+                excludeUserIds: [user.id],
             }).catch((notificationError) => {
                 console.error("purchase request cancelled notification error:", notificationError);
             });

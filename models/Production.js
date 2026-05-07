@@ -410,11 +410,9 @@ const productionSchema = new Schema(
     }
 );
 
-productionSchema.pre("validate", function (next) {
+productionSchema.pre("validate", function () {
     if (this.location !== "kitchen") {
-        return next(
-            new Error("La producción solo puede consumir inventario desde kitchen.")
-        );
+        throw new Error("La producción solo puede consumir inventario desde kitchen.");
     }
 
     if (
@@ -423,9 +421,7 @@ productionSchema.pre("validate", function (next) {
         this.productionType !== this.templateSnapshot.type &&
         this.productionType !== "generic"
     ) {
-        return next(
-            new Error("El tipo de producción no coincide con el tipo de la plantilla.")
-        );
+        throw new Error("El tipo de producción no coincide con el tipo de la plantilla.");
     }
 
     if (this.status === "in_progress" && !this.startedAt) {
@@ -434,47 +430,35 @@ productionSchema.pre("validate", function (next) {
 
     if (this.status === "completed") {
         if (!this.startedAt) {
-            return next(
-                new Error("Una producción completada debe tener fecha de inicio.")
-            );
+            throw new Error("Una producción completada debe tener fecha de inicio.");
         }
 
         if (!this.completedAt) {
-            return next(
-                new Error("Una producción completada debe tener fecha de finalización.")
-            );
+            throw new Error("Una producción completada debe tener fecha de finalización.");
         }
 
         if (!Array.isArray(this.inputs) || this.inputs.length === 0) {
-            return next(
-                new Error("Una producción completada debe tener insumos reales.")
-            );
+            throw new Error("Una producción completada debe tener insumos reales.");
         }
 
         if (
             !Array.isArray(this.outputs) ||
             !this.outputs.some((item) => Number(item?.quantity || 0) > 0)
         ) {
-            return next(
-                new Error("La producción completada debe tener el resultado principal con cantidad mayor a 0.")
-            );
+            throw new Error("La producción completada debe tener el resultado principal con cantidad mayor a 0.");
         }
 
         if (
             this.templateSnapshot?.requiresWasteRecord &&
             (!Array.isArray(this.waste) || this.waste.length === 0)
         ) {
-            return next(
-                new Error("Esta producción requiere registrar el desperdicio total.")
-            );
+            throw new Error("Esta producción requiere registrar el desperdicio total.");
         }
     }
 
     if (this.templateSnapshot?.requiresWeightControl) {
         if (this.targetUnit !== "kg") {
-            return next(
-                new Error("El control de gramaje solo puede usarse en producciones basadas en kilogramo.")
-            );
+            throw new Error("El control de gramaje solo puede usarse en producciones basadas en kilogramo.");
         }
 
         const completedOutputs = [
@@ -488,9 +472,7 @@ productionSchema.pre("validate", function (next) {
         });
 
         if (this.status === "completed" && missingRecordedWeight) {
-            return next(
-                new Error("Debes registrar el peso real de los resultados cuando la ficha tiene control de gramaje.")
-            );
+            throw new Error("Debes registrar el peso real de los resultados cuando la ficha tiene control de gramaje.");
         }
 
         const outputsWeight = completedOutputs.reduce((sum, item) => {
@@ -523,16 +505,13 @@ productionSchema.pre("validate", function (next) {
         };
 
         if (this.status === "completed" && recordedTotalWeight <= 0) {
-            return next(
-                new Error("Debes registrar los pesos reales antes de completar una producción con control de gramaje.")
-            );
+            throw new Error("Debes registrar los pesos reales antes de completar una producción con control de gramaje.");
         }
     }
 
     if (this.status === "cancelled" && !this.cancelledAt) {
         this.cancelledAt = new Date();
     }
-
 });
 
 productionSchema.index({ productionType: 1, status: 1 });

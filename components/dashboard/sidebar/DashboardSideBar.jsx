@@ -21,6 +21,7 @@ import {
     X,
 } from "lucide-react";
 import { getRoleLabel } from "@libs/access";
+import { normalizeUserRole } from "@libs/userRoles";
 
 const adminNavigationItems = [
     {
@@ -32,6 +33,16 @@ const adminNavigationItems = [
         label: "Productos",
         href: "/dashboard/products",
         icon: Package,
+    },
+    {
+        label: "Inventario",
+        href: "/dashboard/inventory",
+        icon: Boxes,
+    },
+    {
+        label: "Movimientos",
+        href: "/dashboard/movements",
+        icon: ArrowRightLeft,
     },
     {
         label: "Solicitudes",
@@ -54,16 +65,6 @@ const adminNavigationItems = [
         icon: Factory,
     },
     {
-        label: "Movimientos",
-        href: "/dashboard/movements",
-        icon: ArrowRightLeft,
-    },
-    {
-        label: "Inventario",
-        href: "/dashboard/inventory",
-        icon: Boxes,
-    },
-    {
         label: "Historial",
         href: "/dashboard/history",
         icon: History,
@@ -80,11 +81,6 @@ const kitchenNavigationItems = [
         label: "Resumen",
         href: "/dashboard",
         icon: LayoutGrid,
-    },
-    {
-        label: "Inventario",
-        href: "/dashboard/inventory",
-        icon: Boxes,
     },
     {
         label: "Solicitudes",
@@ -112,6 +108,11 @@ const kitchenNavigationItems = [
         icon: Factory,
     },
     {
+        label: "Inventario",
+        href: "/dashboard/inventory",
+        icon: Boxes,
+    },
+    {
         label: "Historial",
         href: "/dashboard/history",
         icon: History,
@@ -119,11 +120,6 @@ const kitchenNavigationItems = [
 ];
 
 const loungeNavigationItems = [
-    {
-        label: "Resumen",
-        href: "/dashboard",
-        icon: LayoutGrid,
-    },
     {
         label: "Inventario",
         href: "/dashboard/inventory",
@@ -163,6 +159,16 @@ const warehouseNavigationItems = [
         icon: LayoutGrid,
     },
     {
+        label: "Inventario",
+        href: "/dashboard/inventory",
+        icon: Boxes,
+    },
+    {
+        label: "Movimientos",
+        href: "/dashboard/movements",
+        icon: ArrowRightLeft,
+    },
+    {
         label: "Solicitudes",
         href: "/dashboard/requests",
         icon: ClipboardList,
@@ -178,16 +184,6 @@ const warehouseNavigationItems = [
         icon: PackageCheck,
     },
     {
-        label: "Movimientos",
-        href: "/dashboard/movements",
-        icon: ArrowRightLeft,
-    },
-    {
-        label: "Inventario",
-        href: "/dashboard/inventory",
-        icon: Boxes,
-    },
-    {
         label: "Historial",
         href: "/dashboard/history",
         icon: History,
@@ -201,12 +197,26 @@ function getNavigationByRole(role) {
 
         case "warehouse":
             return warehouseNavigationItems;
-        case "lounge":
+        case "loung":
             return loungeNavigationItems;
         case "admin":
         default:
             return adminNavigationItems;
     }
+}
+
+function getSidebarRoleLabel(userRole, navigationItems) {
+    const normalizedRole = normalizeUserRole(userRole, "");
+
+    if (normalizedRole) {
+        return getRoleLabel(normalizedRole);
+    }
+
+    if (navigationItems === loungeNavigationItems) {
+        return "Mesero";
+    }
+
+    return getRoleLabel(userRole);
 }
 
 export default function DashboardSidebar({
@@ -216,7 +226,8 @@ export default function DashboardSidebar({
     collapsed = false,
 }) {
     const pathname = usePathname();
-    const navigationItems = getNavigationByRole(user?.role);
+    const normalizedRole = normalizeUserRole(user?.role, user?.role || "");
+    const navigationItems = getNavigationByRole(normalizedRole);
 
     function isActiveRoute(href) {
         const [baseHref] = href.split("?");
@@ -249,7 +260,9 @@ export default function DashboardSidebar({
 
                         <div className={styles.brandText}>
                             <p className={styles.brandTitle}>Doble Filo</p>
-                            <p className={styles.brandSubtitle}>{getRoleLabel(user?.role)}</p>
+                            <p className={styles.brandSubtitle}>
+                                {getSidebarRoleLabel(user?.role, navigationItems)}
+                            </p>
                         </div>
 
                         {isMobile ? (

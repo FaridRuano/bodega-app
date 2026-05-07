@@ -371,11 +371,13 @@ export async function POST(request) {
         await createNotificationsForRoles(["admin"], {
             type: NOTIFICATION_TYPES.purchase_request_created,
             title: "Nueva solicitud de compra",
-            message: `${purchaseRequest.requestNumber} fue creada para ${destinationLocationLabel}.`,
+            message: `Solicitud de compra creada para ${destinationLocationLabel.toLowerCase()}.`,
             href: "/dashboard/purchases?tab=requests",
             entityType: "purchase_request",
             entityId: purchaseRequest._id,
             priority: "high",
+        }, {
+            excludeUserIds: [user.id],
         }).catch((notificationError) => {
             console.error("purchase request notification error:", notificationError);
         });

@@ -4,14 +4,15 @@ import { useEffect, useMemo } from "react";
 import { ClipboardList, Plus, Trash2, X } from "lucide-react";
 
 import ProductAutoComplete from "@components/shared/ProductAutocomplete/ProductAutoComplete";
-import { getLocationLabel, getRequestTypeLabel } from "@libs/constants/domainLabels";
-import { REQUEST_PURPOSE_OPTIONS } from "@libs/constants/purposes";
+import { getLocationLabel } from "@libs/constants/domainLabels";
+import { getRequestPurposeOptions } from "@libs/constants/purposes";
 import { getUnitLabel } from "@libs/constants/units";
 import styles from "./request-form-modal.module.scss";
 
 export default function RequestFormModal({
     open,
     mode = "create",
+    flowKind = "request",
     formData,
     destinationOptions = [],
     onChange,
@@ -22,6 +23,7 @@ export default function RequestFormModal({
     onSubmit,
     isSubmitting = false,
     products = [],
+    productOptions = [],
 }) {
     useEffect(() => {
         function handleEscape(event) {
@@ -44,8 +46,12 @@ export default function RequestFormModal({
         }).length;
     }, [formData.items]);
 
-    const isReturnRequest = formData.requestType === "return";
-    const shouldValidateSourceStock = isReturnRequest;
+    const isRequestFlow = flowKind === "request";
+    const isTransferFlow = flowKind === "transfer";
+    const shouldValidateSourceStock = true;
+    const inventorySourceLocation = isRequestFlow
+        ? "warehouse"
+        : formData.sourceLocation || "warehouse";
 
     const hasInventoryOverflow = useMemo(() => {
         if (!shouldValidateSourceStock) return false;
@@ -54,16 +60,21 @@ export default function RequestFormModal({
             const selectedProduct = products.find((product) => product._id === item.productId);
             if (!selectedProduct) return false;
 
-            const sourceLocation = formData.sourceLocation || "warehouse";
-            const maxAvailable = Number(selectedProduct?.inventory?.[sourceLocation] || 0);
+            const maxAvailable = Number(
+                selectedProduct?.inventory?.[inventorySourceLocation] || 0
+            );
             const quantity = Number(item.requestedQuantity || 0);
 
             return Number.isFinite(quantity) && quantity > maxAvailable;
         });
-    }, [formData.items, formData.sourceLocation, products, shouldValidateSourceStock]);
+    }, [formData.items, inventorySourceLocation, products, shouldValidateSourceStock]);
 
-    const sourceLocationLabel = getLocationLabel(formData.sourceLocation).toLowerCase();
+    const sourceLocationLabel = getLocationLabel(inventorySourceLocation).toLowerCase();
     const hasRequestPurpose = Boolean(formData.requestPurpose?.trim?.());
+    const purposeOptions = useMemo(
+        () => getRequestPurposeOptions(flowKind),
+        [flowKind]
+    );
     const canSubmit =
         hasRequestPurpose &&
         validItemsCount > 0 &&
@@ -79,48 +90,51 @@ export default function RequestFormModal({
 
     if (!open) return null;
 
+    const formId = "request-form-modal";
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
-                className="modal-container modal-container--xl"
+                className="modalDetachedStack modal-container--xl"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-top">
-                    <div className="modal-headerContent">
-                        <div className="modal-icon modal-icon--info">
-                            <ClipboardList size={20} />
+                <div className="modal-container">
+                    <div className="modal-top">
+                        <div className="modal-headerContent">
+                            <div className="modal-icon modal-icon--info">
+                                <ClipboardList size={20} />
+                            </div>
+
+                            <div>
+                                <h2 className="modal-title">
+                                    {mode === "edit"
+                                        ? isTransferFlow
+                                            ? "Editar transferencia"
+                                            : "Editar solicitud"
+                                        : isTransferFlow
+                                            ? "Nueva transferencia"
+                                            : "Nueva solicitud"}
+                                </h2>
+                                <p className="modal-description">
+                                    {isTransferFlow
+                                        ? "Mueve inventario desde tu área hacia otra ubicación disponible."
+                                        : "Solicita productos disponibles en bodega para tu área de trabajo."}
+                                </p>
+                            </div>
                         </div>
 
-                        <div>
-                            <h2 className="modal-title">
-                                {mode === "edit"
-                                    ? isReturnRequest
-                                        ? "Editar transferencia"
-                                        : "Editar solicitud interna"
-                                    : isReturnRequest
-                                        ? "Nueva transferencia"
-                                        : "Nueva solicitud interna"}
-                            </h2>
-                            <p className="modal-description">
-                                {isReturnRequest
-                                    ? "Define los productos y cantidades que regresarán a bodega."
-                                    : "Define los productos y cantidades que deseas mover entre áreas."}
-                            </p>
-                        </div>
+                        <button
+                            type="button"
+                            className="modal-close"
+                            onClick={onClose}
+                            aria-label="Cerrar modal"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        aria-label="Cerrar modal"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <div className="modal-body">
-                    <form className={styles.form} onSubmit={handleFormSubmit}>
+                    <div className="modal-body">
+                        <form id={formId} className={styles.form} onSubmit={handleFormSubmit}>
                         <div className={styles.flowGrid}>
                             <div className="form-field">
                                 <label className="form-label">Origen</label>
@@ -131,21 +145,27 @@ export default function RequestFormModal({
 
                             <div className="form-field">
                                 <label className="form-label">Destino</label>
-                                <div className="selectWrap">
-                                    <select
-                                        name="destinationLocation"
-                                        className="form-input"
-                                        value={formData.destinationLocation}
-                                        onChange={onChange}
-                                        disabled={isSubmitting}
-                                    >
-                                        {destinationOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {isRequestFlow ? (
+                                    <div className={styles.readonlyField}>
+                                        <span>{getLocationLabel(formData.destinationLocation)}</span>
+                                    </div>
+                                ) : (
+                                    <div className="selectWrap">
+                                        <select
+                                            name="destinationLocation"
+                                            className="form-input"
+                                            value={formData.destinationLocation}
+                                            onChange={onChange}
+                                            disabled={isSubmitting}
+                                        >
+                                            {destinationOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -155,12 +175,15 @@ export default function RequestFormModal({
 
                                 <button
                                     type="button"
-                                    className="miniAction"
+                                    className={`action-button action-button--neutral ${styles.addProductButton}`}
                                     onClick={onAddItem}
                                     disabled={isSubmitting}
+                                    aria-label="Agregar producto"
                                 >
-                                    <Plus size={16} />
-                                    Agregar producto
+                                    <span className="action-button__icon">
+                                        <Plus size={16} />
+                                    </span>
+                                    <span className="action-button__label">Agregar producto</span>
                                 </button>
                             </div>
 
@@ -175,9 +198,8 @@ export default function RequestFormModal({
                                     const selectedProduct = products.find(
                                         (product) => product._id === item.productId
                                     );
-                                    const sourceLocation = formData.sourceLocation || "warehouse";
                                     const maxAvailable = Number(
-                                        selectedProduct?.inventory?.[sourceLocation] || 0
+                                        selectedProduct?.inventory?.[inventorySourceLocation] || 0
                                     );
 
                                     return (
@@ -187,6 +209,7 @@ export default function RequestFormModal({
                                                 <ProductAutoComplete
                                                     value={item.productId}
                                                     selectedProduct={selectedProduct}
+                                                    options={productOptions}
                                                     onChange={(product) =>
                                                         onItemChange(index, "productId", product?._id || "")
                                                     }
@@ -271,7 +294,7 @@ export default function RequestFormModal({
 
                         <div className="form-field">
                             <label className="form-label">
-                                {isReturnRequest ? "Motivo de la transferencia" : "Motivo de la solicitud"}
+                                {isTransferFlow ? "Motivo de la transferencia" : "Motivo de la solicitud"}
                             </label>
                             <div className="selectWrap">
                                 <select
@@ -282,11 +305,7 @@ export default function RequestFormModal({
                                     disabled={isSubmitting}
                                 >
                                     <option value="">Seleccionar</option>
-                                    {REQUEST_PURPOSE_OPTIONS.filter((option) =>
-                                        isReturnRequest
-                                            ? option.value === "return_to_warehouse"
-                                            : option.value !== "return_to_warehouse" && option.value !== "production"
-                                    ).map((option) => (
+                                    {purposeOptions.map((option) => (
                                         <option key={option.value} value={option.value}>
                                             {option.label}
                                         </option>
@@ -310,36 +329,41 @@ export default function RequestFormModal({
                         <div className={styles.typeHint}>
                             <span className={styles.typeHintLabel}>Flujo</span>
                             <strong className={styles.typeHintValue}>
-                                {getRequestTypeLabel(formData.requestType)}
+                                {isTransferFlow ? "Transferencia" : "Solicitud"}
                                 <span>{getLocationLabel(formData.sourceLocation)}</span>
                                 <span>→</span>
                                 <span>{getLocationLabel(formData.destinationLocation)}</span>
                             </strong>
                         </div>
 
-                        <div className="modal-footer">
-                            <button
-                                type="button"
-                                className="miniAction"
-                                onClick={onClose}
-                                disabled={isSubmitting}
-                            >
-                                Cancelar
-                            </button>
+                        </form>
+                    </div>
+                </div>
 
-                            <button
-                                type="submit"
-                                className="miniAction miniActionPrimary"
-                                disabled={!canSubmit}
-                            >
-                                {isSubmitting
-                                    ? "Guardando..."
-                                    : mode === "edit"
-                                        ? "Guardar cambios"
-                                        : "Crear solicitud"}
-                            </button>
-                        </div>
-                    </form>
+                <div className="modalDetachedFooter">
+                    <button
+                        type="button"
+                        className="miniAction"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="submit"
+                        form={formId}
+                        className="miniAction miniActionPrimary"
+                        disabled={!canSubmit}
+                    >
+                        {isSubmitting
+                            ? "Guardando..."
+                            : mode === "edit"
+                                ? "Guardar cambios"
+                                : isTransferFlow
+                                    ? "Crear transferencia"
+                                    : "Crear solicitud"}
+                    </button>
                 </div>
             </div>
         </div>

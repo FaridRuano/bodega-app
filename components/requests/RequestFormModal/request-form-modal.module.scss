@@ -11,14 +11,39 @@
 }
 
 .readonlyField {
-    min-height: 44px;
+    width: 100%;
+    min-height: 36px;
     display: flex;
     align-items: center;
     padding: 0 14px;
-    border-radius: 12px;
+    border-radius: 999px;
     border: 1px solid var(--border-subtle);
-    background: var(--bg-subtle);
+    background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
     color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.addProductButton {
+    flex-shrink: 0;
+    max-width: 36px;
+    width: max-content;
+}
+
+.addProductButton :global(.action-button__label) {
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+}
+
+.addProductButton:hover {
+    max-width: 136px;
+}
+
+.addProductButton:hover :global(.action-button__label) {
+    max-width: 96px;
+    margin-left: 8px;
+    opacity: 1;
 }
 
 /* ITEMS */
