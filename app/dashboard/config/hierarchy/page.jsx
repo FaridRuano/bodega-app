@@ -647,7 +647,7 @@ export default function HierarchyPage() {
                 <section className={`${styles.toolbar} ${styles.fadeSlideIn} ${styles.delayOne}`}>
                     <button
                         type="button"
-                        className="miniAction"
+                        className="miniAction miniActionPrimary"
                         onClick={() => setIsCreateFamilyOpen(true)}
                     >
                         <FolderTree size={16} />
@@ -656,7 +656,7 @@ export default function HierarchyPage() {
 
                     <button
                         type="button"
-                        className="miniAction miniActionPrimary"
+                        className="miniAction miniActionSecondary"
                         onClick={() => setIsCreateCategoryOpen(true)}
                     >
                         <Plus size={16} />

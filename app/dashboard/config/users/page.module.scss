@@ -19,7 +19,20 @@
 }
 
 .createButton {
-    min-width: 36px;
+    width: auto;
+    max-width: none;
+    min-width: 160px;
+    justify-content: center;
+}
+
+.createButton :global(.action-button__label) {
+    max-width: 200px;
+    margin-left: 8px;
+    opacity: 1;
+}
+
+.createButton:hover {
+    max-width: none;
 }
 
 .list {

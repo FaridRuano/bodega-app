@@ -9,6 +9,7 @@
     position: sticky;
     top: 0;
     height: 100vh;
+    overflow: hidden;
     padding: 1rem;
     border-right: 1px solid var(--border-subtle);
     background: var(--surface-primary);

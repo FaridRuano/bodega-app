@@ -16,6 +16,9 @@
     --accent: #f8d300;
     --accent-hover: #ffbb00;
     --accent-soft: rgba(143, 143, 143, 0.16);
+    --accent-secondary: #0f766e;
+    --accent-secondary-hover: #115e59;
+    --accent-secondary-soft: rgba(15, 118, 110, 0.2);
 
     /* Neutral backgrounds */
     --bg-app: #f5f5f5;
@@ -27,6 +30,8 @@
     --surface-primary: #ffffff;
     --surface-secondary: #f7f7f8;
     --surface-tertiary: #ececee;
+    --surface-elevated: #fdfdfd;
+    --surface-strong: #ffffff;
     --surface-inverse: #171717;
 
     /* Text */
@@ -34,6 +39,8 @@
     --text-secondary: #4b5563;
     --text-muted: #6b7280;
     --text-inverse: #fafafa;
+    --text-on-brand-accent: #111111;
+    --text-on-brand-accent-secondary: #f8fafc;
     --text-on-accent: #ffffff;
 
     /* Borders */
@@ -63,7 +70,7 @@
     --shadow-lg: 0 24px 60px rgba(17, 17, 17, 0.14);
 
     /* Overlays */
-    --overlay: rgba(17, 17, 17, .7);
+    --overlay: rgba(17, 17, 17, 0.45);
 
     /* Glass helpers */
     --glass-bg: rgba(255, 255, 255, 0.842);
@@ -104,6 +111,9 @@
         --accent: #e6c409;
         --accent-hover: #ffd900;
         --accent-soft: rgba(143, 143, 143, 0.16);
+        --accent-secondary: #14b8a6;
+        --accent-secondary-hover: #2dd4bf;
+        --accent-secondary-soft: rgba(45, 212, 191, 0.24);
 
         /* Neutral backgrounds */
         --bg-app: #000000;
@@ -115,6 +125,7 @@
         --surface-primary: #08080891;
         --surface-secondary: #0f0f0fe0;
         --surface-tertiary: #1b1b1bb0;
+        --surface-elevated: #161616;
         --surface-inverse: #fafafa93;
         --surface-strong: #070707d3;
 
@@ -123,6 +134,8 @@
         --text-secondary: #a1a1aa;
         --text-muted: #71717a;
         --text-inverse: #111111;
+        --text-on-brand-accent: #111111;
+        --text-on-brand-accent-secondary: #042f2e;
         --text-on-accent: #ffffff;
 
         /* Borders */
@@ -212,6 +225,9 @@ html.light {
     --accent: #f8d300;
     --accent-hover: #ffbb00;
     --accent-soft: rgba(143, 143, 143, 0.16);
+    --accent-secondary: #0f766e;
+    --accent-secondary-hover: #115e59;
+    --accent-secondary-soft: rgba(15, 118, 110, 0.2);
 
     /* Neutral backgrounds */
     --bg-app: #f5f5f5;
@@ -223,6 +239,8 @@ html.light {
     --surface-primary: #ffffff;
     --surface-secondary: #f7f7f8;
     --surface-tertiary: #ececee;
+    --surface-elevated: #fdfdfd;
+    --surface-strong: #ffffff;
     --surface-inverse: #171717;
 
     /* Text */
@@ -230,6 +248,8 @@ html.light {
     --text-secondary: #4b5563;
     --text-muted: #6b7280;
     --text-inverse: #fafafa;
+    --text-on-brand-accent: #111111;
+    --text-on-brand-accent-secondary: #f8fafc;
     --text-on-accent: #ffffff;
 
     /* Borders */
@@ -295,6 +315,9 @@ html.dark {
     --accent: #f8d300;
     --accent-hover: #ffbb00;
     --accent-soft: rgba(143, 143, 143, 0.16);
+    --accent-secondary: #14b8a6;
+    --accent-secondary-hover: #2dd4bf;
+    --accent-secondary-soft: rgba(45, 212, 191, 0.24);
 
     /* Neutral backgrounds */
     --bg-app: #000000;
@@ -306,6 +329,8 @@ html.dark {
     --surface-primary: #18181860;
     --surface-secondary: #272727;
     --surface-tertiary: #26262b;
+    --surface-elevated: #161616;
+    --surface-strong: #111111f2;
     --surface-inverse: #fafafa;
 
     /* Text */
@@ -313,6 +338,8 @@ html.dark {
     --text-secondary: #a1a1aa;
     --text-muted: #71717a;
     --text-inverse: #111111;
+    --text-on-brand-accent: #111111;
+    --text-on-brand-accent-secondary: #042f2e;
     --text-on-accent: #ffffff;
 
     /* Borders */

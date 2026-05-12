@@ -64,6 +64,41 @@
     color: var(--text-primary);
 }
 
+.action-button--primary {
+    background: var(--accent);
+    color: var(--text-on-brand-accent);
+    border-color: var(--accent-soft);
+}
+
+.action-button--primary:hover {
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
+    color: var(--text-on-brand-accent);
+}
+
+.action-button--secondary {
+    background: var(--accent-secondary);
+    color: var(--text-on-brand-accent-secondary);
+    border-color: var(--accent-secondary-soft);
+}
+
+.action-button--secondary:hover {
+    border-color: var(--accent-secondary-hover);
+    background: var(--accent-secondary-hover);
+    color: var(--text-on-brand-accent-secondary);
+}
+
+.action-button--warning {
+    background: var(--warning-soft);
+    color: var(--warning);
+    border-color: transparent;
+}
+
+.action-button--warning:hover {
+    background: var(--warning);
+    color: var(--text-inverse);
+}
+
 .action-button--danger {
     background: var(--danger-soft);
     color: var(--danger);
@@ -157,14 +192,14 @@
 
 .miniActionPrimary {
     background: var(--accent);
-    color: var(--text-inverse);
+    color: var(--text-on-brand-accent);
     border-color: var(--accent-soft);
 }
 
 .miniActionPrimary:hover {
     background: var(--accent-hover);
     border-color: var(--accent-hover);
-    color: var(--text-inverse);
+    color: var(--text-on-brand-accent);
 }
 
 .miniActionPrimary:disabled,
@@ -172,6 +207,25 @@
     background: color-mix(in srgb, var(--accent) 55%, var(--surface-secondary));
     border-color: transparent;
     color: color-mix(in srgb, var(--text-inverse) 68%, transparent);
+}
+
+.miniActionSecondary {
+    background: var(--accent-secondary);
+    color: var(--text-on-brand-accent-secondary);
+    border-color: var(--accent-secondary-soft);
+}
+
+.miniActionSecondary:hover {
+    background: var(--accent-secondary-hover);
+    border-color: var(--accent-secondary-hover);
+    color: var(--text-on-brand-accent-secondary);
+}
+
+.miniActionSecondary:disabled,
+.miniActionSecondary:disabled:hover {
+    background: color-mix(in srgb, var(--accent-secondary) 55%, var(--surface-secondary));
+    border-color: transparent;
+    color: color-mix(in srgb, var(--text-on-brand-accent-secondary) 68%, transparent);
 }
 
 .miniActionSuccess {

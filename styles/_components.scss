@@ -33,7 +33,7 @@
     flex-direction: column;
     gap: 18px;
 
-    background-color: var(--surface-strong);
+    background-color: var(--surface-strong, var(--surface-primary));
     border: 1px solid var(--border-subtle);
     border-radius: 18px;
     box-shadow: var(--shadow-lg);
@@ -239,6 +239,11 @@
     max-width: 520px;
 }
 
+.modalDetachedStack.modal-container--lg,
+.modalDetachedStack.modal-container--xl {
+    max-width: none;
+}
+
 .modalDetachedStack > .modal-container,
 .modalDetachedStack > .modalDetachedFooter {
     width: 100%;
@@ -294,7 +299,7 @@
         z-index: 3;
         margin: -16px -16px 0;
         padding: 16px 16px 8px;
-        background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
+        background: color-mix(in srgb, var(--surface-strong, var(--surface-primary)) 96%, transparent);
         backdrop-filter: blur(10px);
     }
 
@@ -895,7 +900,7 @@ html.dark .form-input[type="datetime-local"] {
 
 .btn-primary {
     background: var(--accent);
-    color: var(--text-inverse);
+    color: var(--text-on-brand-accent);
 }
 
 .btn-primary:hover:not(:disabled) {

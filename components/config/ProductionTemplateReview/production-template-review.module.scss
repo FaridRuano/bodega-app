@@ -1,9 +1,10 @@
 .modalContainer {
-    width: min(880px, 100%);
+    width: min(1040px, calc(100vw - 40px));
+    max-height: calc(100vh - 96px);
 }
 
 .modalBody {
-    max-height: calc(100vh - 200px);
+    max-height: calc(100vh - 280px);
     overflow-y: auto;
     padding-right: 4px;
     gap: 12px;
@@ -204,6 +205,11 @@
 
 .footer {
     gap: 8px;
+    justify-content: flex-end;
+}
+
+.footer :global(.action-button) {
+    min-width: 36px;
 }
 
 @media (max-width: 900px) {
@@ -214,6 +220,16 @@
 }
 
 @media (max-width: 640px) {
+    .modalContainer {
+        width: min(100%, calc(100vw - 24px));
+        max-height: calc(100vh - 32px);
+    }
+
+    .modalBody {
+        max-height: calc(100vh - 250px);
+        padding-right: 0;
+    }
+
     .summaryPanel,
     .metaRows {
         grid-template-columns: 1fr;
@@ -229,8 +245,9 @@
         flex-direction: column-reverse;
     }
 
-    .footer :global(.miniAction) {
-        width: 100%;
+    .footer :global(.action-button) {
+        width: auto;
+        max-width: none;
         justify-content: center;
     }
 }

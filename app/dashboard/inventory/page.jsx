@@ -79,7 +79,7 @@ export default function InventoryPage() {
   const [familyFilter, setFamilyFilter] = useState(() => getStringParam(searchParams, "familyId"));
   const [categoryFilter, setCategoryFilter] = useState(() => getStringParam(searchParams, "categoryId"));
   const [scope, setScope] = useState(() => getStringParam(searchParams, "scope", "all"));
-  const [viewMode, setViewMode] = useState(() => getStringParam(searchParams, "view", "cards"));
+  const [viewMode, setViewMode] = useState(() => getStringParam(searchParams, "view", "compact"));
   const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
   const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
   const [isLoading, setIsLoading] = useState(true);
@@ -189,7 +189,7 @@ export default function InventoryPage() {
       familyId: familyFilter || null,
       categoryId: categoryFilter || null,
       scope: activeScope !== "all" ? activeScope : null,
-      view: viewMode !== "cards" ? viewMode : null,
+      view: viewMode !== "compact" ? viewMode : null,
       page: page > 1 ? page : null,
     });
 
@@ -343,8 +343,17 @@ export default function InventoryPage() {
       window.removeEventListener("focus", refreshInventorySilently);
       document.removeEventListener("visibilitychange", refreshInventorySilently);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogModal.open, movementModal.open, productPickerOpen]);
+  }, [
+    dialogModal.open,
+    movementModal.open,
+    productPickerOpen,
+    page,
+    searchTerm,
+    alertFilter,
+    familyFilter,
+    categoryFilter,
+    activeScope,
+  ]);
 
   function toggleAlertFilter(nextFilter) {
     setAlertFilter((prev) => (prev === nextFilter ? "" : nextFilter));

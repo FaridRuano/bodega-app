@@ -1,14 +1,22 @@
 .modal {
-  max-width: 780px;
+  width: min(1120px, calc(100vw - 40px));
+  max-height: calc(100vh - 96px);
   background: var(--surface-primary);
 }
 
+.modalBody {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .footer {
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .footer :global(.miniAction) {
-  min-width: 138px;
+  width: fit-content;
+  min-width: 0;
 }
 
 .footer :global(.miniActionPrimary) {
@@ -17,10 +25,16 @@
 
 @media (max-width: 640px) {
   .modal {
-    max-width: 100%;
+    width: min(100%, calc(100vw - 24px));
+    max-height: calc(100vh - 32px);
+  }
+
+  .modalBody {
+    max-height: calc(100vh - 250px);
+    padding-right: 0;
   }
 
   .footer {
-    justify-content: stretch;
+    justify-content: flex-end;
   }
 }

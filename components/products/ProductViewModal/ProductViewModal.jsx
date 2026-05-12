@@ -100,47 +100,51 @@ export default function ProductViewModal({
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <div
-        className={`modal-container modal-container--xl ${styles.modal}`}
+        className="modalDetachedStack modal-container--xl"
         onClick={(event) => event.stopPropagation()}
       >
+        <div
+          className={`modal-container ${styles.modal}`}
+          onClick={(event) => event.stopPropagation()}
+        >
 
-        <div className="modal-top">
-          <div className="topCopy fadeScaleIn">
-            <div className={styles.topline}>
-              <span className={`${styles.status} ${isActive ? styles.statusActive : styles.statusInactive}`}>
-                {isActive ? "Activo" : "Inactivo"}
-              </span>
-              <span className={styles.typeBadge}>
-                {PRODUCT_TYPE_LABELS[productType] || productType}
-              </span>
+          <div className="modal-top">
+            <div className="topCopy fadeScaleIn">
+              <div className={styles.topline}>
+                <span className={`${styles.status} ${isActive ? styles.statusActive : styles.statusInactive}`}>
+                  {isActive ? "Activo" : "Inactivo"}
+                </span>
+                <span className={styles.typeBadge}>
+                  {PRODUCT_TYPE_LABELS[productType] || productType}
+                </span>
 
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={onClose}
+                disabled={loading}
+                aria-label="Cerrar modal"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <button
-              type="button"
-              className="modal-close"
-              onClick={onClose}
-              disabled={loading}
-              aria-label="Cerrar modal"
-            >
-              <X size={18} />
-            </button>
           </div>
-        </div>
-        <div className="modal-header">
-          {requiresWeightControl && (
-            <span className={styles.weightBadge}>
-              <Scale size={13} />
-              Controlar Peso
-            </span>
-          )}
-          <h3 className="modal-title">{name}</h3>
+          <div className="modal-header">
+            {requiresWeightControl && (
+              <span className={styles.weightBadge}>
+                <Scale size={13} />
+                Controlar Peso
+              </span>
+            )}
+            <h3 className="modal-title">{name}</h3>
 
-          <p className="modal-description">
-            {description || "Sin descripcion registrada."}
-          </p>
-        </div>
+            <p className="modal-description">
+              {description || "Sin descripcion registrada."}
+            </p>
+          </div>
 
-        <div className="modal-body">
+          <div className="modal-body">
           <section className={`${styles.infoSection} fadeSlideIn`}>
             <div className={styles.sectionHeader}>
               <h4 className={styles.sectionTitle}>Informacion general</h4>
@@ -286,9 +290,10 @@ export default function ProductViewModal({
               <p className={styles.notesText}>{notes || "Sin notas registradas."}</p>
             </div>
           </section>
+          </div>
         </div>
 
-        <div className={`modal-footer ${styles.footer} fadeSlideIn delayThree`}>
+        <div className={`modalDetachedFooter ${styles.footer} fadeSlideIn delayThree`}>
           <button
             type="button"
             className="action-button action-button--neutral"
@@ -315,7 +320,7 @@ export default function ProductViewModal({
 
           <button
             type="button"
-            className={isActive ? "action-button action-button--danger" : "action-button"}
+            className={isActive ? "action-button action-button--warning" : "action-button"}
             onClick={() => onToggleActive?.(product)}
             disabled={loading}
           >

@@ -86,6 +86,7 @@ export default function ProductModal({
     submitError = "",
 }) {
     const isEdit = mode === "edit";
+    const formId = "product-form";
     const initialForm = useMemo(
         () => buildInitialForm(initialData, isEdit),
         [initialData, isEdit]
@@ -186,34 +187,38 @@ export default function ProductModal({
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true">
             <div
-                className={`modal-container modal-container--lg ${styles.modal}`}
+                className="modalDetachedStack modal-container--lg"
                 onClick={(event) => event.stopPropagation()}
             >
+                <div
+                    className={`modal-container ${styles.modal}`}
+                    onClick={(event) => event.stopPropagation()}
+                >
 
-                <div className="modal-top">
-                    <div className="modal-headerBlock">
-                        <h3 className="modal-title">
-                            {isEdit ? "Editar producto" : "Nuevo producto"}
-                        </h3>
-                        <p className="modal-description">
-                            {isEdit
-                                ? "Actualiza la informacion principal del producto."
-                                : "Crea un producto nuevo para el catalogo del sistema."}
-                        </p>
+                    <div className="modal-top">
+                        <div className="modal-headerBlock">
+                            <h3 className="modal-title">
+                                {isEdit ? "Editar producto" : "Nuevo producto"}
+                            </h3>
+                            <p className="modal-description">
+                                {isEdit
+                                    ? "Actualiza la informacion principal del producto."
+                                    : "Crea un producto nuevo para el catalogo del sistema."}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="modal-close"
+                            onClick={onClose}
+                            disabled={loading}
+                            aria-label="Cerrar modal"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        disabled={loading}
-                        aria-label="Cerrar modal"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="modal-body">
+                    <form id={formId} onSubmit={handleSubmit} className={`modal-body ${styles.modalBody}`}>
                     <section className="modal-section fadeSlideIn">
                         <div className="modal-sectionHeader">
                             <h4 className="modal-sectionTitle">Datos principales</h4>
@@ -552,29 +557,32 @@ export default function ProductModal({
                         </div>
                     ) : null}
 
-                    <div className={`modal-footer ${styles.footer} fadeSlideIn delayThree`}>
-                        <button
-                            type="button"
-                            className="miniAction modal-textButton"
-                            onClick={onClose}
-                            disabled={loading}
-                        >
-                            Cancelar
-                        </button>
+                    </form>
+                </div>
 
-                        <button
-                            type="submit"
-                            className="miniAction miniActionPrimary modal-textButton"
-                            disabled={isDisabled}
-                        >
-                            {loading
-                                ? "Guardando..."
-                                : isEdit
-                                    ? "Guardar cambios"
-                                    : "Crear producto"}
-                        </button>
-                    </div>
-                </form>
+                <div className={`modalDetachedFooter ${styles.footer} fadeSlideIn delayThree`}>
+                    <button
+                        type="button"
+                        className="miniAction"
+                        onClick={onClose}
+                        disabled={loading}
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="submit"
+                        form={formId}
+                        className="miniAction miniActionPrimary"
+                        disabled={isDisabled}
+                    >
+                        {loading
+                            ? "Guardando..."
+                            : isEdit
+                                ? "Guardar cambios"
+                                : "Crear producto"}
+                    </button>
+                </div>
             </div>
         </div>
     );

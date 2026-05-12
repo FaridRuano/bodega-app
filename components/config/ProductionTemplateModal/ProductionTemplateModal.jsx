@@ -14,6 +14,20 @@ const TEMPLATE_TYPE_OPTIONS = [
     { value: "portioning", label: "Porcionado" },
 ];
 
+function formatPercentageValue(value) {
+    if (value === null || value === undefined || value === "") {
+        return "";
+    }
+
+    const numericValue = Number(value);
+
+    if (Number.isNaN(numericValue)) {
+        return "";
+    }
+
+    return String(Number(numericValue.toFixed(2)));
+}
+
 function createEmptyInput() {
     return {
         productId: "",
@@ -102,12 +116,12 @@ function buildInitialForm(initialData) {
         expectedYield:
             initialData?.expectedYield !== null &&
                 initialData?.expectedYield !== undefined
-                ? String(initialData.expectedYield)
+                ? formatPercentageValue(initialData.expectedYield)
                 : "",
         expectedWaste:
             initialData?.expectedWaste !== null &&
                 initialData?.expectedWaste !== undefined
-                ? String(initialData.expectedWaste)
+                ? formatPercentageValue(initialData.expectedWaste)
                 : "",
         defaultDestination: "kitchen",
         allowsMultipleOutputs: Boolean(initialData?.allowsMultipleOutputs),
@@ -238,8 +252,8 @@ export default function ProductionTemplateModal({
 
             setForm((prev) => ({
                 ...prev,
-                expectedYield: String(clampedValue),
-                expectedWaste: String(calculatedWaste),
+                expectedYield: formatPercentageValue(clampedValue),
+                expectedWaste: formatPercentageValue(calculatedWaste),
             }));
             return;
         }
@@ -651,7 +665,12 @@ export default function ProductionTemplateModal({
 
                             <div className="form-field">
                                 <label className="form-label">Destino</label>
-                                <span className="form-span">Cocina</span>
+                                <input
+                                    value="Cocina"
+                                    className="form-input"
+                                    disabled
+                                    readOnly
+                                />
                             </div>
                         </div>
 
@@ -806,14 +825,12 @@ export default function ProductionTemplateModal({
 
                             <button
                                 type="button"
-                                className={`action-button action-button--neutral ${styles.addAction}`}
+                                className={`miniAction miniActionSecondary ${styles.addAction}`}
                                 onClick={addInputRow}
                                 disabled={loading}
                             >
-                                <span className="action-button__icon">
-                                    <Plus size={16} />
-                                </span>
-                                <span className="action-button__label">Agregar insumo</span>
+                                <Plus size={16} />
+                                <span>Agregar insumo</span>
                             </button>
                         </div>
 
@@ -911,15 +928,13 @@ export default function ProductionTemplateModal({
 
                             <button
                                 type="button"
-                                className={`action-button action-button--neutral ${styles.addAction} ${!form.allowsMultipleOutputs || loading ? styles.addButtonDisabled : ""
+                                className={`miniAction miniActionSecondary ${styles.addAction} ${!form.allowsMultipleOutputs || loading ? styles.addButtonDisabled : ""
                                     }`}
                                 onClick={addOutputRow}
                                 disabled={loading || !form.allowsMultipleOutputs}
                             >
-                                <span className="action-button__icon">
-                                    <Plus size={16} />
-                                </span>
-                                <span className="action-button__label">Agregar resultado</span>
+                                <Plus size={16} />
+                                <span>Agregar resultado</span>
                             </button>
                         </div>
 

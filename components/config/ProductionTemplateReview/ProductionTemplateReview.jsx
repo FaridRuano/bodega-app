@@ -84,220 +84,233 @@ export default function ProductionTemplateReviewModal({
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
-                className={`modal-container modal-container--xl ${styles.modalContainer}`}
+                className="modalDetachedStack modal-container--xl"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-top">
-                    <div className={styles.topBlock}>
-                        <div className="modal-headerContent">
-                            <div className="modal-icon modal-icon--info">
-                                <ClipboardList size={18} />
-                            </div>
-
-                            <div className={styles.topCopy}>
-                                <div className={styles.badgesRow}>
-                                    {template.code ? (
-                                        <span className={styles.codeBadge}>{template.code}</span>
-                                    ) : null}
-
-                                    <span
-                                        className={`${styles.statusBadge} ${isActive ? styles.active : styles.inactive}`}
-                                    >
-                                        {isActive ? "Activa" : "Inactiva"}
-                                    </span>
+                <div
+                    className={`modal-container ${styles.modalContainer}`}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <div className="modal-top">
+                        <div className={styles.topBlock}>
+                            <div className="modal-headerContent">
+                                <div className="modal-icon modal-icon--info">
+                                    <ClipboardList size={18} />
                                 </div>
 
-                                <h3 className="modal-title">
-                                    {template.name || "Ficha de produccion"}
-                                </h3>
-                                <p className="modal-description">
-                                    {template.description || "Sin descripcion registrada."}
-                                </p>
+                                <div className={styles.topCopy}>
+                                    <div className={styles.badgesRow}>
+                                        {template.code ? (
+                                            <span className={styles.codeBadge}>{template.code}</span>
+                                        ) : null}
+
+                                        <span
+                                            className={`${styles.statusBadge} ${isActive ? styles.active : styles.inactive}`}
+                                        >
+                                            {isActive ? "Activa" : "Inactiva"}
+                                        </span>
+                                    </div>
+
+                                    <h3 className="modal-title">
+                                        {template.name || "Ficha de produccion"}
+                                    </h3>
+                                    <p className="modal-description">
+                                        {template.description || "Sin descripcion registrada."}
+                                    </p>
+                                </div>
                             </div>
                         </div>
+
+                        <button
+                            type="button"
+                            className="modal-close"
+                            onClick={onClose}
+                            aria-label="Cerrar modal"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        aria-label="Cerrar modal"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
+                    <div className={`modal-body ${styles.modalBody}`}>
+                        <section className={styles.summaryPanel}>
+                            <CompactMeta
+                                label="Tipo"
+                                value={TEMPLATE_TYPE_LABELS[template.type] || template.type}
+                            />
+                            <CompactMeta
+                                label="Base"
+                                value={getUnitLabel(template.baseUnit)}
+                            />
+                            <CompactMeta
+                                label="Flujo"
+                                value={getFlowLabel(template)}
+                            />
+                            <CompactMeta
+                                label="Destino"
+                                value={
+                                    DESTINATION_LABELS[template.defaultDestination] ||
+                                    template.defaultDestination
+                                }
+                            />
+                            <CompactMeta
+                                label="Gramaje"
+                                value={template.requiresWeightControl ? "Controlado" : "Libre"}
+                            />
+                            <CompactMeta
+                                label="Categoria"
+                                value={template.category?.name || "-"}
+                            />
+                        </section>
 
-                <div className={`modal-body ${styles.modalBody}`}>
-                    <section className={styles.summaryPanel}>
-                        <CompactMeta
-                            label="Tipo"
-                            value={TEMPLATE_TYPE_LABELS[template.type] || template.type}
-                        />
-                        <CompactMeta
-                            label="Base"
-                            value={getUnitLabel(template.baseUnit)}
-                        />
-                        <CompactMeta
-                            label="Flujo"
-                            value={getFlowLabel(template)}
-                        />
-                        <CompactMeta
-                            label="Destino"
-                            value={
-                                DESTINATION_LABELS[template.defaultDestination] ||
-                                template.defaultDestination
-                            }
-                        />
-                        <CompactMeta
-                            label="Gramaje"
-                            value={template.requiresWeightControl ? "Controlado" : "Libre"}
-                        />
-                        <CompactMeta
-                            label="Categoria"
-                            value={template.category?.name || "-"}
-                        />
-                    </section>
-
-                    <section className={styles.section}>
-                        <div className={styles.sectionHeader}>
-                            <h4 className={styles.sectionTitle}>Configuracion</h4>
-                        </div>
-
-                        <div className={styles.metaRows}>
-                            <CompactMeta
-                                label="Rendimiento esperado"
-                                value={template.expectedYield ?? "-"}
-                            />
-                            <CompactMeta
-                                label="Merma esperada"
-                                value={template.expectedWaste ?? "-"}
-                            />
-                            <CompactMeta
-                                label="Multiples resultados"
-                                value={getBooleanLabel(template.allowsMultipleOutputs)}
-                            />
-                            <CompactMeta
-                                label="Registrar desperdicio"
-                                value={getBooleanLabel(template.requiresWasteRecord)}
-                            />
-                            <CompactMeta
-                                label="Ajuste real permitido"
-                                value={getBooleanLabel(template.allowRealOutputAdjustment)}
-                            />
-                        </div>
-
-                        {template.notes ? (
-                            <div className={styles.notesBlock}>
-                                <span className={styles.metaLabel}>Notas</span>
-                                <p className={styles.notesText}>{template.notes}</p>
+                        <section className={styles.section}>
+                            <div className={styles.sectionHeader}>
+                                <h4 className={styles.sectionTitle}>Configuracion</h4>
                             </div>
-                        ) : null}
-                    </section>
 
-                    <section className={styles.section}>
-                        <div className={styles.sectionHeader}>
-                            <h4 className={styles.sectionTitle}>Insumos</h4>
-                            <span className={styles.counterBadge}>
-                                {template.inputs?.length || 0}
-                            </span>
-                        </div>
+                            <div className={styles.metaRows}>
+                                <CompactMeta
+                                    label="Rendimiento esperado"
+                                    value={template.expectedYield ?? "-"}
+                                />
+                                <CompactMeta
+                                    label="Merma esperada"
+                                    value={template.expectedWaste ?? "-"}
+                                />
+                                <CompactMeta
+                                    label="Multiples resultados"
+                                    value={getBooleanLabel(template.allowsMultipleOutputs)}
+                                />
+                                <CompactMeta
+                                    label="Registrar desperdicio"
+                                    value={getBooleanLabel(template.requiresWasteRecord)}
+                                />
+                                <CompactMeta
+                                    label="Ajuste real permitido"
+                                    value={getBooleanLabel(template.allowRealOutputAdjustment)}
+                                />
+                            </div>
 
-                        <div className={styles.listGroup}>
-                            {template.inputs?.length ? (
-                                template.inputs.map((item, index) => (
-                                    <article key={item._id || index} className={styles.itemCard}>
-                                        <div className={styles.itemMain}>
-                                            <h5 className={styles.itemTitle}>
-                                                {getProductName(item.productId)}
-                                            </h5>
-                                            <p className={styles.itemSubtitle}>
-                                                {item.quantity} {getUnitLabel(item.unit)}
-                                            </p>
-                                        </div>
+                            {template.notes ? (
+                                <div className={styles.notesBlock}>
+                                    <span className={styles.metaLabel}>Notas</span>
+                                    <p className={styles.notesText}>{template.notes}</p>
+                                </div>
+                            ) : null}
+                        </section>
 
-                                        <div className={styles.badgesRow}>
-                                            {item.isPrimary ? (
-                                                <span className={styles.primaryBadge}>Principal</span>
-                                            ) : null}
-                                        </div>
-                                    </article>
-                                ))
-                            ) : (
-                                <p className={styles.emptyText}>No hay insumos registrados.</p>
-                            )}
-                        </div>
-                    </section>
+                        <section className={styles.section}>
+                            <div className={styles.sectionHeader}>
+                                <h4 className={styles.sectionTitle}>Insumos</h4>
+                                <span className={styles.counterBadge}>
+                                    {template.inputs?.length || 0}
+                                </span>
+                            </div>
 
-                    <section className={styles.section}>
-                        <div className={styles.sectionHeader}>
-                            <h4 className={styles.sectionTitle}>Resultados</h4>
-                            <span className={styles.counterBadge}>
-                                {template.outputs?.length || 0}
-                            </span>
-                        </div>
+                            <div className={styles.listGroup}>
+                                {template.inputs?.length ? (
+                                    template.inputs.map((item, index) => (
+                                        <article key={item._id || index} className={styles.itemCard}>
+                                            <div className={styles.itemMain}>
+                                                <h5 className={styles.itemTitle}>
+                                                    {getProductName(item.productId)}
+                                                </h5>
+                                                <p className={styles.itemSubtitle}>
+                                                    {item.quantity} {getUnitLabel(item.unit)}
+                                                </p>
+                                            </div>
 
-                        <div className={styles.listGroup}>
-                            {template.outputs?.length ? (
-                                template.outputs.map((item, index) => (
-                                    <article key={item._id || index} className={styles.itemCard}>
-                                        <div className={styles.itemMain}>
-                                            <h5 className={styles.itemTitle}>
-                                                {getProductName(item.productId)}
-                                            </h5>
-                                            <p className={styles.itemSubtitle}>
-                                                {item.quantity ?? "-"} {getUnitLabel(item.unit)}
-                                            </p>
-                                        </div>
+                                            <div className={styles.badgesRow}>
+                                                {item.isPrimary ? (
+                                                    <span className={styles.primaryBadge}>Principal</span>
+                                                ) : null}
+                                            </div>
+                                        </article>
+                                    ))
+                                ) : (
+                                    <p className={styles.emptyText}>No hay insumos registrados.</p>
+                                )}
+                            </div>
+                        </section>
 
-                                        <div className={styles.badgesRow}>
-                                            {item.isMain ? (
-                                                <span className={styles.mainBadge}>Principal</span>
-                                            ) : null}
+                        <section className={styles.section}>
+                            <div className={styles.sectionHeader}>
+                                <h4 className={styles.sectionTitle}>Resultados</h4>
+                                <span className={styles.counterBadge}>
+                                    {template.outputs?.length || 0}
+                                </span>
+                            </div>
 
-                                            {item.isByProduct ? (
-                                                <span className={styles.byProductBadge}>
-                                                    Subproducto
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                    </article>
-                                ))
-                            ) : (
-                                <p className={styles.emptyText}>No hay resultados registrados.</p>
-                            )}
-                        </div>
-                    </section>
+                            <div className={styles.listGroup}>
+                                {template.outputs?.length ? (
+                                    template.outputs.map((item, index) => (
+                                        <article key={item._id || index} className={styles.itemCard}>
+                                            <div className={styles.itemMain}>
+                                                <h5 className={styles.itemTitle}>
+                                                    {getProductName(item.productId)}
+                                                </h5>
+                                                <p className={styles.itemSubtitle}>
+                                                    {item.quantity ?? "-"} {getUnitLabel(item.unit)}
+                                                </p>
+                                            </div>
+
+                                            <div className={styles.badgesRow}>
+                                                {item.isMain ? (
+                                                    <span className={styles.mainBadge}>Principal</span>
+                                                ) : null}
+
+                                                {item.isByProduct ? (
+                                                    <span className={styles.byProductBadge}>
+                                                        Subproducto
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </article>
+                                    ))
+                                ) : (
+                                    <p className={styles.emptyText}>No hay resultados registrados.</p>
+                                )}
+                            </div>
+                        </section>
+                    </div>
                 </div>
 
-                <div className={`modal-footer ${styles.footer}`}>
+                <div className={`modalDetachedFooter ${styles.footer}`}>
                     <button
                         type="button"
-                        className="miniAction"
+                        className="action-button action-button--neutral"
                         onClick={onEdit}
                         disabled={loading}
                     >
-                        <Pencil size={14} />
-                        Editar
+                        <span className="action-button__icon">
+                            <Pencil size={16} />
+                        </span>
+                        <span className="action-button__label">Editar</span>
                     </button>
 
                     <button
                         type="button"
-                        className="miniAction"
+                        className={isActive ? "action-button action-button--warning" : "action-button"}
                         onClick={onToggleStatus}
                         disabled={loading}
                     >
-                        <Power size={14} />
-                        {isActive ? "Desactivar" : "Activar"}
+                        <span className="action-button__icon">
+                            <Power size={16} />
+                        </span>
+                        <span className="action-button__label">
+                            {isActive ? "Desactivar" : "Activar"}
+                        </span>
                     </button>
 
                     <button
                         type="button"
-                        className="miniAction miniActionDanger"
+                        className="action-button action-button--danger"
                         onClick={onDelete}
                         disabled={loading}
                     >
-                        <Trash2 size={14} />
-                        Eliminar
+                        <span className="action-button__icon">
+                            <Trash2 size={16} />
+                        </span>
+                        <span className="action-button__label">Eliminar</span>
                     </button>
                 </div>
             </div>

@@ -1,12 +1,13 @@
 .modalContainer {
-    width: min(1100px, 100%);
+    width: min(2120px, calc(100vw - 24px));
+    max-height: calc(100vh - 96px);
 }
 
 .modalBody {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    max-height: calc(100vh - 180px);
+    max-height: calc(100vh - 280px);
     overflow-y: auto;
     padding-right: 4px;
 }
@@ -98,7 +99,9 @@
 }
 
 .addAction {
-    width: auto;
+    width: fit-content;
+    min-width: 0;
+    justify-content: center;
 }
 
 .addButtonDisabled {
@@ -282,8 +285,13 @@
 }
 
 @media (max-width: 960px) {
+    .modalContainer {
+        width: min(1240px, calc(100vw - 28px));
+        max-height: calc(100vh - 72px);
+    }
+
     .modalBody {
-        max-height: calc(100vh - 250px);
+        max-height: calc(100vh - 240px);
         gap: 16px;
         padding-right: 0;
     }
@@ -335,11 +343,13 @@
 
 @media (max-width: 640px) {
     .modalContainer {
+        width: min(100%, calc(100vw - 24px));
         gap: 14px;
+        max-height: calc(100vh - 32px);
     }
 
     .modalBody {
-        max-height: calc(100vh - 290px);
+        max-height: calc(100vh - 250px);
         gap: 14px;
     }
 

@@ -1022,7 +1022,7 @@ export default function RequestsPage() {
             {canCreateTransfers ? (
               <button
                 type="button"
-                className="miniAction miniActionBalanced"
+                className="miniAction miniActionBalanced miniActionSecondary"
                 onClick={() => {
                   setRequestTypeFilter("transfer");
                   openCreateModal("transfer");

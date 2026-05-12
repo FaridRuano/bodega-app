@@ -393,13 +393,11 @@ export default function ProductionTemplatesPage() {
                     <div className={styles.actionGroup}>
                         <button
                             type="button"
-                            className="action-button action-button--neutral"
+                            className="miniAction miniActionPrimary"
                             onClick={handleOpenCreate}
                         >
-                            <span className="action-button__icon">
-                                <Plus size={16} />
-                            </span>
-                            <span className="action-button__label">Nueva ficha</span>
+                            <Plus size={16} />
+                            <span>Nueva ficha</span>
                         </button>
                     </div>
                 </div>
