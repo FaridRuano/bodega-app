@@ -66,6 +66,7 @@ export default function InventoryMovementModal({
 }) {
     const config = MODE_CONFIG[mode] || MODE_CONFIG.entry;
     const Icon = config.icon;
+    const formId = "inventory-movement-form";
     const quantityStep = getQuantityInputStep(product?.unit);
 
     const isTransfer = mode === "transfer";
@@ -93,11 +94,13 @@ export default function InventoryMovementModal({
         formData.fromLocation &&
         formData.toLocation &&
         formData.fromLocation === formData.toLocation;
+    const isTransferReasonMissing = isTransfer && !String(formData.notes || "").trim();
 
     const isSubmitDisabled =
         isSubmitting ||
         exceedsAvailableStock ||
-        hasInvalidTransfer;
+        hasInvalidTransfer ||
+        isTransferReasonMissing;
 
     function handleFormSubmit(event) {
         event.preventDefault();
@@ -128,32 +131,33 @@ export default function InventoryMovementModal({
     return (
         <div className="modal-overlay">
             <div
-                className={`modal-container ${styles.movementModal}`}
+                className={`modalDetachedStack ${styles.movementStack}`}
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="modal-top">
-                    <div className="modal-headerContent">
-                        <div className={config.iconClass}>
-                            <Icon size={20} />
+                <div className={`modal-container ${styles.movementModal}`}>
+                    <div className="modal-top">
+                        <div className="modal-headerContent">
+                            <div className={config.iconClass}>
+                                <Icon size={20} />
+                            </div>
+
+                            <div className="modal-headerBlock">
+                                <h2 className="modal-title">{config.title}</h2>
+                                <p className="modal-description">{config.description}</p>
+                            </div>
                         </div>
 
-                        <div className="modal-headerBlock">
-                            <h2 className="modal-title">{config.title}</h2>
-                            <p className="modal-description">{config.description}</p>
-                        </div>
+                        <button
+                            type="button"
+                            className="modal-close"
+                            onClick={onClose}
+                            aria-label="Cerrar modal"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    <button
-                        type="button"
-                        className="modal-close"
-                        onClick={onClose}
-                        aria-label="Cerrar modal"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <form className="modal-body" onSubmit={handleFormSubmit}>
+                    <form id={formId} className="modal-body" onSubmit={handleFormSubmit}>
                     <section className="modal-section fadeSlideIn">
                         <div className="modal-sectionHeader">
                             <h3 className="modal-sectionTitle">Producto</h3>
@@ -350,7 +354,7 @@ export default function InventoryMovementModal({
 
                         <div className="form-field">
                             <label className="form-label" htmlFor="movement-notes">
-                                Detalle
+                                {isTransfer ? "Motivo" : "Detalle"}
                             </label>
                             <textarea
                                 id="movement-notes"
@@ -358,31 +362,39 @@ export default function InventoryMovementModal({
                                 className={`form-textarea`}
                                 value={formData.notes}
                                 onChange={onChange}
-                                placeholder="Agrega una observacion o detalle del movimiento"
+                                placeholder={
+                                    isTransfer
+                                        ? "Describe por que se realiza esta transferencia"
+                                        : "Agrega una observacion o detalle del movimiento"
+                                }
                                 rows={3}
+                                required={isTransfer}
                             />
                         </div>
                     </section>
 
-                    <div className={`modal-footer ${styles.footer} fadeSlideIn delayThree`}>
-                        <button
-                            type="button"
-                            className="miniAction modal-textButton"
-                            onClick={onClose}
-                            disabled={isSubmitting}
-                        >
-                            Cancelar
-                        </button>
+                    </form>
+                </div>
 
-                        <button
-                            type="submit"
-                            className="miniAction miniActionPrimary modal-textButton"
-                            disabled={isSubmitDisabled}
-                        >
-                            {isSubmitting ? "Guardando..." : config.submitLabel}
-                        </button>
-                    </div>
-                </form>
+                <div className={`modalDetachedFooter ${styles.footer} fadeSlideIn delayThree`}>
+                    <button
+                        type="button"
+                        className="miniAction"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="submit"
+                        form={formId}
+                        className="miniAction miniActionPrimary"
+                        disabled={isSubmitDisabled}
+                    >
+                        {isSubmitting ? "Guardando..." : config.submitLabel}
+                    </button>
+                </div>
             </div>
         </div>
     );

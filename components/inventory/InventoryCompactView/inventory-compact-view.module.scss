@@ -31,10 +31,15 @@
 }
 
 .tableRow {
+    position: relative;
     min-height: 46px;
     padding: 7px 0;
     border-bottom: 1px solid var(--border-subtle);
     transition: background-color 0.18s ease;
+}
+
+.mobileStatusMarker {
+    display: none;
 }
 
 .tableRow:hover {
@@ -86,10 +91,16 @@
     align-items: center;
     justify-content: flex-end;
     gap: 4px;
+    opacity: 1;
+    transform: translateX(0);
 }
 
 .actionsHeaderSpacer {
     display: block;
+}
+
+.statusHeaderSpacer {
+    display: none;
 }
 
 .statusBadge {
@@ -188,12 +199,23 @@
     }
 
     .productCell {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
         flex-direction: column;
         align-items: flex-start;
         gap: 4px;
     }
 
+    .productMain {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
     .productName {
+        width: 100%;
+        max-width: 88px;
         font-size: 12px;
         line-height: 1.2;
     }
@@ -203,6 +225,10 @@
     }
 
     .amountCell {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         font-size: 10px;
     }
 
@@ -214,8 +240,49 @@
         display: none;
     }
 
+    .activeRow {
+        grid-template-columns: minmax(0, 88px) minmax(0, 1fr) 5px !important;
+        cursor: default;
+    }
+
+    .activeRow .amountCell {
+        display: none;
+    }
+
+    .activeRow .actionsCell {
+        display: flex;
+        grid-column: 2;
+        justify-content: flex-end;
+        min-width: 0;
+        width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        animation: rowActionsIn 160ms ease both;
+    }
+
+    .activeRow .actionsCell::-webkit-scrollbar {
+        display: none;
+    }
+
+    .activeRow .actionsCell :global(.action-button) {
+        flex: 0 0 auto;
+        min-width: fit-content;
+        white-space: nowrap;
+    }
+
+    .tableRow[data-scope="warehouse"].activeRow,
+    .tableRow[data-scope="kitchen"].activeRow,
+    .tableRow[data-scope="lounge"].activeRow {
+        grid-template-columns: minmax(0, 128px) minmax(0, 1fr) 5px !important;
+    }
+
     .actionsHeaderSpacer {
         display: none;
+    }
+
+    .statusHeaderSpacer {
+        display: block;
     }
 
     .skeletonValue {
@@ -225,7 +292,29 @@
     .tableHeader,
     .tableRow {
         gap: 8px;
-        grid-template-columns: minmax(92px, 1.6fr) repeat(4, minmax(28px, 1fr)) !important;
+        grid-template-columns: minmax(0, 88px) repeat(4, minmax(34px, 1fr)) 5px !important;
+    }
+
+    .mobileStatusMarker {
+        display: block;
+        width: 4px;
+        height: 26px;
+        border-radius: 999px;
+        background: var(--success);
+        justify-self: start;
+    }
+
+    .tableRow[data-status="low"] .mobileStatusMarker {
+        background: var(--danger);
+    }
+
+    .tableRow[data-status="warning"] .mobileStatusMarker {
+        background: var(--warning);
+    }
+
+    .tableRow[data-status="out"] .mobileStatusMarker,
+    .tableRow[data-status="inactive"] .mobileStatusMarker {
+        background: var(--text-muted);
     }
 
     .tableHeader {
@@ -239,6 +328,24 @@
     .tableRow[data-scope="warehouse"],
     .tableRow[data-scope="kitchen"],
     .tableRow[data-scope="lounge"] {
-        grid-template-columns: minmax(110px, 1.9fr) minmax(34px, 0.7fr) !important;
+        grid-template-columns: minmax(0, 128px) minmax(46px, 1fr) 5px !important;
+    }
+
+    .tableRow[data-scope="warehouse"] .productName,
+    .tableRow[data-scope="kitchen"] .productName,
+    .tableRow[data-scope="lounge"] .productName {
+        max-width: 128px;
+    }
+}
+
+@keyframes rowActionsIn {
+    from {
+        opacity: 0;
+        transform: translateX(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
     }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowRightLeft,
@@ -18,17 +19,42 @@ export default function InventoryCompactView({
   onExit,
   onTransfer,
   getStatusClass,
-  showActions = true,
+  canAdjust = true,
+  canTransfer = true,
   scope = "all",
   scopeLabel = "",
 }) {
+  const wrapperRef = useRef(null);
+  const [activeProductId, setActiveProductId] = useState("");
   const isGeneralScope = scope === "all";
+  const showActions = canAdjust || canTransfer;
   const quantityLabel = scopeLabel || "Cantidad";
   const gridTemplateColumns = isGeneralScope
     ? "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr)) minmax(122px, auto)"
     : showActions
       ? "minmax(180px, 2fr) minmax(46px, 0.55fr) minmax(122px, auto)"
       : "minmax(180px, 2fr) minmax(46px, 0.55fr)";
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!wrapperRef.current?.contains(event.target)) {
+        setActiveProductId("");
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, []);
+
+  function handleRowClick(productId) {
+    if (!showActions) return;
+    setActiveProductId((currentProductId) =>
+      currentProductId === productId ? "" : productId
+    );
+  }
 
   if (isLoading) {
     return (
@@ -46,6 +72,7 @@ export default function InventoryCompactView({
             <span>{quantityLabel}</span>
           )}
           {showActions ? <span className={styles.actionsHeaderSpacer} aria-hidden="true" /> : null}
+          <span className={styles.statusHeaderSpacer} aria-hidden="true" />
         </div>
 
         <div className={styles.tableBody}>
@@ -77,7 +104,7 @@ export default function InventoryCompactView({
   }
 
   return (
-    <div className={styles.tableWrap}>
+    <div className={styles.tableWrap} ref={wrapperRef}>
       <div className={styles.tableHeader} style={{ gridTemplateColumns }} data-scope={scope}>
         <span>Producto</span>
         {isGeneralScope ? (
@@ -97,9 +124,16 @@ export default function InventoryCompactView({
         {products.map((product, index) => (
           <article
             key={product._id}
-            className={`${styles.tableRow} fadeSlideIn`}
+            className={`${styles.tableRow} ${activeProductId === product._id ? styles.activeRow : ""} fadeSlideIn`}
             style={{ animationDelay: `${0.02 * index}s`, gridTemplateColumns }}
             data-scope={scope}
+            data-status={product.status || "available"}
+            onClick={() => handleRowClick(product._id)}
+            onMouseLeave={() => {
+              if (activeProductId === product._id) {
+                setActiveProductId("");
+              }
+            }}
           >
             <div className={styles.productCell}>
               <div className={styles.productMain}>
@@ -125,30 +159,37 @@ export default function InventoryCompactView({
             )}
 
             {showActions ? (
-              <div className={styles.actionsCell}>
-                <button
-                  type="button"
-                  className="action-button action-button--neutral"
-                  onClick={() => onEntry(product)}
-                >
-                  <span className="action-button__icon">
-                    <ArrowDownToLine size={14} />
-                  </span>
-                  <span className="action-button__label">Agregar</span>
-                </button>
+              <div
+                className={styles.actionsCell}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {canAdjust ? (
+                  <>
+                    <button
+                      type="button"
+                      className="action-button action-button--neutral"
+                      onClick={() => onEntry(product)}
+                    >
+                      <span className="action-button__icon">
+                        <ArrowDownToLine size={14} />
+                      </span>
+                      <span className="action-button__label">Agregar</span>
+                    </button>
 
-                <button
-                  type="button"
-                  className="action-button action-button--neutral"
-                  onClick={() => onExit(product)}
-                >
-                  <span className="action-button__icon">
-                    <ArrowUpFromLine size={14} />
-                  </span>
-                  <span className="action-button__label">Retirar</span>
-                </button>
+                    <button
+                      type="button"
+                      className="action-button action-button--neutral"
+                      onClick={() => onExit(product)}
+                    >
+                      <span className="action-button__icon">
+                        <ArrowUpFromLine size={14} />
+                      </span>
+                      <span className="action-button__label">Retirar</span>
+                    </button>
+                  </>
+                ) : null}
 
-                {isGeneralScope ? (
+                {canTransfer ? (
                   <button
                     type="button"
                     className="action-button action-button--neutral"
@@ -162,6 +203,7 @@ export default function InventoryCompactView({
                 ) : null}
               </div>
             ) : null}
+            <span className={styles.mobileStatusMarker} aria-hidden="true" />
           </article>
         ))}
       </div>

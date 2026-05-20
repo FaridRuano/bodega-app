@@ -180,19 +180,27 @@ export async function POST(request) {
             );
         }
 
+        if (movementType === "transfer" && !notes) {
+            return NextResponse.json(
+                { success: false, message: "El motivo es obligatorio para transferir inventario." },
+                { status: 400 }
+            );
+        }
+
         const isKitchenUser = user.role === "kitchen";
         const isLoungeUser = user.role === "loung";
 
         if (isKitchenUser) {
             const isAllowedMovement =
-                ["adjustment_in", "adjustment_out"].includes(movementType) &&
-                location === "kitchen";
+                movementType === "transfer" ||
+                (["adjustment_in", "adjustment_out"].includes(movementType) &&
+                    location === "kitchen");
 
             if (!isAllowedMovement) {
                 return NextResponse.json(
                     {
                         success: false,
-                        message: "Cocina solo puede registrar ajustes manuales dentro de su inventario.",
+                        message: "Cocina solo puede registrar ajustes manuales dentro de su inventario o transferencias con motivo.",
                     },
                     { status: 403 }
                 );
@@ -201,14 +209,15 @@ export async function POST(request) {
 
         if (isLoungeUser) {
             const isAllowedMovement =
-                ["adjustment_in", "adjustment_out"].includes(movementType) &&
-                location === "lounge";
+                movementType === "transfer" ||
+                (["adjustment_in", "adjustment_out"].includes(movementType) &&
+                    location === "lounge");
 
             if (!isAllowedMovement) {
                 return NextResponse.json(
                     {
                         success: false,
-                        message: "Lounge solo puede registrar ajustes manuales dentro de su inventario.",
+                        message: "Lounge solo puede registrar ajustes manuales dentro de su inventario o transferencias con motivo.",
                     },
                     { status: 403 }
                 );

@@ -1,3 +1,7 @@
+.movementStack {
+    max-width: 680px;
+}
+
 .movementModal {
     max-width: 680px;
 }
@@ -113,10 +117,6 @@
     margin-top: 0;
 }
 
-.footer :global(.miniAction) {
-    min-width: 138px;
-}
-
 @media (max-width: 900px) {
     .stockGrid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -124,6 +124,7 @@
 }
 
 @media (max-width: 640px) {
+    .movementStack,
     .movementModal {
         max-width: 100%;
     }
@@ -138,6 +139,6 @@
     }
 
     .footer {
-        justify-content: stretch;
+        justify-content: flex-end;
     }
 }

@@ -149,12 +149,16 @@ export default function InventoryPage() {
   const activeScope = availableScopes.includes(scope) ? scope : availableScopes[0] || "all";
   const isGeneralScope = activeScope === "all";
   const operationalScope = currentUser?.role === "loung" ? "lounge" : currentUser?.role;
-  const canManageCurrentScope =
+  const canAdjustCurrentScope =
     currentUser?.role === "admin" ||
     currentUser?.role === "warehouse" ||
     (!isGeneralScope &&
       ["kitchen", "loung"].includes(currentUser?.role || "") &&
       operationalScope === activeScope);
+  const canTransferInventory = ["admin", "warehouse", "kitchen", "loung"].includes(
+    currentUser?.role || ""
+  );
+  const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
   const heroEyebrow = isGeneralScope ? "Inventario" : scopeLabel;
   const heroTitle = isGeneralScope ? "Control de existencias" : `Inventario de ${scopeLabel.toLowerCase()}`;
@@ -426,7 +430,18 @@ export default function InventoryPage() {
   function openMovementModal(mode, product) {
     const defaultLocation = isGeneralScope ? "warehouse" : activeScope;
     const defaultTransferFrom = activeScope === "all" ? "warehouse" : activeScope;
-    const defaultTransferTo = activeScope === "all" ? "kitchen" : "warehouse";
+    let defaultTransferTo =
+      currentUser?.role === "loung"
+        ? "lounge"
+        : currentUser?.role === "kitchen"
+          ? "kitchen"
+          : activeScope === "all" || activeScope === "warehouse"
+            ? "kitchen"
+            : "warehouse";
+
+    if (defaultTransferFrom === defaultTransferTo) {
+      defaultTransferTo = defaultTransferFrom === "warehouse" ? "kitchen" : "warehouse";
+    }
 
     setMovementModal({ open: true, mode, product });
     setMovementForm({
@@ -500,6 +515,10 @@ export default function InventoryPage() {
       }
 
       if (movementModal.mode === "transfer") {
+        if (!movementForm.notes.trim()) {
+          throw new Error("Debes escribir un motivo para transferir inventario.");
+        }
+
         payload.movementType = "transfer";
         payload.fromLocation = movementForm.fromLocation;
         payload.toLocation = movementForm.toLocation;
@@ -623,7 +642,7 @@ export default function InventoryPage() {
             Limpiar filtros
           </button>
 
-          {!isGeneralScope && canManageCurrentScope ? (
+          {!isGeneralScope && canAdjustCurrentScope ? (
             <button
               type="button"
               className="miniAction"
@@ -740,7 +759,8 @@ export default function InventoryPage() {
                 onExit={(product) => openMovementModal("exit", product)}
                 onTransfer={(product) => openMovementModal("transfer", product)}
                 getStatusClass={getStatusClass}
-                showActions={canManageCurrentScope}
+                canAdjust={canAdjustCurrentScope}
+                canTransfer={canTransferInventory}
                 scope={activeScope}
                 scopeLabel={scopeLabel}
               />
@@ -847,33 +867,37 @@ export default function InventoryPage() {
                     </div>
 
                     <div className={styles.footerRow}>
-                      {canManageCurrentScope ? (
+                      {canShowInventoryActions ? (
                         <div className={styles.actions}>
-                          <button
-                            type="button"
-                            className="action-button action-button--neutral"
-                            onClick={() => openMovementModal("entry", product)}
-                            aria-label="Agregar"
-                          >
-                            <span className="action-button__icon">
-                              <ArrowDownToLine size={14} />
-                            </span>
-                            <span className="action-button__label">Agregar</span>
-                          </button>
+                          {canAdjustCurrentScope ? (
+                            <>
+                              <button
+                                type="button"
+                                className="action-button action-button--neutral"
+                                onClick={() => openMovementModal("entry", product)}
+                                aria-label="Agregar"
+                              >
+                                <span className="action-button__icon">
+                                  <ArrowDownToLine size={14} />
+                                </span>
+                                <span className="action-button__label">Agregar</span>
+                              </button>
 
-                          <button
-                            type="button"
-                            className="action-button action-button--neutral"
-                            onClick={() => openMovementModal("exit", product)}
-                            aria-label="Retirar"
-                          >
-                            <span className="action-button__icon">
-                              <ArrowUpFromLine size={14} />
-                            </span>
-                            <span className="action-button__label">Retirar</span>
-                          </button>
+                              <button
+                                type="button"
+                                className="action-button action-button--neutral"
+                                onClick={() => openMovementModal("exit", product)}
+                                aria-label="Retirar"
+                              >
+                                <span className="action-button__icon">
+                                  <ArrowUpFromLine size={14} />
+                                </span>
+                                <span className="action-button__label">Retirar</span>
+                              </button>
+                            </>
+                          ) : null}
 
-                          {isGeneralScope ? (
+                          {canTransferInventory ? (
                             <button
                               type="button"
                               className="action-button action-button--neutral"
