@@ -7,12 +7,14 @@ import {
   ArrowUpFromLine,
   AlertTriangle,
   Boxes,
+  History,
   LayoutGrid,
   List,
   PackageSearch,
   Search,
   Warehouse,
 } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./page.module.scss";
@@ -159,6 +161,7 @@ export default function InventoryPage() {
     currentUser?.role || ""
   );
   const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
+  const canAccessInventoryHistory = currentUser?.role === "admin";
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
   const heroEyebrow = isGeneralScope ? "Inventario" : scopeLabel;
   const heroTitle = isGeneralScope ? "Control de existencias" : `Inventario de ${scopeLabel.toLowerCase()}`;
@@ -175,6 +178,20 @@ export default function InventoryPage() {
     Boolean(alertFilter) ||
     Boolean(familyFilter) ||
     Boolean(categoryFilter);
+  const historyHref = useMemo(() => {
+    const params = new URLSearchParams();
+
+    if (searchTerm.trim()) params.set("search", searchTerm.trim());
+    if (alertFilter) params.set("alert", alertFilter);
+    if (familyFilter) params.set("familyId", familyFilter);
+    if (categoryFilter) params.set("categoryId", categoryFilter);
+    if (activeScope !== "all") params.set("scope", activeScope);
+    if (viewMode !== "compact") params.set("view", viewMode);
+    if (page > 1) params.set("page", String(page));
+
+    const query = params.toString();
+    return query ? `/dashboard/inventory/history?${query}` : "/dashboard/inventory/history";
+  }, [activeScope, alertFilter, categoryFilter, familyFilter, page, searchTerm, viewMode]);
   const areFamilyFiltersLoading = isLoading && families.length === 0;
   const areCategoryFiltersLoading = isLoading && categories.length === 0;
 
@@ -742,6 +759,7 @@ export default function InventoryPage() {
               ))}
             </select>
           </div>
+
         </div>
 
         <div className={`${styles.listSection} fadeSlideIn delayTwo`}>
@@ -929,6 +947,15 @@ export default function InventoryPage() {
             </>
           )}
         </div>
+
+        {canAccessInventoryHistory ? (
+          <div className={styles.historyAccess}>
+            <Link href={historyHref} className="miniAction">
+              <History size={14} />
+              Inventario historico
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       {shouldUseQuickAdjustModal ? (

@@ -10,6 +10,7 @@ const routeTitles = {
   "/dashboard": { eyebrow: "Panel de control", title: "Resumen" },
   "/dashboard/products": { eyebrow: "Inventario", title: "Productos" },
   "/dashboard/inventory": { eyebrow: "Modulo", title: "Inventario general" },
+  "/dashboard/inventory/history": { eyebrow: "Inventario", title: "Historico" },
   "/dashboard/movements": { eyebrow: "Auditoria", title: "Movimientos" },
   "/dashboard/config": { eyebrow: "Sistema", title: "Configuracion" },
   "/dashboard/config/users": { eyebrow: "Sistema", title: "Usuarios" },

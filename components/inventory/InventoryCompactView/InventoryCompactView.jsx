@@ -30,7 +30,9 @@ export default function InventoryCompactView({
   const showActions = canAdjust || canTransfer;
   const quantityLabel = scopeLabel || "Cantidad";
   const gridTemplateColumns = isGeneralScope
-    ? "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr)) minmax(122px, auto)"
+    ? showActions
+      ? "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr)) minmax(122px, auto)"
+      : "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr))"
     : showActions
       ? "minmax(180px, 2fr) minmax(46px, 0.55fr) minmax(122px, auto)"
       : "minmax(180px, 2fr) minmax(46px, 0.55fr)";

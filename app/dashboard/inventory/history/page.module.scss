@@ -2,11 +2,20 @@
     margin-bottom: 6px;
 }
 
-.heroStats {
+.heroStats,
+.heroTools {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 10px;
+}
+
+.heroTools {
+    align-items: center;
+}
+
+.heroDateFilter {
+    width: min(100%, 190px);
 }
 
 .heroStatButton {
@@ -143,11 +152,47 @@
     appearance: none;
 }
 
-.historyAccess {
+.dateFilter {
+    width: 100%;
+    min-height: 36px;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    padding-top: 2px;
+    gap: 8px;
+    border: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--bg-subtle) 78%, var(--surface-secondary));
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 0 12px;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background-color 0.18s ease;
+}
+
+.dateFilter:focus-within {
+    border-color: var(--border-accent);
+    box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.dateFilter input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-primary);
+    color-scheme: light;
+    font-size: 13px;
+}
+
+.dateFilter input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    margin-right: -4px;
+    opacity: 0.9;
+}
+
+:global(html.dark) .dateFilter input {
+    color-scheme: dark;
 }
 
 .listSection {
@@ -485,8 +530,13 @@
 }
 
 @media (max-width: 640px) {
-    .heroStats {
+    .heroStats,
+    .heroTools {
         justify-content: flex-end;
+    }
+
+    .heroDateFilter {
+        width: 100%;
     }
 
     .filterRow {
@@ -494,10 +544,22 @@
         gap: 8px;
     }
 
-    .filterSelect {
+    .filterSelect,
+    .dateFilter {
         min-height: 34px;
         font-size: 12px;
+    }
+
+    .filterSelect {
         padding: 0 30px 0 10px;
+    }
+
+    .dateFilter {
+        padding: 0 8px;
+    }
+
+    .dateFilter input {
+        font-size: 12px;
     }
 
     .productTitleRow {

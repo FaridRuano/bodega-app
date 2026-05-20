@@ -5,6 +5,7 @@ import dbConnect from "@libs/mongodb";
 import Product from "@models/Product";
 import Category from "@models/Category";
 import InventoryStock from "@models/InventoryStock";
+import InventoryMovement from "@models/InventoryMovement";
 import { parsePositiveNumber } from "@libs/apiUtils";
 import { STOCK_LOCATIONS } from "@models/InventoryStock";
 import {
@@ -23,7 +24,61 @@ function getDefaultInventory() {
     };
 }
 
-async function buildInventoryMap(productIds = []) {
+function roundInventoryQuantity(value) {
+    const quantity = Number(value || 0);
+    if (!Number.isFinite(quantity)) return 0;
+
+    const rounded = Math.round(quantity * 1000000) / 1000000;
+    return Math.abs(rounded) < 0.000001 ? 0 : rounded;
+}
+
+function normalizeAsOfDate(value) {
+    const normalized = String(value || "").trim();
+
+    if (!normalized) return null;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        throw new Error("La fecha historica debe tener formato YYYY-MM-DD.");
+    }
+
+    const endOfDay = new Date(`${normalized}T23:59:59.999-05:00`);
+
+    if (Number.isNaN(endOfDay.getTime())) {
+        throw new Error("La fecha historica no es valida.");
+    }
+
+    return {
+        value: normalized,
+        endOfDay,
+    };
+}
+
+function ensureInventoryEntry(inventoryMap, productId) {
+    const key = String(productId);
+
+    if (!inventoryMap.has(key)) {
+        inventoryMap.set(key, getDefaultInventory());
+    }
+
+    return inventoryMap.get(key);
+}
+
+function recomputeInventoryTotals(inventory) {
+    inventory.warehouse = roundInventoryQuantity(inventory.warehouse);
+    inventory.kitchen = roundInventoryQuantity(inventory.kitchen);
+    inventory.lounge = roundInventoryQuantity(inventory.lounge);
+    inventory.total = roundInventoryQuantity(
+        inventory.warehouse + inventory.kitchen + inventory.lounge
+    );
+    inventory.reserved = roundInventoryQuantity(inventory.reserved);
+    inventory.available = roundInventoryQuantity(
+        Math.max(inventory.total - inventory.reserved, 0)
+    );
+
+    return inventory;
+}
+
+async function buildInventoryMap(productIds = [], options = {}) {
     if (!productIds.length) return new Map();
 
     const stocks = await InventoryStock.find({
@@ -35,11 +90,7 @@ async function buildInventoryMap(productIds = []) {
     for (const stock of stocks) {
         const key = String(stock.productId);
 
-        if (!inventoryMap.has(key)) {
-            inventoryMap.set(key, getDefaultInventory());
-        }
-
-        const current = inventoryMap.get(key);
+        const current = ensureInventoryEntry(inventoryMap, key);
 
         const quantity = Number(stock.quantity || 0);
         const reservedQuantity = Number(stock.reservedQuantity || 0);
@@ -62,6 +113,43 @@ async function buildInventoryMap(productIds = []) {
 
         if (stock.location === "lounge") {
             current.lounge += quantity;
+        }
+    }
+
+    if (options.asOfDate?.endOfDay) {
+        const futureMovements = await InventoryMovement.find({
+            productId: { $in: productIds },
+            movementDate: { $gt: options.asOfDate.endOfDay },
+        })
+            .select("productId quantity fromLocation toLocation")
+            .lean();
+
+        for (const movement of futureMovements) {
+            const current = ensureInventoryEntry(inventoryMap, movement.productId);
+            const quantity = Number(movement.quantity || 0);
+
+            if (!Number.isFinite(quantity) || quantity <= 0) continue;
+
+            if (movement.toLocation && STOCK_LOCATIONS.includes(movement.toLocation)) {
+                current[movement.toLocation] = roundInventoryQuantity(
+                    Number(current[movement.toLocation] || 0) - quantity
+                );
+            }
+
+            if (movement.fromLocation && STOCK_LOCATIONS.includes(movement.fromLocation)) {
+                current[movement.fromLocation] = roundInventoryQuantity(
+                    Number(current[movement.fromLocation] || 0) + quantity
+                );
+            }
+        }
+
+        for (const inventory of inventoryMap.values()) {
+            inventory.reserved = 0;
+            recomputeInventoryTotals(inventory);
+        }
+    } else {
+        for (const inventory of inventoryMap.values()) {
+            recomputeInventoryTotals(inventory);
         }
     }
 
@@ -186,6 +274,19 @@ export async function GET(request) {
         const categoryId = String(searchParams.get("categoryId") || "").trim();
         const familyId = String(searchParams.get("familyId") || "").trim();
         const productType = normalizeProductTypeFilter(searchParams.get("productType"));
+        let asOfDate = null;
+
+        try {
+            asOfDate = normalizeAsOfDate(searchParams.get("asOfDate"));
+        } catch (dateError) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: dateError.message,
+                },
+                { status: 400 }
+            );
+        }
 
         const query = buildSearchFilter(search) || {};
 
@@ -223,7 +324,8 @@ export async function GET(request) {
             .lean();
 
         const inventoryMap = await buildInventoryMap(
-            products.map((product) => product._id)
+            products.map((product) => product._id),
+            { asOfDate }
         );
 
         const normalizedProducts = products.map((product) =>
@@ -283,6 +385,8 @@ export async function GET(request) {
             warningStockProducts: normalizedProducts.filter((product) => product.status === "warning").length,
             selectedLocation: location,
             selectedAlert: alert,
+            asOfDate: asOfDate?.value || null,
+            isHistorical: Boolean(asOfDate),
         };
 
         return NextResponse.json(
@@ -295,6 +399,8 @@ export async function GET(request) {
                     limit: hasPagination ? limit : filteredData.length,
                     total: filteredData.length,
                     pages: hasPagination ? Math.max(Math.ceil(filteredData.length / limit), 1) : 1,
+                    asOfDate: asOfDate?.value || null,
+                    isHistorical: Boolean(asOfDate),
                 },
             },
             { status: 200 }
