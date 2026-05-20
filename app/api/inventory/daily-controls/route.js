@@ -17,6 +17,7 @@ import {
 import {
     createStockAlertNotifications,
 } from "@libs/notifications";
+import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 
 function normalizeLocation(value, fallback = null) {
     const normalized = String(value || "")
@@ -551,6 +552,12 @@ export async function POST(request) {
             const systemQuantityBeforeAdjustment = Number(stock.quantity || 0);
             const totalOut = Number(line.issuedQuantity || 0);
 
+            assertValidQuantityForUnit(
+                totalOut,
+                product.unit,
+                `La cantidad de salida de ${product.name}`
+            );
+
             if (systemQuantityBeforeAdjustment < totalOut) {
                 throw new Error(
                     `No hay stock suficiente para registrar la salida de "${product.name}".`
@@ -831,12 +838,18 @@ export async function PATCH(request) {
 
             const previousLine = existingLineMap.get(line.productId);
             const previousIssued = Number(previousLine?.issuedQuantity || 0);
+            const nextIssued = Number(line.issuedQuantity || 0);
+            assertValidQuantityForUnit(
+                nextIssued,
+                product.unit,
+                `La cantidad de salida de ${product.name}`
+            );
             const currentStockQuantity = Number(stock.quantity || 0);
             const adjustedSystemQuantity = previousLine
                 ? Number(previousLine.systemQuantityBeforeAdjustment || 0)
-                : Number((currentStockQuantity + Number(line.issuedQuantity || 0)).toFixed(6));
+                : Number((currentStockQuantity + nextIssued).toFixed(6));
             const deltaIssued = Number(
-                (Number(line.issuedQuantity || 0) - previousIssued).toFixed(6)
+                (nextIssued - previousIssued).toFixed(6)
             );
 
             if (deltaIssued > 0 && currentStockQuantity < deltaIssued) {

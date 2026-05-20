@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowRightLeft,
@@ -22,6 +22,7 @@ import {
   getMovementTypeLabel,
 } from "@libs/constants/domainLabels";
 import { getUnitLabel } from "@libs/constants/units";
+import { formatQuantity } from "@libs/unitQuantities";
 
 const PAGE_SIZE = PAGE_LIMITS.movements;
 
@@ -76,6 +77,7 @@ export default function MovementsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hasInitializedPageReset = useRef(false);
 
   const [movements, setMovements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,6 +92,11 @@ export default function MovementsPage() {
   const hasActiveFilters = Boolean(search.trim()) || Boolean(dateFilter) || Boolean(locationFilter) || Boolean(movementTypeFilter);
 
   useEffect(() => {
+    if (!hasInitializedPageReset.current) {
+      hasInitializedPageReset.current = true;
+      return;
+    }
+
     setPage(1);
   }, [dateFilter, locationFilter, movementTypeFilter, search]);
 
@@ -326,7 +333,7 @@ export default function MovementsPage() {
 
                       <div className={styles.quantityBlock}>
                         <strong className={styles.quantityValue}>
-                          {movement.quantity} {getUnitLabel(movement.unitSnapshot)}
+                          {formatQuantity(movement.quantity)} {getUnitLabel(movement.unitSnapshot)}
                         </strong>
                         <span className={styles.quantityLabel}>Cantidad</span>
                       </div>

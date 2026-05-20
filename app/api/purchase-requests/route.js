@@ -20,6 +20,7 @@ import {
     resolvePurchaseRequestStatus,
 } from "@libs/purchaseRequests";
 import { STOCK_LOCATIONS } from "@models/InventoryStock";
+import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 
 function mapPurchaseRequestDocument(request) {
     const effectiveStatus = resolvePurchaseRequestStatus(request);
@@ -321,6 +322,12 @@ export async function POST(request) {
             if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
                 throw new Error(`La cantidad de ${product.name} debe ser mayor que cero.`);
             }
+
+            assertValidQuantityForUnit(
+                requestedQuantity,
+                product.unit,
+                `La cantidad de ${product.name}`
+            );
 
             if (!isPurchaseEligibleProductType(product.productType)) {
                 throw new Error(

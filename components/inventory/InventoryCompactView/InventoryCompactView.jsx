@@ -9,6 +9,7 @@ import {
 import styles from "./inventory-compact-view.module.scss";
 import { getInventoryStatusLabel } from "@libs/constants/domainLabels";
 import { getUnitLabel } from "@libs/constants/units";
+import { formatQuantity } from "@libs/unitQuantities";
 
 export default function InventoryCompactView({
   products,
@@ -114,13 +115,13 @@ export default function InventoryCompactView({
 
             {isGeneralScope ? (
               <>
-                <strong className={styles.amountCell}>{product.inventory?.total || 0}</strong>
-                <span className={styles.amountCell}>{product.inventory?.warehouse || 0}</span>
-                <span className={styles.amountCell}>{product.inventory?.kitchen || 0}</span>
-                <span className={styles.amountCell}>{product.inventory?.lounge || 0}</span>
+                <strong className={styles.amountCell}>{formatQuantity(product.inventory?.total)}</strong>
+                <span className={styles.amountCell}>{formatQuantity(product.inventory?.warehouse)}</span>
+                <span className={styles.amountCell}>{formatQuantity(product.inventory?.kitchen)}</span>
+                <span className={styles.amountCell}>{formatQuantity(product.inventory?.lounge)}</span>
               </>
             ) : (
-              <strong className={styles.amountCell}>{product.inventory?.[scope] || 0}</strong>
+              <strong className={styles.amountCell}>{formatQuantity(product.inventory?.[scope])}</strong>
             )}
 
             {showActions ? (

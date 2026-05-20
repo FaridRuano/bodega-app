@@ -27,6 +27,7 @@ import {
     generateProductionNumber,
     scaleProductionQuantity,
 } from "@libs/productionUtils";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 export async function GET(request) {
     try {
@@ -169,6 +170,10 @@ export async function POST(request) {
 
         if (!targetUnit || !PRODUCT_UNITS.includes(targetUnit)) {
             return badRequest("targetUnit no es válido.");
+        }
+
+        if (!isValidQuantityForUnit(parsedTargetQuantity, targetUnit)) {
+            return badRequest("targetQuantity no cumple la regla de cantidad para esta unidad.");
         }
 
         const template = await ProductionTemplate.findOne({

@@ -18,6 +18,7 @@ import {
 
 import styles from "./product-view-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
+import { formatQuantity } from "@libs/unitQuantities";
 
 const PRODUCT_TYPE_LABELS = {
   raw_material: "Materia prima",
@@ -38,13 +39,7 @@ function formatBoolean(value, truthyLabel = "Si", falsyLabel = "No") {
 }
 
 function formatNumber(value) {
-  const numericValue = Number(value || 0);
-
-  if (Number.isInteger(numericValue)) {
-    return String(numericValue);
-  }
-
-  return numericValue.toFixed(2);
+  return formatQuantity(value);
 }
 
 export default function ProductViewModal({

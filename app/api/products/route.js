@@ -6,6 +6,7 @@ import Product from "@models/Product";
 import Category from "@models/Category";
 import InventoryStock from "@models/InventoryStock";
 import { parsePositiveNumber } from "@libs/apiUtils";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 async function buildInventoryMap(productIds = []) {
     if (!productIds.length) return new Map();
@@ -282,6 +283,19 @@ export async function POST(request) {
                 },
                 { status: 400 }
             );
+        }
+
+        if (
+            (Number(minStock || 0) > 0 && !isValidQuantityForUnit(minStock, unit)) ||
+            (Number(reorderPoint || 0) > 0 && !isValidQuantityForUnit(reorderPoint, unit))
+        ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                    message: "Los umbrales de stock no cumplen la regla de cantidad para esta unidad.",
+                    },
+                    { status: 400 }
+                );
         }
 
         const category = await Category.findById(normalizedCategoryId);

@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 import { getProductionTypeLabel } from "@libs/constants/productionTypes";
 import styles from "./production-draft-view.module.scss";
 import ConfirmModal from "@components/shared/ConfirmModal/ConfirmModal";
@@ -509,12 +513,15 @@ export default function ProductionDraftView({
                                             <input
                                                 type="number"
                                                 min="0.0001"
-                                                step="0.0001"
+                                                step={getQuantityInputStep(production?.targetUnit)}
                                                 value={form.targetQuantity}
                                                 onChange={(event) =>
                                                     setForm((prev) => ({
                                                         ...prev,
-                                                        targetQuantity: event.target.value,
+                                                        targetQuantity: normalizeQuantityInput(
+                                                            event.target.value,
+                                                            production?.targetUnit
+                                                        ),
                                                     }))
                                                 }
                                                 className="form-input"
@@ -756,4 +763,3 @@ export default function ProductionDraftView({
         </>
     );
 }
-

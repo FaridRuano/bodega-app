@@ -5,6 +5,10 @@ import { Archive, ClipboardCheck, Scale, Settings2, X } from "lucide-react";
 
 import { PRODUCT_UNIT_OPTIONS } from "@libs/constants/units";
 import { getProductTypeLabel, PRODUCT_TYPES } from "@libs/constants/productTypes";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 import styles from "./product-modal.module.scss";
 
 const STORAGE_TYPE_OPTIONS = [
@@ -102,7 +106,11 @@ export default function ProductModal({
 
         setForm((prev) => ({
             ...prev,
-            [name]: type === "checkbox" ? checked : value,
+            [name]: type === "checkbox"
+                ? checked
+                : ["minStock", "reorderPoint"].includes(name)
+                    ? normalizeQuantityInput(value, prev.unit)
+                    : value,
         }));
     }
 
@@ -493,7 +501,7 @@ export default function ProductModal({
                                         name="minStock"
                                         type="number"
                                         min="0"
-                                        step="0.01"
+                                        step={getQuantityInputStep(form.unit)}
                                         value={form.minStock}
                                         onChange={handleChange}
                                         className="form-input"
@@ -511,7 +519,7 @@ export default function ProductModal({
                                         name="reorderPoint"
                                         type="number"
                                         min="0"
-                                        step="0.01"
+                                        step={getQuantityInputStep(form.unit)}
                                         value={form.reorderPoint}
                                         onChange={handleChange}
                                         className="form-input"

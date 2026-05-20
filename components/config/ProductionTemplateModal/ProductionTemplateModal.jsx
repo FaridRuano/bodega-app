@@ -6,6 +6,10 @@ import { Plus, Trash2, X } from "lucide-react";
 import { getUnitLabel, PRODUCTION_BASE_UNIT_OPTIONS } from "@libs/constants/units";
 import styles from "./production-template-modal.module.scss";
 import ProductAutocomplete from "@components/shared/ProductAutocomplete/ProductAutoComplete";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 
 const TEMPLATE_TYPE_OPTIONS = [
     { value: "transformation", label: "Transformación" },
@@ -857,11 +861,15 @@ export default function ProductionTemplateModal({
                                             <label className="form-label">Cantidad</label>
                                             <input
                                                 type="number"
-                                                step="0.0001"
+                                                step={getQuantityInputStep(item.unit)}
                                                 min="0"
                                                 value={item.quantity}
                                                 onChange={(event) =>
-                                                    handleInputRowChange(index, "quantity", event.target.value)
+                                                    handleInputRowChange(
+                                                        index,
+                                                        "quantity",
+                                                        normalizeQuantityInput(event.target.value, item.unit)
+                                                    )
                                                 }
                                                 className="form-input"
                                                 disabled={loading}
@@ -960,12 +968,16 @@ export default function ProductionTemplateModal({
                                             <label className="form-label">Cantidad Estimada</label>
                                             <input
                                                 type="number"
-                                                step="0.0001"
+                                                step={getQuantityInputStep(item.unit)}
                                                 min="0"
                                                 placeholder="Opcional"
                                                 value={item.quantity}
                                                 onChange={(event) =>
-                                                    handleOutputRowChange(index, "quantity", event.target.value)
+                                                    handleOutputRowChange(
+                                                        index,
+                                                        "quantity",
+                                                        normalizeQuantityInput(event.target.value, item.unit)
+                                                    )
                                                 }
                                                 className="form-input"
                                                 disabled={loading}

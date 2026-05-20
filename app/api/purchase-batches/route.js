@@ -17,6 +17,7 @@ import dbConnect from "@libs/mongodb";
 import Product from "@models/Product";
 import PurchaseBatch from "@models/PurchaseBatch";
 import PurchaseRequest from "@models/PurchaseRequest";
+import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 
 function mapPurchaseBatch(batch, progress = null) {
     const progressSummary = progress || {
@@ -310,6 +311,12 @@ export async function POST(request) {
             if (!Number.isFinite(quantity) || quantity <= 0) {
                 throw new Error(`La cantidad comprada de ${product.name} debe ser mayor que cero.`);
             }
+
+            assertValidQuantityForUnit(
+                quantity,
+                product.unit,
+                `La cantidad comprada de ${product.name}`
+            );
 
             if (unitCost != null && (!Number.isFinite(unitCost) || unitCost < 0)) {
                 throw new Error(`El costo unitario de ${product.name} no es valido.`);

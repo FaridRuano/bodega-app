@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Boxes,
+  CheckCheck,
   ClipboardList,
+  History,
   PackagePlus,
   Search,
   ShoppingCart,
+  Truck,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -18,6 +21,7 @@ import PurchaseRequestModal from "@components/purchases/PurchaseRequestModal/Pur
 import PurchaseRequestReviewModal from "@components/purchases/PurchaseRequestReviewModal/PurchaseRequestReviewModal";
 import { getLocationLabel } from "@libs/constants/domainLabels";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+import { formatQuantity } from "@libs/unitQuantities";
 import styles from "./page.module.scss";
 
 const PAGE_SIZE = 12;
@@ -227,6 +231,7 @@ export default function PurchasesPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hasInitializedPageReset = useRef(false);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [hasResolvedCurrentUser, setHasResolvedCurrentUser] = useState(false);
@@ -249,11 +254,15 @@ export default function PurchasesPage() {
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [isSubmittingPurchase, setIsSubmittingPurchase] = useState(false);
   const [isApprovingRequest, setIsApprovingRequest] = useState(false);
+  const [isApprovingAllRequests, setIsApprovingAllRequests] = useState(false);
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [isDeletingRequest, setIsDeletingRequest] = useState(false);
   const [isReceivingRequest, setIsReceivingRequest] = useState(false);
   const [dispatchingBatchId, setDispatchingBatchId] = useState("");
+  const [isDispatchingAllBatches, setIsDispatchingAllBatches] = useState(false);
   const [dispatchBatchTarget, setDispatchBatchTarget] = useState(null);
+  const [approveAllConfirmOpen, setApproveAllConfirmOpen] = useState(false);
+  const [dispatchAllConfirmOpen, setDispatchAllConfirmOpen] = useState(false);
   const [cancelRequestTarget, setCancelRequestTarget] = useState(null);
   const [deleteRequestTarget, setDeleteRequestTarget] = useState(null);
 
@@ -279,8 +288,16 @@ export default function PurchasesPage() {
   });
 
   const isAdmin = currentUser?.role === "admin";
+  const pendingRequestsCount = Number(summary?.pending || 0);
+  const canApproveAllRequests =
+    isAdmin && pendingRequestsCount > 0 && !isLoading && !isApprovingAllRequests;
 
   useEffect(() => {
+    if (!hasInitializedPageReset.current) {
+      hasInitializedPageReset.current = true;
+      return;
+    }
+
     setPage(1);
   }, [search, statusFilter, activeTab]);
 
@@ -422,6 +439,7 @@ export default function PurchasesPage() {
       purchaseModalOpen ||
       reviewModalOpen ||
       Boolean(dispatchBatchTarget) ||
+      dispatchAllConfirmOpen ||
       Boolean(cancelRequestTarget) ||
       Boolean(deleteRequestTarget);
 
@@ -455,6 +473,7 @@ export default function PurchasesPage() {
     purchaseModalOpen,
     reviewModalOpen,
     dispatchBatchTarget,
+    dispatchAllConfirmOpen,
     cancelRequestTarget,
     deleteRequestTarget,
     page,
@@ -527,7 +546,7 @@ export default function PurchasesPage() {
     if (shouldOpenExecutionModal && !purchaseModalOpen) {
       setPurchaseModalOpen(true);
     }
-  }, [activeTab, isAdmin, searchParams]);
+  }, [activeTab, isAdmin, purchaseModalOpen, searchParams]);
 
   useEffect(() => {
     if (!requestModalOpen || hasLoadedBuilderMeta) return;
@@ -682,6 +701,12 @@ export default function PurchasesPage() {
     () => filteredBatches.slice(0, 5),
     [filteredBatches]
   );
+  const dispatchableBatches = useMemo(
+    () => filteredBatches.filter(canDispatchBatch),
+    [filteredBatches]
+  );
+  const canDispatchAllBatches =
+    isAdmin && dispatchableBatches.length > 0 && !isLoading && !isDispatchingAllBatches;
 
   const selectedRequestItems = useMemo(
     () =>
@@ -794,6 +819,26 @@ export default function PurchasesPage() {
   function closeDispatchConfirm() {
     if (dispatchingBatchId) return;
     setDispatchBatchTarget(null);
+  }
+
+  function openDispatchAllConfirm() {
+    if (!canDispatchAllBatches) return;
+    setDispatchAllConfirmOpen(true);
+  }
+
+  function closeDispatchAllConfirm() {
+    if (isDispatchingAllBatches) return;
+    setDispatchAllConfirmOpen(false);
+  }
+
+  function openApproveAllConfirm() {
+    if (!canApproveAllRequests) return;
+    setApproveAllConfirmOpen(true);
+  }
+
+  function closeApproveAllConfirm() {
+    if (isApprovingAllRequests) return;
+    setApproveAllConfirmOpen(false);
   }
 
   function openCancelRequestConfirm(request) {
@@ -1029,6 +1074,50 @@ export default function PurchasesPage() {
       });
     } finally {
       setIsApprovingRequest(false);
+    }
+  }
+
+  async function handleApproveAllRequests() {
+    try {
+      setIsApprovingAllRequests(true);
+
+      const response = await fetch("/api/purchase-requests/approve-pending", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          search: search.trim(),
+          status: statusFilter,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "No se pudieron aprobar las solicitudes.");
+      }
+
+      setApproveAllConfirmOpen(false);
+      setDialogModal({
+        open: true,
+        title: "Solicitudes aprobadas",
+        message:
+          result.data?.approvedCount > 0
+            ? `Se aprobaron ${result.data.approvedCount} solicitudes pendientes.`
+            : "No habia solicitudes pendientes por aprobar.",
+        variant: "success",
+      });
+      await loadPage({ silent: true });
+    } catch (error) {
+      console.error(error);
+      setDialogModal({
+        open: true,
+        title: "No se pudo aprobar todo",
+        message: error.message || "Intenta nuevamente.",
+        variant: "danger",
+      });
+    } finally {
+      setIsApprovingAllRequests(false);
     }
   }
 
@@ -1341,6 +1430,49 @@ export default function PurchasesPage() {
     }
   }
 
+  async function handleDispatchAllBatches() {
+    try {
+      setIsDispatchingAllBatches(true);
+
+      const response = await fetch("/api/purchase-batches/dispatch-pending", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          search: search.trim(),
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "No se pudieron despachar las compras.");
+      }
+
+      setDispatchAllConfirmOpen(false);
+      setDialogModal({
+        open: true,
+        title: "Compras despachadas",
+        message:
+          result.data?.dispatchedCount > 0
+            ? `Se despacharon ${result.data.dispatchedCount} compras registradas.`
+            : "No habia compras pendientes por despachar.",
+        variant: "success",
+      });
+      await loadPage({ silent: true });
+    } catch (error) {
+      console.error(error);
+      setDialogModal({
+        open: true,
+        title: "No se pudo despachar todo",
+        message: error.message || "Intenta nuevamente.",
+        variant: "danger",
+      });
+    } finally {
+      setIsDispatchingAllBatches(false);
+    }
+  }
+
   const fromItem = summary?.total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const toItem = summary?.total ? Math.min(page * PAGE_SIZE, summary.total) : 0;
 
@@ -1429,10 +1561,29 @@ export default function PurchasesPage() {
                   </h2>
                 </div>
 
-                <button type="button" className="miniAction miniActionPrimary" onClick={openRequestModal}>
-                  <PackagePlus size={14} />
-                  Nueva solicitud
-                </button>
+                <div className={styles.panelActions}>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      className="miniAction miniActionSuccess"
+                      onClick={openApproveAllConfirm}
+                      disabled={!canApproveAllRequests}
+                      title={
+                        pendingRequestsCount > 0
+                          ? "Aprobar todas las solicitudes pendientes"
+                          : "No hay solicitudes pendientes por aprobar"
+                      }
+                    >
+                      <CheckCheck size={14} />
+                      {isApprovingAllRequests ? "Aprobando..." : "Aprobar todo"}
+                    </button>
+                  ) : null}
+
+                  <button type="button" className="miniAction miniActionPrimary" onClick={openRequestModal}>
+                    <PackagePlus size={14} />
+                    Nueva solicitud
+                  </button>
+                </div>
               </div>
 
               {isLoading ? (
@@ -1482,7 +1633,7 @@ export default function PurchasesPage() {
                         <div className={styles.requestItems}>
                           {(request.items || []).slice(0, 3).map((item) => (
                             <span key={item._id} className={styles.requestItemChip}>
-                              {item.product?.name || "Producto"} x {item.requestedQuantity}
+                              {item.product?.name || "Producto"} x {formatQuantity(item.requestedQuantity)}
                             </span>
                           ))}
                           {(request.items?.length || 0) > 3 ? (
@@ -1578,7 +1729,7 @@ export default function PurchasesPage() {
 
                         <div className={styles.shoppingMeta}>
                           <Boxes size={14} />
-                          <strong>{item.pendingQuantity}</strong>
+                          <strong>{formatQuantity(item.pendingQuantity)}</strong>
                           <span>{item.unitSnapshot}</span>
                         </div>
                       </article>
@@ -1602,9 +1753,51 @@ export default function PurchasesPage() {
                 <div className={styles.panelHeader}>
                   <div>
                     <span className="panelEyebrow">Historial</span>
-                    <h2 className={styles.panelTitle}>Compras registradas</h2>
+                    <div className={styles.panelTitleRow}>
+                      <h2 className={styles.panelTitle}>Compras registradas</h2>
+
+                      <div className={styles.panelActions}>
+                        <button
+                          type="button"
+                          className="action-button action-button--success"
+                          aria-label="Despachar todo"
+                          title={
+                            dispatchableBatches.length > 0
+                              ? "Despachar todas las compras pendientes"
+                              : "No hay compras pendientes por despachar"
+                          }
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openDispatchAllConfirm();
+                          }}
+                          disabled={!canDispatchAllBatches}
+                        >
+                          <span className="action-button__icon">
+                            <Truck size={15} />
+                          </span>
+                          <span className="action-button__label">
+                            {isDispatchingAllBatches ? "Despachando" : "Despachar todo"}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="action-button action-button--neutral"
+                          aria-label="Abrir historial"
+                          title="Abrir historial"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openPurchaseHistory();
+                          }}
+                        >
+                          <span className="action-button__icon">
+                            <History size={15} />
+                          </span>
+                          <span className="action-button__label">Historial</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <span className={styles.historyHint}>Abrir historial</span>
                 </div>
 
                 {isLoading ? (
@@ -1786,6 +1979,18 @@ export default function PurchasesPage() {
       />
 
       <ConfirmModal
+        open={approveAllConfirmOpen}
+        title="Aprobar todo"
+        description={`Esta accion aprobara ${pendingRequestsCount} solicitudes pendientes con las cantidades solicitadas.`}
+        confirmLabel="Aprobar todo"
+        cancelLabel="Volver"
+        variant="warning"
+        isSubmitting={isApprovingAllRequests}
+        onClose={closeApproveAllConfirm}
+        onConfirm={handleApproveAllRequests}
+      />
+
+      <ConfirmModal
         open={Boolean(dispatchBatchTarget)}
         title="Despachar compra"
         description={
@@ -1799,6 +2004,18 @@ export default function PurchasesPage() {
         isSubmitting={Boolean(dispatchingBatchId)}
         onClose={closeDispatchConfirm}
         onConfirm={() => handleDispatchBatch(dispatchBatchTarget?._id)}
+      />
+
+      <ConfirmModal
+        open={dispatchAllConfirmOpen}
+        title="Despachar todo"
+        description={`Esta accion despachara ${dispatchableBatches.length} compras registradas pendientes de despacho.`}
+        confirmLabel="Despachar todo"
+        cancelLabel="Volver"
+        variant="warning"
+        isSubmitting={isDispatchingAllBatches}
+        onClose={closeDispatchAllConfirm}
+        onConfirm={handleDispatchAllBatches}
       />
 
       <ConfirmModal

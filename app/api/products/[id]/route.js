@@ -7,6 +7,7 @@ import Product from "@models/Product";
 import Category from "@models/Category";
 import InventoryStock from "@models/InventoryStock";
 import InventoryMovement from "@models/InventoryMovement";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id);
@@ -270,6 +271,19 @@ export async function PATCH(request, { params }) {
             typeof minStock !== "undefined" ||
             typeof reorderPoint !== "undefined"
         ) {
+            if (
+                (Number(product.minStock || 0) > 0 && !isValidQuantityForUnit(product.minStock, product.unit)) ||
+                (Number(product.reorderPoint || 0) > 0 && !isValidQuantityForUnit(product.reorderPoint, product.unit))
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Los umbrales de stock no cumplen la regla de cantidad para esta unidad.",
+                    },
+                    { status: 400 }
+                );
+            }
+
             if (
                 hasInvalidStockThresholds(
                     product.minStock,

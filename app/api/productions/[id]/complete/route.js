@@ -7,6 +7,7 @@ import Product from "@models/Product";
 import InventoryStock from "@models/InventoryStock";
 import InventoryMovement from "@models/InventoryMovement";
 import { buildValidatedProductionItems } from "@libs/productionUtils";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 import { requireUserRole } from "@libs/apiAuth";
 import {
@@ -370,6 +371,16 @@ export async function POST(request, { params }) {
                 sourceLocation: item.sourceLocation || production.location || "kitchen",
                 notes: normalizeText(item.notes, 250),
             }));
+
+            const invalidWaste = production.waste.find(
+                (item) => !isValidQuantityForUnit(item.quantity, item.unitSnapshot)
+            );
+
+            if (invalidWaste) {
+                await session.abortTransaction();
+                session.endSession();
+                return badRequest("La cantidad de merma/desperdicio debe ser entera para esa unidad.");
+            }
         }
 
         const {

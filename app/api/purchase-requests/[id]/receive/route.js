@@ -15,6 +15,7 @@ import {
     createNotificationsForUsers,
     NOTIFICATION_TYPES,
 } from "@libs/notifications";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 import InventoryMovement from "@models/InventoryMovement";
 import InventoryStock from "@models/InventoryStock";
 import PurchaseBatch from "@models/PurchaseBatch";
@@ -263,6 +264,10 @@ export async function POST(request, { params }) {
             const requestItem = itemMap.get(itemId);
             if (!requestItem) {
                 throw new Error("Uno de los productos a recibir no es valido.");
+            }
+
+            if (!isValidQuantityForUnit(receivedQuantity, requestItem.unitSnapshot)) {
+                throw new Error("La cantidad recibida debe ser entera para productos por unidad.");
             }
 
             const pendingToReceive = Math.max(

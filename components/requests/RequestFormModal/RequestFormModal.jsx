@@ -7,6 +7,10 @@ import ProductAutoComplete from "@components/shared/ProductAutocomplete/ProductA
 import { getLocationLabel } from "@libs/constants/domainLabels";
 import { getRequestPurposeOptions } from "@libs/constants/purposes";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 import styles from "./request-form-modal.module.scss";
 
 export default function RequestFormModal({
@@ -235,11 +239,18 @@ export default function RequestFormModal({
                                                             ? maxAvailable
                                                             : undefined
                                                     }
-                                                    step="0.01"
+                                                    step={getQuantityInputStep(selectedProduct?.unit)}
                                                     className="form-input"
                                                     value={item.requestedQuantity}
                                                     onChange={(event) =>
-                                                        onItemChange(index, "requestedQuantity", event.target.value)
+                                                        onItemChange(
+                                                            index,
+                                                            "requestedQuantity",
+                                                            normalizeQuantityInput(
+                                                                event.target.value,
+                                                                selectedProduct?.unit
+                                                            )
+                                                        )
                                                     }
                                                     placeholder="0"
                                                     disabled={isSubmitting}

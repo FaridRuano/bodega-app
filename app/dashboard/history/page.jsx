@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -27,6 +27,7 @@ import {
 import { PRODUCTION_STATUS_LABELS } from "@libs/constants/productionStatus";
 import { getPurposeLabel } from "@libs/constants/purposes";
 import { getUnitLabel } from "@libs/constants/units";
+import { formatQuantity } from "@libs/unitQuantities";
 
 const PAGE_SIZE = 12;
 const REQUEST_ACTIVITY_LIMIT = 5;
@@ -220,7 +221,7 @@ function buildProductionPreview(production) {
 function buildMovementPreview(movement) {
   const parts = [
     movement.productId?.name || "Producto",
-    `${movement.quantity} ${getUnitLabel(movement.unitSnapshot)}`,
+    `${formatQuantity(movement.quantity)} ${getUnitLabel(movement.unitSnapshot)}`,
   ];
 
   if (movement.notes) {
@@ -232,7 +233,7 @@ function buildMovementPreview(movement) {
 
 function buildDailyControlPreview(control) {
   const lines = (control.lines || []).slice(0, 3).map((line) => {
-    return `${line.productNameSnapshot}: ${line.issuedQuantity}`;
+    return `${line.productNameSnapshot}: ${formatQuantity(line.issuedQuantity)}`;
   });
 
   if (!lines.length) return "Sin productos registrados.";
@@ -640,6 +641,7 @@ export default function HistoryPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hasInitializedPageReset = useRef(false);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [requests, setRequests] = useState([]);
@@ -659,6 +661,11 @@ export default function HistoryPage() {
   const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
 
   useEffect(() => {
+    if (!hasInitializedPageReset.current) {
+      hasInitializedPageReset.current = true;
+      return;
+    }
+
     setPage(1);
   }, [search, typeFilter, dateFrom, dateTo, userFilter]);
 
@@ -1019,8 +1026,18 @@ export default function HistoryPage() {
                   value={userFilter}
                   onChange={(event) => setUserFilter(event.target.value)}
                   className="form-input"
+                  disabled={isLoading && users.length === 0}
                 >
-                  <option value="">Todos los usuarios</option>
+                  {isLoading && users.length === 0 ? (
+                    <option value={userFilter || ""}>
+                      {userFilter ? "Cargando usuario..." : "Cargando usuarios..."}
+                    </option>
+                  ) : (
+                    <option value="">Todos los usuarios</option>
+                  )}
+                  {userFilter && !users.some((user) => user._id === userFilter) ? (
+                    <option value={userFilter}>Usuario seleccionado</option>
+                  ) : null}
                   {users.map((user) => (
                     <option key={user._id} value={user._id}>
                       {buildPersonLabel(user)}

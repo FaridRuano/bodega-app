@@ -12,6 +12,7 @@ import {
 import Product from "@models/Product";
 import Request from "@models/Request";
 import InventoryStock from "@models/InventoryStock";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 function isValidObjectId(value) {
     return mongoose.Types.ObjectId.isValid(value);
@@ -320,6 +321,13 @@ export async function POST(request, { params }) {
 
             if (!Number.isFinite(receivedQuantity) || receivedQuantity < 0) {
                 throw new Error("La cantidad recibida no es válida.");
+            }
+
+            if (
+                receivedQuantity > 0 &&
+                !isValidQuantityForUnit(receivedQuantity, requestItem.unitSnapshot)
+            ) {
+                throw new Error("La cantidad recibida debe ser entera para productos por unidad.");
             }
 
             const alreadyReceived = Number(requestItem.receivedQuantity || 0);

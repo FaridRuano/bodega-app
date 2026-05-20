@@ -90,10 +90,24 @@
   flex-wrap: wrap;
 }
 
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .panelTitle {
   margin: 2px 0 0;
   font-size: 1rem;
   color: var(--text-primary);
+}
+
+.panelTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .requestList,
@@ -407,6 +421,7 @@
 
 @media (max-width: 640px) {
   .panelHeader,
+  .panelActions,
   .requestTop,
   .shoppingRow,
   .batchCard,
@@ -419,5 +434,37 @@
 
   .builderInputs {
     grid-template-columns: 1fr;
+  }
+
+  .panelActions :global(.miniAction) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .panelTitleRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .panelTitleRow .panelActions {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+  }
+
+  .panelTitleRow .panelActions :global(.action-button) {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    justify-content: center;
+  }
+
+  .panelTitleRow .panelActions :global(.action-button__label) {
+    max-width: 200px;
+    margin-left: 8px;
+    opacity: 1;
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     ClipboardCheck,
     LayoutGrid,
@@ -17,11 +18,18 @@ import { getUserDisplayName } from "@libs/userDisplay";
 import ConfirmModal from "@components/shared/ConfirmModal/ConfirmModal";
 import DialogModal from "@components/shared/DialogModal/DialogModal";
 import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
+import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 
 const LOCATION_OPTIONS = [
     { value: "kitchen", label: "Cocina" },
     { value: "lounge", label: "Salon" },
 ];
+const DAILY_CONTROL_VIEW_MODE_STORAGE_KEY = "bodega:daily-control:view-mode:v1";
+const DAILY_CONTROL_VIEW_MODES = ["cards", "list"];
 
 function getTodayValue() {
     const now = new Date();
@@ -51,10 +59,11 @@ function formatNumber(value) {
     }).format(Number(value || 0));
 }
 
-function normalizeIssuedInput(value, maxAllowed) {
+function normalizeIssuedInput(value, maxAllowed, unit) {
     if (value === "") return "";
 
-    const numericValue = Number(value);
+    const normalizedValue = normalizeQuantityInput(value, unit);
+    const numericValue = Number(normalizedValue);
     if (!Number.isFinite(numericValue) || numericValue <= 0) return "";
 
     return String(Math.min(numericValue, Math.max(Number(maxAllowed || 0), 0)));
@@ -101,19 +110,57 @@ function buildInitialNotes(nextContext) {
     return nextContext?.existingControl?.notes || "";
 }
 
+function normalizeViewMode(value, fallback = "cards") {
+    const normalized = String(value || "").trim();
+    return DAILY_CONTROL_VIEW_MODES.includes(normalized) ? normalized : fallback;
+}
+
+function getStoredViewMode() {
+    if (typeof window === "undefined") return "";
+
+    try {
+        return normalizeViewMode(
+            window.localStorage.getItem(DAILY_CONTROL_VIEW_MODE_STORAGE_KEY),
+            ""
+        );
+    } catch {
+        return "";
+    }
+}
+
+function storeViewModePreference(nextViewMode) {
+    if (typeof window === "undefined") return;
+
+    try {
+        window.localStorage.setItem(
+            DAILY_CONTROL_VIEW_MODE_STORAGE_KEY,
+            normalizeViewMode(nextViewMode)
+        );
+    } catch {
+        // La preferencia visual no debe bloquear el control diario.
+    }
+}
+
 export default function DailyControlPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [currentUser, setCurrentUser] = useState(null);
-    const [selectedLocation, setSelectedLocation] = useState("");
+    const [selectedLocation, setSelectedLocation] = useState(() =>
+        getStringParam(searchParams, "selectedLocation")
+    );
     const [context, setContext] = useState(null);
     const [controls, setControls] = useState([]);
     const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
     const [summary, setSummary] = useState({ total: 0, kitchen: 0, lounge: 0 });
-    const [lineFilter, setLineFilter] = useState("");
-    const [viewMode, setViewMode] = useState("cards");
-    const [dateFrom, setDateFrom] = useState("");
-    const [dateTo, setDateTo] = useState("");
-    const [historyLocation, setHistoryLocation] = useState("");
-    const [page, setPage] = useState(1);
+    const [lineFilter, setLineFilter] = useState(() => getStringParam(searchParams, "lineFilter"));
+    const [viewMode, setViewMode] = useState(() => getStoredViewMode() || "cards");
+    const [dateFrom, setDateFrom] = useState(() => getStringParam(searchParams, "dateFrom"));
+    const [dateTo, setDateTo] = useState(() => getStringParam(searchParams, "dateTo"));
+    const [historyLocation, setHistoryLocation] = useState(() =>
+        getStringParam(searchParams, "historyLocation")
+    );
+    const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
     const [controlNotes, setControlNotes] = useState("");
     const [lineValues, setLineValues] = useState({});
     const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
@@ -262,6 +309,27 @@ export default function DailyControlPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser?.role, page, dateFrom, dateTo, historyLocation, isAdmin, viewMode]);
 
+    useEffect(() => {
+        const nextQuery = buildSearchParams(searchParams, {
+            page: page > 1 ? page : null,
+            dateFrom: dateFrom || null,
+            dateTo: dateTo || null,
+            historyLocation: historyLocation || null,
+            selectedLocation: selectedLocation || null,
+            lineFilter: lineFilter.trim() || null,
+        });
+
+        if (nextQuery !== searchParams.toString()) {
+            router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+        }
+    }, [dateFrom, dateTo, historyLocation, lineFilter, page, pathname, router, searchParams, selectedLocation]);
+
+    function updateViewMode(nextViewMode) {
+        const normalizedViewMode = normalizeViewMode(nextViewMode);
+        setViewMode(normalizedViewMode);
+        storeViewModePreference(normalizedViewMode);
+    }
+
     function resetControlForm(nextContext = context) {
         setControlNotes(buildInitialNotes(nextContext));
         setLineValues(
@@ -376,7 +444,11 @@ export default function DailyControlPage() {
                 [productId]: {
                     ...prev[productId],
                     note: prev[productId]?.note || "",
-                    issuedQuantity: normalizeIssuedInput(value, maxAllowed),
+                    issuedQuantity: normalizeIssuedInput(
+                        value,
+                        maxAllowed,
+                        matchedProduct?.unitSnapshot
+                    ),
                 },
             }));
             return;
@@ -541,7 +613,7 @@ export default function DailyControlPage() {
                             className={`miniAction miniActionIconOnly ${
                                 viewMode === "cards" ? "miniActionPrimary" : ""
                             }`}
-                            onClick={() => setViewMode("cards")}
+                            onClick={() => updateViewMode("cards")}
                             aria-label="Tarjetas"
                         >
                             <LayoutGrid size={14} />
@@ -552,7 +624,7 @@ export default function DailyControlPage() {
                             className={`miniAction miniActionIconOnly ${
                                 viewMode === "list" ? "miniActionPrimary" : ""
                             }`}
-                            onClick={() => setViewMode("list")}
+                            onClick={() => updateViewMode("list")}
                             aria-label="Lista"
                         >
                             <List size={14} />
@@ -715,7 +787,7 @@ export default function DailyControlPage() {
                                                                         <input
                                                                             type="number"
                                                                             min="0"
-                                                                            step="0.0001"
+                                                                            step={getQuantityInputStep(product.unitSnapshot)}
                                                                             max={before}
                                                                             value={
                                                                                 values.issuedQuantity ||
@@ -837,7 +909,7 @@ export default function DailyControlPage() {
                                                                                 <input
                                                                                     type="number"
                                                                                     min="0"
-                                                                                    step="0.0001"
+                                                                                    step={getQuantityInputStep(product.unitSnapshot)}
                                                                                     max={before}
                                                                                     value={values.issuedQuantity || ""}
                                                                                     onChange={(event) =>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -8,6 +8,7 @@ import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
 import { getLocationLabel } from "@libs/constants/domainLabels";
 import { getUnitLabel } from "@libs/constants/units";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+import { formatQuantity } from "@libs/unitQuantities";
 import styles from "./page.module.scss";
 
 const PAGE_SIZE = 10;
@@ -96,6 +97,7 @@ export default function PurchaseHistoryPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hasInitializedPageReset = useRef(false);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,6 +113,11 @@ export default function PurchaseHistoryPage() {
   const [registeredBy, setRegisteredBy] = useState(() => getStringParam(searchParams, "registeredBy"));
 
   useEffect(() => {
+    if (!hasInitializedPageReset.current) {
+      hasInitializedPageReset.current = true;
+      return;
+    }
+
     setPage(1);
   }, [search, dateFrom, dateTo, registeredBy]);
 
@@ -284,8 +291,18 @@ export default function PurchaseHistoryPage() {
               value={registeredBy}
               onChange={(event) => setRegisteredBy(event.target.value)}
               className="filterSelect"
+              disabled={isLoading && userOptions.length === 0}
             >
-              <option value="">Todos los usuarios</option>
+              {isLoading && userOptions.length === 0 ? (
+                <option value={registeredBy || ""}>
+                  {registeredBy ? "Cargando usuario..." : "Cargando usuarios..."}
+                </option>
+              ) : (
+                <option value="">Todos los usuarios</option>
+              )}
+              {registeredBy && !userOptions.some((user) => user.value === registeredBy) ? (
+                <option value={registeredBy}>Usuario seleccionado</option>
+              ) : null}
               {userOptions.map((user) => (
                 <option key={user.value} value={user.value}>
                   {user.label}
@@ -463,7 +480,7 @@ export default function PurchaseHistoryPage() {
 
                       <div className={styles.itemMetrics}>
                         <strong className={styles.itemQuantity}>
-                          {item.quantity}
+                          {formatQuantity(item.quantity)}
                         </strong>
                         <span className={styles.itemCostMuted}>
                           {item.unitCost != null ? `$${Number(item.unitCost).toFixed(2)}` : "Sin costo unit."}

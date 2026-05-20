@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
 
 import styles from "./page.module.scss";
 import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
+import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
 
 const PAGE_SIZE = 12;
 
@@ -50,12 +51,15 @@ function formatDate(value) {
 
 export default function NotificationsPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const hasInitializedPageReset = useRef(false);
     const [notifications, setNotifications] = useState([]);
     const [summary, setSummary] = useState({ unread: 0, unseen: 0 });
     const [meta, setMeta] = useState({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
-    const [page, setPage] = useState(1);
-    const [unreadOnly, setUnreadOnly] = useState(false);
-    const [typeFilter, setTypeFilter] = useState("");
+    const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
+    const [unreadOnly, setUnreadOnly] = useState(() => getStringParam(searchParams, "unreadOnly") === "true");
+    const [typeFilter, setTypeFilter] = useState(() => getStringParam(searchParams, "type"));
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -97,8 +101,25 @@ export default function NotificationsPage() {
     }, [page, unreadOnly, typeFilter]);
 
     useEffect(() => {
+        if (!hasInitializedPageReset.current) {
+            hasInitializedPageReset.current = true;
+            return;
+        }
+
         setPage(1);
     }, [unreadOnly, typeFilter]);
+
+    useEffect(() => {
+        const nextQuery = buildSearchParams(searchParams, {
+            page: page > 1 ? page : null,
+            unreadOnly: unreadOnly ? "true" : null,
+            type: typeFilter || null,
+        });
+
+        if (nextQuery !== searchParams.toString()) {
+            router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+        }
+    }, [page, pathname, router, searchParams, typeFilter, unreadOnly]);
 
     async function markAllRead() {
         try {

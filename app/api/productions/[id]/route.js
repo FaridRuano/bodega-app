@@ -26,6 +26,7 @@ import {
     normalizeNumber,
     normalizeText,
 } from "@libs/apiUtils";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 function buildExpectedOutputsFromTemplate(production) {
     const templateOutputs = production?.productionTemplateId?.outputs || [];
@@ -366,6 +367,8 @@ export async function PATCH(request, { params }) {
         }
 
         let shouldRecalculateExpected = false;
+        const effectiveTargetUnit =
+            typeof targetUnit !== "undefined" ? targetUnit : production.targetUnit;
 
         if (typeof targetQuantity !== "undefined") {
             if (production.status !== "draft") {
@@ -380,6 +383,10 @@ export async function PATCH(request, { params }) {
                 return badRequest("targetQuantity debe ser mayor a 0.");
             }
 
+            if (!isValidQuantityForUnit(parsedTargetQuantity, effectiveTargetUnit)) {
+                return badRequest("targetQuantity no cumple la regla de cantidad para esta unidad.");
+            }
+
             production.targetQuantity = parsedTargetQuantity;
             shouldRecalculateExpected = true;
         }
@@ -387,6 +394,13 @@ export async function PATCH(request, { params }) {
         if (typeof targetUnit !== "undefined") {
             if (!PRODUCT_UNITS.includes(targetUnit)) {
                 return badRequest("targetUnit no es válido.");
+            }
+
+            if (
+                typeof targetQuantity === "undefined" &&
+                !isValidQuantityForUnit(production.targetQuantity, effectiveTargetUnit)
+            ) {
+                return badRequest("targetQuantity no cumple la regla de cantidad para esta unidad.");
             }
 
             production.targetUnit = targetUnit;
@@ -476,6 +490,14 @@ export async function PATCH(request, { params }) {
                 sourceLocation: item.sourceLocation || production.location || "kitchen",
                 notes: normalizeText(item.notes, 250),
             }));
+
+            const invalidWaste = production.waste.find(
+                (item) => !isValidQuantityForUnit(item.quantity, item.unitSnapshot)
+            );
+
+            if (invalidWaste) {
+                return badRequest("La cantidad de merma/desperdicio debe ser entera para esa unidad.");
+            }
         }
 
         if (shouldRecalculateExpected) {

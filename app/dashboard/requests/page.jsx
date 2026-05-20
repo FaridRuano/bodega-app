@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRightLeft, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -128,6 +128,7 @@ export default function RequestsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hasInitializedPageReset = useRef(false);
   const [allRequests, setAllRequests] = useState([]);
   const [products, setProducts] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -319,6 +320,11 @@ export default function RequestsPage() {
   }, [detailsOpen, formModal.open, fulfillmentModal.open, reviewModal.open]);
 
   useEffect(() => {
+    if (!hasInitializedPageReset.current) {
+      hasInitializedPageReset.current = true;
+      return;
+    }
+
     setPage(1);
   }, [search, statusFilter, requestTypeFilter]);
 

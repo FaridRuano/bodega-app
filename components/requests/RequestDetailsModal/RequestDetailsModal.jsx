@@ -16,6 +16,7 @@ import styles from "./request-details-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
 import { getPurposeLabel } from "@libs/constants/purposes";
 import { getLocationLabel } from "@libs/constants/domainLabels";
+import { formatQuantity } from "@libs/unitQuantities";
 
 const STATUS_CONFIG = {
     pending: {
@@ -437,22 +438,22 @@ export default function RequestDetailsModal({
                                         <div className={styles.quantitiesGrid}>
                                             <div className={styles.quantityBox}>
                                                 <span>Solicitado</span>
-                                                <strong>{requested}</strong>
+                                                <strong>{formatQuantity(requested)}</strong>
                                             </div>
 
                                             <div className={styles.quantityBox}>
                                                 <span>Aprobado</span>
-                                                <strong>{approved}</strong>
+                                                <strong>{formatQuantity(approved)}</strong>
                                             </div>
 
                                             <div className={styles.quantityBox}>
                                                 <span>Despachado</span>
-                                                <strong>{dispatched}</strong>
+                                                <strong>{formatQuantity(dispatched)}</strong>
                                             </div>
 
                                             <div className={styles.quantityBox}>
                                                 <span>Recibido</span>
-                                                <strong>{received}</strong>
+                                                <strong>{formatQuantity(received)}</strong>
                                             </div>
                                         </div>
 

@@ -9,6 +9,7 @@ import PurchaseRequestReviewModal from "@components/purchases/PurchaseRequestRev
 import RequestFulfillmentModal from "@components/requests/RequestFulfillmentModal/RequestFulfillmentModal";
 import { getLocationLabel, getRequestTypeLabel } from "@libs/constants/domainLabels";
 import { buildSearchParams, getStringParam } from "@libs/urlParams";
+import { formatQuantity } from "@libs/unitQuantities";
 import styles from "./page.module.scss";
 
 const AUTO_REFRESH_INTERVAL_MS = 30000;
@@ -529,7 +530,7 @@ export default function ReceivingPage() {
                     </div>
                     <div className={styles.infoBlock}>
                       <span>Pendiente</span>
-                      <strong>{entry.pendingQuantity}</strong>
+                      <strong>{formatQuantity(entry.pendingQuantity)}</strong>
                     </div>
                   </div>
 

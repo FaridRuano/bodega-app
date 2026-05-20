@@ -3,6 +3,11 @@
 import { ShoppingCart, X } from "lucide-react";
 import { useMemo } from "react";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+  formatQuantity,
+  getQuantityInputStep,
+  normalizeQuantityInput,
+} from "@libs/unitQuantities";
 import styles from "./purchase-execution-modal.module.scss";
 
 function getCategoryId(item) {
@@ -206,7 +211,7 @@ export default function PurchaseExecutionModal({
 
                                 <div className={styles.pendingInline}>
                                   <span>Pendiente</span>
-                                  <strong>{item.pendingQuantity}</strong>
+                                  <strong>{formatQuantity(item.pendingQuantity)}</strong>
                                 </div>
 
                                 <div className={styles.unitInline}>
@@ -219,10 +224,16 @@ export default function PurchaseExecutionModal({
                                   <input
                                     type="number"
                                     min="0"
-                                    step="0.01"
+                                    step={getQuantityInputStep(item.unitSnapshot)}
                                     className={`form-input ${styles.compactInput}`}
                                     value={draftItem.quantity}
-                                    onChange={(event) => onItemChange(item.productId, "quantity", event.target.value)}
+                                    onChange={(event) =>
+                                      onItemChange(
+                                        item.productId,
+                                        "quantity",
+                                        normalizeQuantityInput(event.target.value, item.unitSnapshot)
+                                      )
+                                    }
                                     placeholder="Cantidad"
                                   />
                                 </div>

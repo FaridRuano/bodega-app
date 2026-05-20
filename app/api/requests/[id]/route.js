@@ -7,6 +7,7 @@ import dbConnect from "@libs/mongodb";
 import Request from "@models/Request";
 import Product from "@models/Product";
 import InventoryStock from "@models/InventoryStock";
+import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 
 const OPERATION_LOCATIONS = ["kitchen", "lounge"];
 
@@ -430,6 +431,12 @@ export async function PATCH(request, { params }) {
                     `La cantidad solicitada de ${product.name} debe ser mayor que cero.`
                 );
             }
+
+            assertValidQuantityForUnit(
+                requestedQuantity,
+                product.unit,
+                `La cantidad solicitada de ${product.name}`
+            );
 
             if (requestedQuantity > available) {
                 throw new Error(

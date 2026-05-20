@@ -5,6 +5,10 @@ import { CheckCircle2, XCircle, X } from "lucide-react";
 
 import styles from "./request-review-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 
 function toNumber(value) {
     const parsed = Number(value);
@@ -55,14 +59,14 @@ export default function RequestReviewModal({
             ? hasAtLeastOneApprovedItem
             : Boolean(reviewData?.notes?.trim?.()));
 
-    function handleApprovedQuantityChange(index, requestedQuantity, value) {
+    function handleApprovedQuantityChange(index, requestedQuantity, value, unit) {
         if (value === "") {
             onItemChange(index, "approvedQuantity", "");
             return;
         }
 
         const requested = toNumber(requestedQuantity);
-        let nextValue = Number(value);
+        let nextValue = Number(normalizeQuantityInput(value, unit));
 
         if (Number.isNaN(nextValue)) {
             nextValue = 0;
@@ -144,6 +148,7 @@ export default function RequestReviewModal({
                                     const requestedQuantity = toNumber(
                                         item.requestedQuantity
                                     );
+                                    const unit = item.unitSnapshot || item.product?.unit;
                                     const approvedQuantity =
                                         reviewData?.items?.[index]?.approvedQuantity ?? "";
 
@@ -182,14 +187,15 @@ export default function RequestReviewModal({
                                                         type="number"
                                                         min="0"
                                                         max={requestedQuantity}
-                                                        step="0.01"
+                                                        step={getQuantityInputStep(unit)}
                                                         className="form-input"
                                                         value={approvedQuantity}
                                                         onChange={(event) =>
                                                             handleApprovedQuantityChange(
                                                                 index,
                                                                 requestedQuantity,
-                                                                event.target.value
+                                                                event.target.value,
+                                                                unit
                                                             )
                                                         }
                                                         disabled={isSubmitting}

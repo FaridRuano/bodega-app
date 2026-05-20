@@ -14,6 +14,7 @@ import {
     normalizeText,
     resolvePurchaseRequestStatus,
 } from "@libs/purchaseRequests";
+import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 
 function mapPurchaseRequestDocument(request) {
     const effectiveStatus = resolvePurchaseRequestStatus(request);
@@ -185,6 +186,12 @@ export async function PATCH(request, { params }) {
             if (!product || !Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
                 throw new Error("Los items de la solicitud no son validos.");
             }
+
+            assertValidQuantityForUnit(
+                requestedQuantity,
+                product.unit,
+                `La cantidad de ${product.name}`
+            );
 
             if (!isPurchaseEligibleProductType(product.productType)) {
                 throw new Error(

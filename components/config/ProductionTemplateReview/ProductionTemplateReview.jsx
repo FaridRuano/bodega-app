@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { getUnitLabel } from "@libs/constants/units";
+import { formatQuantity } from "@libs/unitQuantities";
 import styles from "./production-template-review.module.scss";
 
 const TEMPLATE_TYPE_LABELS = {
@@ -215,7 +216,7 @@ export default function ProductionTemplateReviewModal({
                                                     {getProductName(item.productId)}
                                                 </h5>
                                                 <p className={styles.itemSubtitle}>
-                                                    {item.quantity} {getUnitLabel(item.unit)}
+                                                    {formatQuantity(item.quantity)} {getUnitLabel(item.unit)}
                                                 </p>
                                             </div>
 
@@ -249,7 +250,7 @@ export default function ProductionTemplateReviewModal({
                                                     {getProductName(item.productId)}
                                                 </h5>
                                                 <p className={styles.itemSubtitle}>
-                                                    {item.quantity ?? "-"} {getUnitLabel(item.unit)}
+                                                    {item.quantity == null ? "-" : formatQuantity(item.quantity)} {getUnitLabel(item.unit)}
                                                 </p>
                                             </div>
 

@@ -5,6 +5,11 @@ import { Truck, PackageCheck, X } from "lucide-react";
 
 import styles from "./request-fulfillment-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+    formatQuantity,
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 
 function toNumber(value) {
     const parsed = Number(value);
@@ -46,13 +51,13 @@ export default function RequestFulfillmentModal({
         });
     }, [fulfillmentData]);
 
-    function handleQuantityChange(index, maxValue, rawValue) {
+    function handleQuantityChange(index, maxValue, rawValue, unit) {
         if (rawValue === "") {
             onItemChange(index, "");
             return;
         }
 
-        let nextValue = Number(rawValue);
+        let nextValue = Number(normalizeQuantityInput(rawValue, unit));
 
         if (Number.isNaN(nextValue)) {
             nextValue = 0;
@@ -154,6 +159,7 @@ export default function RequestFulfillmentModal({
 
                                 const currentValue =
                                     fulfillmentData?.items?.[index]?.quantity ?? "";
+                                const unit = item.unitSnapshot || item.product?.unit;
 
                                 const itemDisabled = maxValue <= 0 || isSubmitting;
 
@@ -172,14 +178,14 @@ export default function RequestFulfillmentModal({
                                         </div>
 
                                         <div className={styles.itemStats}>
-                                            <span>Solicitado: {requested}</span>
-                                            <span>Aprobado: {approved}</span>
-                                            <span>Despachado: {dispatched}</span>
-                                            <span>Recibido: {received}</span>
+                                            <span>Solicitado: {formatQuantity(requested)}</span>
+                                            <span>Aprobado: {formatQuantity(approved)}</span>
+                                            <span>Despachado: {formatQuantity(dispatched)}</span>
+                                            <span>Recibido: {formatQuantity(received)}</span>
                                             <span>
                                                 {isDispatch
-                                                    ? `Pendiente por despachar: ${pendingDispatch}`
-                                                    : `Pendiente por recibir: ${pendingReceive}`}
+                                                    ? `Pendiente por despachar: ${formatQuantity(pendingDispatch)}`
+                                                    : `Pendiente por recibir: ${formatQuantity(pendingReceive)}`}
                                             </span>
                                         </div>
 
@@ -192,14 +198,15 @@ export default function RequestFulfillmentModal({
                                                 type="number"
                                                 min="0"
                                                 max={maxValue}
-                                                step="0.01"
+                                                step={getQuantityInputStep(unit)}
                                                 className="form-input"
                                                 value={currentValue}
                                                 onChange={(event) =>
                                                     handleQuantityChange(
                                                         index,
                                                         maxValue,
-                                                        event.target.value
+                                                        event.target.value,
+                                                        unit
                                                     )
                                                 }
                                                 disabled={itemDisabled}

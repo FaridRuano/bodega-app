@@ -5,6 +5,11 @@ import { ArrowLeftRight, PackageMinus, PackagePlus, Trash2, X } from "lucide-rea
 
 import styles from "./inventory-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+    formatQuantity,
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 
 const MODE_CONFIG = {
     entry: {
@@ -61,6 +66,7 @@ export default function InventoryMovementModal({
 }) {
     const config = MODE_CONFIG[mode] || MODE_CONFIG.entry;
     const Icon = config.icon;
+    const quantityStep = getQuantityInputStep(product?.unit);
 
     const isTransfer = mode === "transfer";
     const isExitLike = mode === "exit" || mode === "waste";
@@ -172,28 +178,28 @@ export default function InventoryMovementModal({
                                 <div className={styles.stockItem}>
                                     <span className={styles.stockLabel}>Total</span>
                                     <strong className={styles.stockValue}>
-                                        {Number(product.inventory?.total || 0)}
+                                        {formatQuantity(product.inventory?.total)}
                                     </strong>
                                 </div>
 
                                 <div className={styles.stockItem}>
                                     <span className={styles.stockLabel}>Bodega</span>
                                     <strong className={styles.stockValue}>
-                                        {Number(product.inventory?.warehouse || 0)}
+                                        {formatQuantity(product.inventory?.warehouse)}
                                     </strong>
                                 </div>
 
                                 <div className={styles.stockItem}>
                                     <span className={styles.stockLabel}>Cocina</span>
                                     <strong className={styles.stockValue}>
-                                        {Number(product.inventory?.kitchen || 0)}
+                                        {formatQuantity(product.inventory?.kitchen)}
                                     </strong>
                                 </div>
 
                                 <div className={styles.stockItem}>
                                     <span className={styles.stockLabel}>Salon</span>
                                     <strong className={styles.stockValue}>
-                                        {Number(product.inventory?.lounge || 0)}
+                                        {formatQuantity(product.inventory?.lounge)}
                                     </strong>
                                 </div>
                             </div>
@@ -218,10 +224,22 @@ export default function InventoryMovementModal({
                                     name="quantity"
                                     type="number"
                                     min="0"
-                                    step="0.01"
+                                    step={quantityStep}
                                     className="form-input"
                                     value={formData.quantity}
-                                    onChange={onChange}
+                                    onChange={(event) =>
+                                        onChange({
+                                            ...event,
+                                            target: {
+                                                ...event.target,
+                                                name: event.target.name,
+                                                value: normalizeQuantityInput(
+                                                    event.target.value,
+                                                    product?.unit
+                                                ),
+                                            },
+                                        })
+                                    }
                                     placeholder="0"
                                     required
                                 />

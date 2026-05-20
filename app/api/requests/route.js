@@ -9,6 +9,7 @@ import InventoryStock, { STOCK_LOCATIONS } from "@models/InventoryStock";
 import InventoryMovement from "@models/InventoryMovement";
 import { parsePositiveNumber } from "@libs/apiUtils";
 import { createNotificationsForRoles, NOTIFICATION_TYPES } from "@libs/notifications";
+import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 
 const OPERATION_LOCATIONS = ["kitchen", "lounge"];
 
@@ -561,6 +562,12 @@ export async function POST(request) {
                     `La cantidad solicitada de ${product.name} debe ser mayor que cero.`
                 );
             }
+
+            assertValidQuantityForUnit(
+                requestedQuantity,
+                product.unit,
+                `La cantidad solicitada de ${product.name}`
+            );
 
             if (requestedQuantity > available) {
                 throw new Error(

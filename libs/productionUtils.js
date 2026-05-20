@@ -5,6 +5,10 @@ import {
     normalizeNumber,
     normalizeText,
 } from "@libs/apiUtils";
+import {
+    assertValidQuantityForUnit,
+    isValidQuantityForUnit,
+} from "@libs/unitQuantities";
 
 export async function validateProductionWasteItems(items = []) {
     if (!Array.isArray(items)) {
@@ -47,6 +51,12 @@ export async function validateProductionWasteItems(items = []) {
             throw new Error(`La unidad de merma para "${product.name}" no es válida.`);
         }
 
+        assertValidQuantityForUnit(
+            quantity,
+            unitSnapshot,
+            `La cantidad de merma para "${product.name}"`
+        );
+
         if (!["merma", "desperdicio"].includes(item.type)) {
             throw new Error("El tipo de waste debe ser 'merma' o 'desperdicio'.");
         }
@@ -85,7 +95,7 @@ export function buildProductionSearchFilter(search) {
 }
 
 export function scaleProductionQuantity(quantity, factor) {
-    return Number((quantity * factor).toFixed(6));
+    return Number((quantity * factor).toFixed(2));
 }
 
 export function buildProductionItemSnapshot(product, item, extra = {}) {
@@ -160,6 +170,12 @@ export async function buildValidatedProductionItems(
             throw new Error(`La unidad del producto "${product.name}" no es válida.`);
         }
 
+        if (quantity > 0 && !isValidQuantityForUnit(quantity, unitSnapshot)) {
+            throw new Error(
+                `La cantidad del producto "${product.name}" debe ser entera para esta unidad.`
+            );
+        }
+
         const normalized = {
             productId: product._id,
             productCodeSnapshot: product.code || "",
@@ -195,4 +211,3 @@ export async function buildValidatedProductionItems(
         return normalized;
     });
 }
-

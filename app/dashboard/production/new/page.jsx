@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 import styles from "./page.module.scss";
 import AutocompleteSelect from "@components/production/AutoCompleteSelect/AutoCompleteSelect";
 import DialogModal from "@components/shared/DialogModal/DialogModal";
@@ -296,12 +300,15 @@ export default function NewProductionPage() {
                                     <input
                                         type="number"
                                         min="0"
-                                        step="0.0001"
+                                        step={getQuantityInputStep(selectedTemplate?.baseUnit)}
                                         value={form.productionQuantity}
                                         onChange={(event) =>
                                             setForm((prev) => ({
                                                 ...prev,
-                                                productionQuantity: event.target.value,
+                                                productionQuantity: normalizeQuantityInput(
+                                                    event.target.value,
+                                                    selectedTemplate?.baseUnit
+                                                ),
                                             }))
                                         }
                                         className={`form-input ${styles.fieldInput}`}

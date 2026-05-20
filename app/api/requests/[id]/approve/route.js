@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireUserRole } from "@libs/apiAuth";
 import dbConnect from "@libs/mongodb";
 import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notifications";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 import Request from "@models/Request";
 
 function isValidObjectId(value) {
@@ -249,6 +250,19 @@ export async function POST(request, { params }) {
             if (!Number.isFinite(approvedQuantity) || approvedQuantity < 0) {
                 return NextResponse.json(
                     { success: false, message: "La cantidad aprobada no es válida." },
+                    { status: 400 }
+                );
+            }
+
+            if (
+                approvedQuantity > 0 &&
+                !isValidQuantityForUnit(approvedQuantity, existingItem.unitSnapshot)
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "La cantidad aprobada debe ser entera para productos por unidad.",
+                    },
                     { status: 400 }
                 );
             }

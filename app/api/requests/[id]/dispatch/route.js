@@ -7,6 +7,7 @@ import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notificat
 import Request from "@models/Request";
 import InventoryStock from "@models/InventoryStock";
 import InventoryMovement from "@models/InventoryMovement";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 function isValidObjectId(value) {
     return mongoose.Types.ObjectId.isValid(value);
@@ -337,6 +338,13 @@ export async function POST(request, { params }) {
 
             if (!Number.isFinite(dispatchQuantity) || dispatchQuantity < 0) {
                 throw new Error("La cantidad despachada no es válida.");
+            }
+
+            if (
+                dispatchQuantity > 0 &&
+                !isValidQuantityForUnit(dispatchQuantity, requestItem.unitSnapshot)
+            ) {
+                throw new Error("La cantidad despachada debe ser entera para productos por unidad.");
             }
 
             const targetQuantity = isReturnRequest

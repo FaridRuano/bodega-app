@@ -3,6 +3,11 @@
 import { useEffect, useMemo } from "react";
 import { PackagePlus, Search, X } from "lucide-react";
 import styles from "./purchase-request-modal.module.scss";
+import {
+  formatQuantity,
+  getQuantityInputStep,
+  normalizeQuantityInput,
+} from "@libs/unitQuantities";
 
 function getCategoryId(product) {
   return String(product?.category?._id || product?.categoryId || "");
@@ -245,9 +250,9 @@ export default function PurchaseRequestModal({
                                 </div>
 
                                 <div className={styles.stockPills}>
-                                  <span>Bod {product.inventory?.warehouse || 0}</span>
-                                  <span>Coc {product.inventory?.kitchen || 0}</span>
-                                  <span>Salon {product.inventory?.lounge || 0}</span>
+                                  <span>Bod {formatQuantity(product.inventory?.warehouse)}</span>
+                                  <span>Coc {formatQuantity(product.inventory?.kitchen)}</span>
+                                  <span>Salon {formatQuantity(product.inventory?.lounge)}</span>
                                 </div>
 
                                 <button
@@ -264,11 +269,15 @@ export default function PurchaseRequestModal({
                                   <input
                                     type="number"
                                     min="0"
-                                    step="0.01"
+                                    step={getQuantityInputStep(product.unit)}
                                     className="form-input"
                                     value={selectedItem.requestedQuantity}
                                     onChange={(event) =>
-                                      onItemChange(product._id, "requestedQuantity", event.target.value)
+                                      onItemChange(
+                                        product._id,
+                                        "requestedQuantity",
+                                        normalizeQuantityInput(event.target.value, product.unit)
+                                      )
                                     }
                                     placeholder="Cantidad"
                                   />
@@ -306,7 +315,7 @@ export default function PurchaseRequestModal({
                     selectedItems.map((item) => (
                       <div key={item.productId} className={styles.summaryRow}>
                         <span>{item.product?.name || "Producto"}</span>
-                        <strong>{item.requestedQuantity}</strong>
+                        <strong>{formatQuantity(item.requestedQuantity)}</strong>
                       </div>
                     ))
                   )}

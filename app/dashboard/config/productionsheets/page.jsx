@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Factory, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -60,6 +60,7 @@ export default function ProductionTemplatesPage() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const hasInitializedPageReset = useRef(false);
 
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -98,6 +99,11 @@ export default function ProductionTemplatesPage() {
     );
 
     useEffect(() => {
+        if (!hasInitializedPageReset.current) {
+            hasInitializedPageReset.current = true;
+            return;
+        }
+
         setPage(1);
     }, [filters.search, filters.type, filters.isActive]);
 

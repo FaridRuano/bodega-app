@@ -8,6 +8,7 @@ import InventoryStock from "@models/InventoryStock";
 import InventoryMovement from "@models/InventoryMovement";
 import { parsePositiveNumber } from "@libs/apiUtils";
 import { createStockAlertNotifications } from "@libs/notifications";
+import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 import {
     getLocationLabel,
     getMovementTypeLabel,
@@ -220,6 +221,15 @@ export async function POST(request) {
             return NextResponse.json(
                 { success: false, message: "Producto no encontrado." },
                 { status: 404 }
+            );
+        }
+
+        try {
+            assertValidQuantityForUnit(quantity, product.unit, "La cantidad");
+        } catch (validationError) {
+            return NextResponse.json(
+                { success: false, message: validationError.message },
+                { status: 400 }
             );
         }
 

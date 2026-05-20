@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Boxes,
@@ -23,6 +23,7 @@ import { getUnitLabel } from "@libs/constants/units";
 import { PAGE_LIMITS } from "@libs/constants/pagination";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
 import { getProductTypeLabel, PRODUCT_TYPES } from "@libs/constants/productTypes";
+import { formatQuantity } from "@libs/unitQuantities";
 
 const PAGE_SIZE = PAGE_LIMITS.products;
 
@@ -41,19 +42,24 @@ const STORAGE_TYPE_LABELS = {
 };
 
 function formatNumber(value) {
-  const numericValue = Number(value || 0);
+  return formatQuantity(value);
+}
 
-  if (Number.isInteger(numericValue)) {
-    return String(numericValue);
-  }
-
-  return numericValue.toFixed(2);
+function getProductCategoryId(product) {
+  return String(
+    product?.category?._id ||
+      product?.category ||
+      product?.categoryId?._id ||
+      product?.categoryId ||
+      ""
+  );
 }
 
 export default function ProductsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hasInitializedPageReset = useRef(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +90,7 @@ export default function ProductsPage() {
     Boolean(categoryFilter) ||
     statusFilter !== "all" ||
     typeFilter !== "all";
+  const isCategoryFilterLoading = isLoading && categories.length === 0;
 
   const [dialogState, setDialogState] = useState({
     open: false,
@@ -165,6 +172,11 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => {
+    if (!hasInitializedPageReset.current) {
+      hasInitializedPageReset.current = true;
+      return;
+    }
+
     setPage(1);
   }, [search, categoryFilter, statusFilter, typeFilter]);
 
@@ -194,7 +206,7 @@ export default function ProductsPage() {
           product.categoryName?.toLowerCase().includes(searchValue);
 
         const matchesCategory =
-          !categoryFilter || product.category?._id === categoryFilter;
+          !categoryFilter || getProductCategoryId(product) === categoryFilter;
 
         const matchesStatus =
           statusFilter === "all" ||
@@ -626,8 +638,18 @@ export default function ProductsPage() {
                 value={categoryFilter}
                 onChange={(event) => setCategoryFilter(event.target.value)}
                 className="form-input"
+                disabled={isCategoryFilterLoading}
               >
-                <option value="">Todas las categorias</option>
+                {isCategoryFilterLoading ? (
+                  <option value={categoryFilter || ""}>
+                    {categoryFilter ? "Cargando categoria..." : "Cargando categorias..."}
+                  </option>
+                ) : (
+                  <option value="">Todas las categorias</option>
+                )}
+                {categoryFilter && !categories.some((category) => category._id === categoryFilter) ? (
+                  <option value={categoryFilter}>Categoria seleccionada</option>
+                ) : null}
                 {categories.map((category) => (
                   <option key={category._id} value={category._id}>
                     {category.name}

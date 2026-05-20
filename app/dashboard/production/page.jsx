@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Eye,
     Factory,
@@ -93,6 +93,7 @@ export default function ProductionPage() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const hasInitializedPageReset = useRef(false);
 
     const [productions, setProductions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -130,6 +131,11 @@ export default function ProductionPage() {
     );
 
     useEffect(() => {
+        if (!hasInitializedPageReset.current) {
+            hasInitializedPageReset.current = true;
+            return;
+        }
+
         setPage(1);
     }, [search, statusFilter, typeFilter, dateFilter]);
 

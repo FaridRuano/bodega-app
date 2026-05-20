@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowRightLeft,
@@ -26,9 +26,12 @@ import { getInventoryStatusLabel } from "@libs/constants/domainLabels";
 import { PAGE_LIMITS } from "@libs/constants/pagination";
 import { getUnitLabel } from "@libs/constants/units";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
+import { formatQuantity } from "@libs/unitQuantities";
 
 const PAGE_SIZE = PAGE_LIMITS.inventory;
 const AUTO_REFRESH_INTERVAL_MS = 30000;
+const INVENTORY_VIEW_MODE_STORAGE_KEY = "bodega:inventory:view-mode:v1";
+const INVENTORY_VIEW_MODES = ["compact", "cards"];
 const INVENTORY_SCOPE_LABELS = {
   all: "General",
   warehouse: "Bodega",
@@ -64,10 +67,39 @@ function getStatusClass(status, stylesRef) {
   }
 }
 
+function normalizeViewMode(value, fallback = "compact") {
+  const normalized = String(value || "").trim();
+  return INVENTORY_VIEW_MODES.includes(normalized) ? normalized : fallback;
+}
+
+function getStoredViewMode() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    return normalizeViewMode(window.localStorage.getItem(INVENTORY_VIEW_MODE_STORAGE_KEY), "");
+  } catch {
+    return "";
+  }
+}
+
+function storeViewModePreference(nextViewMode) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      INVENTORY_VIEW_MODE_STORAGE_KEY,
+      normalizeViewMode(nextViewMode)
+    );
+  } catch {
+    // La preferencia visual no debe bloquear el uso del inventario.
+  }
+}
+
 export default function InventoryPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hasInitializedPageReset = useRef(false);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [products, setProducts] = useState([]);
@@ -79,7 +111,9 @@ export default function InventoryPage() {
   const [familyFilter, setFamilyFilter] = useState(() => getStringParam(searchParams, "familyId"));
   const [categoryFilter, setCategoryFilter] = useState(() => getStringParam(searchParams, "categoryId"));
   const [scope, setScope] = useState(() => getStringParam(searchParams, "scope", "all"));
-  const [viewMode, setViewMode] = useState(() => getStringParam(searchParams, "view", "compact"));
+  const [viewMode, setViewMode] = useState(() =>
+    normalizeViewMode(getStringParam(searchParams, "view", "compact"))
+  );
   const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
   const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
   const [isLoading, setIsLoading] = useState(true);
@@ -137,6 +171,8 @@ export default function InventoryPage() {
     Boolean(alertFilter) ||
     Boolean(familyFilter) ||
     Boolean(categoryFilter);
+  const areFamilyFiltersLoading = isLoading && families.length === 0;
+  const areCategoryFiltersLoading = isLoading && categories.length === 0;
 
   const filteredCategories = useMemo(() => {
     if (!familyFilter) {
@@ -147,6 +183,11 @@ export default function InventoryPage() {
   }, [categories, familyFilter]);
 
   useEffect(() => {
+    if (!hasInitializedPageReset.current) {
+      hasInitializedPageReset.current = true;
+      return;
+    }
+
     setPage(1);
   }, [alertFilter, categoryFilter, familyFilter, searchTerm, activeScope]);
 
@@ -181,6 +222,21 @@ export default function InventoryPage() {
       setScope(availableScopes[0] || "all");
     }
   }, [availableScopes, scope]);
+
+  useEffect(() => {
+    const viewFromUrl = normalizeViewMode(getStringParam(searchParams, "view", ""), "");
+
+    if (viewFromUrl) {
+      setViewMode(viewFromUrl);
+      storeViewModePreference(viewFromUrl);
+      return;
+    }
+
+    const storedViewMode = getStoredViewMode();
+    if (storedViewMode) {
+      setViewMode(storedViewMode);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const nextQuery = buildSearchParams(searchParams, {
@@ -312,10 +368,12 @@ export default function InventoryPage() {
   }, [activeScope, alertFilter, categoryFilter, familyFilter, page, searchTerm]);
 
   useEffect(() => {
+    if (categories.length === 0) return;
+
     if (categoryFilter && !filteredCategories.some((category) => category._id === categoryFilter)) {
       setCategoryFilter("");
     }
-  }, [categoryFilter, filteredCategories]);
+  }, [categories.length, categoryFilter, filteredCategories]);
 
   useEffect(() => {
     const hasBlockingModal =
@@ -357,6 +415,12 @@ export default function InventoryPage() {
 
   function toggleAlertFilter(nextFilter) {
     setAlertFilter((prev) => (prev === nextFilter ? "" : nextFilter));
+  }
+
+  function updateViewMode(nextViewMode) {
+    const normalizedViewMode = normalizeViewMode(nextViewMode);
+    setViewMode(normalizedViewMode);
+    storeViewModePreference(normalizedViewMode);
   }
 
   function openMovementModal(mode, product) {
@@ -586,7 +650,7 @@ export default function InventoryPage() {
             <button
               type="button"
               className={`miniAction miniActionIconOnly ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
-              onClick={() => setViewMode("cards")}
+              onClick={() => updateViewMode("cards")}
               aria-label="Tarjetas"
               disabled={products.length === 0}
             >
@@ -596,7 +660,7 @@ export default function InventoryPage() {
             <button
               type="button"
               className={`miniAction miniActionIconOnly ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
-              onClick={() => setViewMode("compact")}
+              onClick={() => updateViewMode("compact")}
               aria-label="Seguimiento"
               disabled={products.length === 0}
             >
@@ -615,8 +679,18 @@ export default function InventoryPage() {
                 setCategoryFilter("");
               }}
               className="filterSelect"
+              disabled={areFamilyFiltersLoading}
             >
-              <option value="">Todas las familias</option>
+              {areFamilyFiltersLoading ? (
+                <option value={familyFilter || ""}>
+                  {familyFilter ? "Cargando familia..." : "Cargando familias..."}
+                </option>
+              ) : (
+                <option value="">Todas las familias</option>
+              )}
+              {familyFilter && !families.some((family) => family._id === familyFilter) ? (
+                <option value={familyFilter}>Familia seleccionada</option>
+              ) : null}
               {families.map((family) => (
                 <option key={family._id} value={family._id}>
                   {family.name}
@@ -630,8 +704,18 @@ export default function InventoryPage() {
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
               className="filterSelect"
+              disabled={areCategoryFiltersLoading}
             >
-              <option value="">Todas las categorias</option>
+              {areCategoryFiltersLoading ? (
+                <option value={categoryFilter || ""}>
+                  {categoryFilter ? "Cargando categoria..." : "Cargando categorias..."}
+                </option>
+              ) : (
+                <option value="">Todas las categorias</option>
+              )}
+              {categoryFilter && !filteredCategories.some((category) => category._id === categoryFilter) ? (
+                <option value={categoryFilter}>Categoria seleccionada</option>
+              ) : null}
               {filteredCategories.map((category) => (
                 <option key={category._id} value={category._id}>
                   {category.name}
@@ -733,7 +817,7 @@ export default function InventoryPage() {
                           <div className={styles.scopeAmountCard}>
                             <span>{scopeLabel}</span>
                             <strong className={styles.scopeAmountValue}>
-                              {product.inventory?.[activeScope] || 0}
+                              {formatQuantity(product.inventory?.[activeScope])}
                             </strong>
                           </div>
                         </div>
@@ -741,22 +825,22 @@ export default function InventoryPage() {
                         <div className={styles.stockSummary}>
                           <div className={styles.stockBlock}>
                             <span>Total</span>
-                            <strong>{product.inventory?.total || 0}</strong>
+                            <strong>{formatQuantity(product.inventory?.total)}</strong>
                           </div>
 
                           <div className={styles.stockBlock}>
                             <span>Bodega</span>
-                            <strong>{product.inventory?.warehouse || 0}</strong>
+                            <strong>{formatQuantity(product.inventory?.warehouse)}</strong>
                           </div>
 
                           <div className={styles.stockBlock}>
                             <span>Cocina</span>
-                            <strong>{product.inventory?.kitchen || 0}</strong>
+                            <strong>{formatQuantity(product.inventory?.kitchen)}</strong>
                           </div>
 
                           <div className={styles.stockBlock}>
                             <span>Salon</span>
-                            <strong>{product.inventory?.lounge || 0}</strong>
+                            <strong>{formatQuantity(product.inventory?.lounge)}</strong>
                           </div>
                         </div>
                       )}

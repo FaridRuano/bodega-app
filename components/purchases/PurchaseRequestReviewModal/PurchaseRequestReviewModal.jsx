@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ClipboardList, PackageCheck, PencilLine, Trash2, X, XCircle } from "lucide-react";
 import { getLocationLabel } from "@libs/constants/domainLabels";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+  formatQuantity,
+  getQuantityInputStep,
+  normalizeQuantityInput,
+} from "@libs/unitQuantities";
 import styles from "./purchase-request-review-modal.module.scss";
 
 const STATUS_LABELS = {
@@ -135,10 +140,10 @@ export default function PurchaseRequestReviewModal({
 
   const hasReceiptItems = pendingReceiptItems.length > 0;
 
-  function handleReceiptValueChange(itemId, value) {
+  function handleReceiptValueChange(itemId, value, unit) {
     setReceiptItems((prev) => ({
       ...prev,
-      [itemId]: value,
+      [itemId]: normalizeQuantityInput(value, unit),
     }));
   }
 
@@ -252,24 +257,24 @@ export default function PurchaseRequestReviewModal({
 
                   <div className={styles.itemMetrics}>
                     <div className={styles.metricBlock}>
-                      <strong>{item.requestedQuantity}</strong>
+                      <strong>{formatQuantity(item.requestedQuantity)}</strong>
                       <span>Solicitado</span>
                     </div>
                     <div className={styles.metricBlock}>
-                      <strong>{item.purchasedQuantity || 0}</strong>
+                      <strong>{formatQuantity(item.purchasedQuantity)}</strong>
                       <span>Comprado</span>
                     </div>
                     <div className={styles.metricBlock}>
-                      <strong>{item.dispatchedQuantity || 0}</strong>
+                      <strong>{formatQuantity(item.dispatchedQuantity)}</strong>
                       <span>Despachado</span>
                     </div>
                     <div className={styles.metricBlock}>
                       <strong>
-                        {Math.max(
+                        {formatQuantity(Math.max(
                           Number(item.approvedQuantity || item.requestedQuantity || 0) -
                           Number(item.receivedQuantity || 0),
                           0
-                        )}
+                        ))}
                       </strong>
                       <span>Pendiente</span>
                     </div>
@@ -286,17 +291,23 @@ export default function PurchaseRequestReviewModal({
                     <div className={styles.receiveRow}>
                       {Number(latestDispatchMap[item._id] || 0) > 0 ? (
                         <span className={styles.receiveHint}>
-                          Último despacho: {latestDispatchMap[item._id]}
+                          Último despacho: {formatQuantity(latestDispatchMap[item._id])}
                         </span>
                       ) : null}
                       <input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step={getQuantityInputStep(item.unitSnapshot || item.product?.unit)}
                         className={`form-input ${styles.receiveInput}`}
                         placeholder="Recibido"
                         value={receiptItems[item._id] ?? ""}
-                        onChange={(event) => handleReceiptValueChange(item._id, event.target.value)}
+                        onChange={(event) =>
+                          handleReceiptValueChange(
+                            item._id,
+                            event.target.value,
+                            item.unitSnapshot || item.product?.unit
+                          )
+                        }
                         disabled={isReceiving}
                       />
                       <button

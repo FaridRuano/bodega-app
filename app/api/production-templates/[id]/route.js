@@ -6,6 +6,7 @@ import { auth } from "@auth";
 import dbConnect from "@libs/mongodb";
 import ProductionTemplate from "@models/ProductionTemplate";
 import { PRODUCTION_BASE_UNITS } from "@libs/constants/units";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 async function getCurrentUserId() {
     const session = await auth();
@@ -163,6 +164,10 @@ function validateNumericFields(payload) {
         ) {
             return "La cantidad de uno de los insumos no es válida.";
         }
+
+        if (!isValidQuantityForUnit(input.quantity, input.unit)) {
+            return "La cantidad de uno de los insumos debe ser entera para esa unidad.";
+        }
     }
 
     for (const output of payload.outputs || []) {
@@ -172,6 +177,14 @@ function validateNumericFields(payload) {
             (Number.isNaN(output.quantity) || output.quantity <= 0)
         ) {
             return "La cantidad estimada de uno de los resultados no es válida.";
+        }
+
+        if (
+            output.quantity !== null &&
+            output.quantity !== undefined &&
+            !isValidQuantityForUnit(output.quantity, output.unit)
+        ) {
+            return "La cantidad estimada de uno de los resultados debe ser entera para esa unidad.";
         }
     }
 

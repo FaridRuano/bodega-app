@@ -5,6 +5,7 @@ import dbConnect from "@libs/mongodb";
 import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notifications";
 import PurchaseRequest from "@models/PurchaseRequest";
 import { isValidObjectId, normalizeNullableText } from "@libs/purchaseRequests";
+import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 export async function POST(request, { params }) {
     try {
@@ -48,6 +49,13 @@ export async function POST(request, { params }) {
 
             if (!Number.isFinite(approvedQuantity) || approvedQuantity < 0) {
                 throw new Error("Las cantidades aprobadas no son validas.");
+            }
+
+            if (
+                approvedQuantity > 0 &&
+                !isValidQuantityForUnit(approvedQuantity, item.unitSnapshot)
+            ) {
+                throw new Error("Las cantidades aprobadas deben ser enteras para productos por unidad.");
             }
 
             item.approvedQuantity = approvedQuantity;

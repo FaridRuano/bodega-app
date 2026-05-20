@@ -5,6 +5,10 @@ import { PackageMinus, PackagePlus, X } from "lucide-react";
 
 import styles from "./inventory-quick-adjust-modal.module.scss";
 import { getUnitLabel } from "@libs/constants/units";
+import {
+  getQuantityInputStep,
+  normalizeQuantityInput,
+} from "@libs/unitQuantities";
 
 const MODE_CONFIG = {
   entry: {
@@ -37,6 +41,7 @@ export default function InventoryQuickAdjustModal({
 }) {
   const config = MODE_CONFIG[mode] || MODE_CONFIG.entry;
   const Icon = config.icon;
+  const quantityStep = getQuantityInputStep(product?.unit);
   const numericQuantity = Number(formData.quantity || 0);
   const exceedsAvailableStock =
     mode === "exit" && numericQuantity > 0 && numericQuantity > Number(currentStock || 0);
@@ -119,10 +124,19 @@ export default function InventoryQuickAdjustModal({
                   name="quantity"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step={quantityStep}
                   className="form-input"
                   value={formData.quantity}
-                  onChange={onChange}
+                  onChange={(event) =>
+                    onChange({
+                      ...event,
+                      target: {
+                        ...event.target,
+                        name: event.target.name,
+                        value: normalizeQuantityInput(event.target.value, product?.unit),
+                      },
+                    })
+                  }
                   placeholder="0"
                   required
                 />

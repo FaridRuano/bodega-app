@@ -15,6 +15,10 @@ import ConfirmModal from "@components/shared/ConfirmModal/ConfirmModal";
 import DialogModal from "@components/shared/DialogModal/DialogModal";
 import { getUnitLabel } from "@libs/constants/units";
 import { getProductionTypeLabel } from "@libs/constants/productionTypes";
+import {
+    getQuantityInputStep,
+    normalizeQuantityInput,
+} from "@libs/unitQuantities";
 import styles from "./production-progress-view.module.scss";
 
 function formatNumber(value, maximumFractionDigits = 2) {
@@ -27,7 +31,7 @@ function formatNumber(value, maximumFractionDigits = 2) {
 function formatSignedNumber(value) {
     const numeric = Number(value || 0);
     const prefix = numeric > 0 ? "+" : "";
-    return `${prefix}${formatNumber(numeric, 3)}`;
+    return `${prefix}${formatNumber(numeric)}`;
 }
 
 function formatDate(value) {
@@ -544,11 +548,14 @@ export default function ProductionInProgressView({
                                                 className="form-input"
                                                 type="number"
                                                 min="0"
-                                                step="0.0001"
+                                                step={getQuantityInputStep(item.unitSnapshot)}
                                                 value={item.quantity}
                                                 onChange={(event) =>
                                                     updateResultRow(index, {
-                                                        quantity: event.target.value,
+                                                        quantity: normalizeQuantityInput(
+                                                            event.target.value,
+                                                            item.unitSnapshot
+                                                        ),
                                                     })
                                                 }
                                             />
@@ -569,11 +576,14 @@ export default function ProductionInProgressView({
                                                     className="form-input"
                                                     type="number"
                                                     min="0"
-                                                    step="0.0001"
+                                                    step="0.01"
                                                     value={item.recordedWeight}
                                                     onChange={(event) =>
                                                         updateResultRow(index, {
-                                                            recordedWeight: event.target.value,
+                                                            recordedWeight: normalizeQuantityInput(
+                                                                event.target.value,
+                                                                "kg"
+                                                            ),
                                                         })
                                                     }
                                                 />
@@ -696,7 +706,7 @@ export default function ProductionInProgressView({
                     <div className={styles.summaryCard}>
                         <span className={styles.summaryLabel}>Objetivo</span>
                         <strong>
-                            {formatNumber(production?.targetQuantity, 3)}{" "}
+                            {formatNumber(production?.targetQuantity)}{" "}
                             {getUnitLabel(production?.targetUnit)}
                         </strong>
                     </div>
@@ -720,12 +730,12 @@ export default function ProductionInProgressView({
                     <div className={styles.summaryGrid}>
                         <div className={styles.summaryCard}>
                             <span className={styles.summaryLabel}>Peso objetivo</span>
-                            <strong>{formatNumber(weightPreview.targetWeight, 3)} kg</strong>
+                            <strong>{formatNumber(weightPreview.targetWeight)} kg</strong>
                         </div>
                         <div className={styles.summaryCard}>
                             <span className={styles.summaryLabel}>Peso registrado</span>
                             <strong>
-                                {formatNumber(weightPreview.recordedTotalWeight, 3)} kg
+                                {formatNumber(weightPreview.recordedTotalWeight)} kg
                             </strong>
                         </div>
                         <div className={styles.summaryCard}>
@@ -765,7 +775,7 @@ export default function ProductionInProgressView({
                                     </p>
                                 </div>
                                 <strong>
-                                    {formatNumber(item.quantity, 3)}{" "}
+                                    {formatNumber(item.quantity)}{" "}
                                     {getUnitLabel(item.unitSnapshot)}
                                 </strong>
                             </div>
@@ -815,13 +825,16 @@ export default function ProductionInProgressView({
                                                     className="form-input"
                                                     type="number"
                                                     min="0"
-                                                    step="0.0001"
+                                                    step={getQuantityInputStep(waste[0]?.unitSnapshot || "kg")}
                                                     value={waste[0]?.quantity || ""}
                                                     onChange={(event) =>
                                                         setWaste((prev) => [
                                                             {
                                                                 ...(prev[0] || createWasteRow()),
-                                                                quantity: event.target.value,
+                                                                quantity: normalizeQuantityInput(
+                                                                    event.target.value,
+                                                                    prev[0]?.unitSnapshot || "kg"
+                                                                ),
                                                             },
                                                         ])
                                                     }

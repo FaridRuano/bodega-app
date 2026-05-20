@@ -53,6 +53,24 @@
     }
 }
 
+.action-button:disabled,
+.action-button:disabled:hover {
+    max-width: 36px;
+    transform: none;
+    cursor: not-allowed;
+    opacity: 0.48;
+    border-color: var(--border-subtle);
+    background: var(--surface-primary);
+    color: var(--text-muted);
+    box-shadow: none;
+
+    .action-button__label {
+        max-width: 0;
+        margin-left: 0;
+        opacity: 0;
+    }
+}
+
 .action-button--neutral {
     background: var(--surface-primary);
     color: var(--text-secondary);
@@ -97,6 +115,25 @@
 .action-button--warning:hover {
     background: var(--warning);
     color: var(--text-inverse);
+}
+
+.action-button--success {
+    background: var(--success-soft);
+    color: var(--success);
+    border-color: transparent;
+}
+
+.action-button--success:hover {
+    background: var(--success);
+    border-color: var(--success);
+    color: var(--text-inverse);
+}
+
+.action-button--success:disabled,
+.action-button--success:disabled:hover {
+    background: color-mix(in srgb, var(--success-soft) 78%, var(--surface-primary));
+    border-color: transparent;
+    color: color-mix(in srgb, var(--success) 72%, transparent);
 }
 
 .action-button--danger {
@@ -288,6 +325,17 @@
 
     .action-button:hover {
         max-width: none;
+    }
+
+    .action-button:disabled,
+    .action-button:disabled:hover {
+        max-width: none;
+
+        .action-button__label {
+            max-width: 200px;
+            margin-left: 8px;
+            opacity: 1;
+        }
     }
 
     .miniAction {
