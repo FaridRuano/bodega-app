@@ -322,6 +322,106 @@
     color: var(--text-secondary);
 }
 
+.loadingCard {
+    pointer-events: none;
+}
+
+.loadingHeroCopy,
+.loadingHeaderCopy,
+.loadingCardBody,
+.loadingRecentList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.loadingHeroStats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.loadingPill {
+    width: 110px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-subtle);
+}
+
+.loadingLine {
+    display: block;
+    height: 11px;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--surface-tertiary) 82%, transparent) 0%,
+        color-mix(in srgb, var(--surface-secondary) 88%, transparent) 50%,
+        color-mix(in srgb, var(--surface-tertiary) 82%, transparent) 100%
+    );
+    background-size: 220% 100%;
+    animation: dashboardShimmer 1.35s linear infinite;
+}
+
+.loadingEyebrow {
+    width: 120px;
+}
+
+.loadingTitle {
+    width: 260px;
+    height: 22px;
+}
+
+.loadingDescription {
+    width: min(620px, 100%);
+}
+
+.loadingShort {
+    width: 34%;
+}
+
+.loadingMedium {
+    width: 62%;
+}
+
+.loadingLong {
+    width: 82%;
+}
+
+.loadingButton {
+    width: 102px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-secondary);
+}
+
+.loadingStrip {
+    min-height: 50px;
+}
+
+.loadingCircle {
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-subtle);
+}
+
+.loadingRecentItem {
+    pointer-events: none;
+}
+
+@keyframes dashboardShimmer {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -20% 0;
+    }
+}
+
 @media (max-width: 1100px) {
     .quickLinks,
     .attentionGrid,
@@ -353,6 +453,14 @@
     .recentAside {
         align-items: flex-start;
         text-align: left;
+    }
+
+    .loadingHeroStats {
+        justify-content: flex-start;
+    }
+
+    .loadingTitle {
+        width: min(220px, 100%);
     }
 }
 

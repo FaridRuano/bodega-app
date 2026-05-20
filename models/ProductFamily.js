@@ -26,6 +26,7 @@ const productFamilySchema = new Schema(
     },
     {
         timestamps: true,
+        collection: "families",
     }
 );
 
@@ -43,6 +44,6 @@ productFamilySchema.index({ name: 1 });
 productFamilySchema.index({ slug: 1 }, { unique: true });
 
 const ProductFamily =
-    models.ProductFamily || model("ProductFamily", productFamilySchema);
+    models.ProductFamily || model("ProductFamily", productFamilySchema, "families");
 
 export default ProductFamily;

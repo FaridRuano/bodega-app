@@ -23,28 +23,34 @@ const configItems = [
         label: "Fichas de Producción",
         href: "/dashboard/config/productionsheets",
     },
+    {
+        label: "Importar",
+        href: "/dashboard/config/import",
+    },
 ];
 
 export default function ConfigTabs() {
     const pathname = usePathname();
 
     return (
-        <div className={styles.wrapper}>
-            <nav className={styles.tabs} aria-label="Navegación de configuración">
-                {configItems.map((item) => {
-                    const isActive = pathname === item.href;
+        <div className={styles.viewport}>
+            <div className={styles.scroller}>
+                <nav className={styles.tabs} aria-label="Navegación de configuración">
+                    {configItems.map((item) => {
+                        const isActive = pathname === item.href;
 
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={clsx(styles.tab, isActive && styles.active)}
-                        >
-                            {item.label}
-                        </Link>
-                    );
-                })}
-            </nav>
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={clsx(styles.tab, isActive && styles.active)}
+                            >
+                                {item.label}
+                            </Link>
+                        );
+                    })}
+                </nav>
+            </div>
         </div>
     );
 }

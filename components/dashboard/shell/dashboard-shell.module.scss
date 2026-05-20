@@ -19,6 +19,7 @@
 
 .mainArea {
     min-width: 0;
+    overflow-x: hidden;
     display: grid;
     grid-template-rows: 100px 1fr;
 }
@@ -36,6 +37,9 @@
 }
 
 .content {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
     padding: 1.5rem;
 }
 

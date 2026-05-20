@@ -2,6 +2,16 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.content {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .card {

@@ -155,6 +155,80 @@ function EmptyState({ title, description }) {
     );
 }
 
+function DashboardLoadingSkeleton() {
+    return (
+        <section className={`${styles.wrapper} fadeScaleIn`} aria-live="polite" aria-busy="true">
+            <section className={`hero ${styles.heroShell}`}>
+                <div className={styles.loadingHeroCopy}>
+                    <span className={`${styles.loadingLine} ${styles.loadingEyebrow}`} />
+                    <span className={`${styles.loadingLine} ${styles.loadingTitle}`} />
+                    <span className={`${styles.loadingLine} ${styles.loadingDescription}`} />
+                </div>
+                <div className={styles.loadingHeroStats}>
+                    {Array.from({ length: 3 }).map((_, index) => (
+                        <span key={index} className={`${styles.loadingPill} pulseSoft`} />
+                    ))}
+                </div>
+            </section>
+
+            <div className={styles.toolbar}>
+                <div className={styles.quickLinks}>
+                    {Array.from({ length: 3 }).map((_, index) => (
+                        <article key={index} className={`${styles.quickLink} ${styles.loadingCard}`}>
+                            <span className={`${styles.loadingLine} ${styles.loadingShort}`} />
+                            <span className={`${styles.loadingLine} ${styles.loadingMedium}`} />
+                            <span className={`${styles.loadingLine} ${styles.loadingLong}`} />
+                        </article>
+                    ))}
+                </div>
+                <span className={`${styles.loadingButton} pulseSoft`} />
+            </div>
+
+            <section className={`${styles.statusStrip} ${styles.loadingStrip}`}>
+                <span className={`${styles.loadingLine} ${styles.loadingLong}`} />
+                <span className={`${styles.loadingLine} ${styles.loadingShort}`} />
+            </section>
+
+            <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <div className={styles.loadingHeaderCopy}>
+                        <span className={`${styles.loadingLine} ${styles.loadingMedium}`} />
+                        <span className={`${styles.loadingLine} ${styles.loadingLong}`} />
+                    </div>
+                </div>
+                <div className={styles.attentionGrid}>
+                    {Array.from({ length: 3 }).map((_, index) => (
+                        <article key={index} className={`${styles.attentionCard} ${styles.loadingCard}`}>
+                            <span className={`${styles.loadingCircle} pulseSoft`} />
+                            <div className={styles.loadingCardBody}>
+                                <span className={`${styles.loadingLine} ${styles.loadingShort}`} />
+                                <span className={`${styles.loadingLine} ${styles.loadingMedium}`} />
+                                <span className={`${styles.loadingLine} ${styles.loadingLong}`} />
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            </section>
+
+            <div className={styles.contentGrid}>
+                {Array.from({ length: 2 }).map((_, index) => (
+                    <section key={index} className={`${styles.panel} ${styles.loadingCard}`}>
+                        <span className={`${styles.loadingLine} ${styles.loadingMedium}`} />
+                        <div className={styles.loadingRecentList}>
+                            {Array.from({ length: 4 }).map((__, rowIndex) => (
+                                <article key={rowIndex} className={`${styles.recentItem} ${styles.loadingRecentItem}`}>
+                                    <span className={`${styles.loadingLine} ${styles.loadingMedium}`} />
+                                    <span className={`${styles.loadingLine} ${styles.loadingShort}`} />
+                                </article>
+                            ))}
+                        </div>
+                    </section>
+                ))}
+            </div>
+        </section>
+    );
+}
+
 function RecentList({ items = [] }) {
     if (!items.length) {
         return (
@@ -840,11 +914,7 @@ export default function DashboardPage() {
     }, [data, user]);
 
     if (isLoading) {
-        return (
-            <section className={`${styles.loadingState} fadeScaleIn`}>
-                Cargando dashboard...
-            </section>
-        );
+        return <DashboardLoadingSkeleton />;
     }
 
     if (!user?.role) {
