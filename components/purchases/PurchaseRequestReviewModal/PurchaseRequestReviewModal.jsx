@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ClipboardList, PackageCheck, PencilLine, Trash2, X, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, PackageCheck, PencilLine, X, XCircle } from "lucide-react";
 import { getLocationLabel } from "@libs/constants/domainLabels";
 import { getUnitLabel } from "@libs/constants/units";
 import {
@@ -74,17 +74,14 @@ export default function PurchaseRequestReviewModal({
   canApprove = false,
   canEdit = false,
   canCancel = false,
-  canDelete = false,
   canReceive = false,
   isApproving = false,
   isCancelling = false,
-  isDeleting = false,
   isReceiving = false,
   onClose,
   onApprove,
   onEdit,
   onCancel,
-  onDelete,
   onReceive,
 }) {
   const [receiptNote, setReceiptNote] = useState("");
@@ -96,7 +93,7 @@ export default function PurchaseRequestReviewModal({
 
   useEffect(() => {
     function handleEscape(event) {
-      if (event.key === "Escape" && open && !isCancelling && !isApproving && !isDeleting && !isReceiving) {
+      if (event.key === "Escape" && open && !isCancelling && !isApproving && !isReceiving) {
         onClose();
       }
     }
@@ -106,7 +103,7 @@ export default function PurchaseRequestReviewModal({
     return () => {
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [isApproving, isCancelling, isDeleting, isReceiving, onClose, open]);
+  }, [isApproving, isCancelling, isReceiving, onClose, open]);
 
   useEffect(() => {
     if (!open || !request) return;
@@ -209,7 +206,7 @@ export default function PurchaseRequestReviewModal({
             className="modal-close"
             onClick={onClose}
             aria-label="Cerrar modal"
-            disabled={isCancelling || isApproving || isDeleting || isReceiving}
+            disabled={isCancelling || isApproving || isReceiving}
           >
             <X size={18} />
           </button>
@@ -343,14 +340,14 @@ export default function PurchaseRequestReviewModal({
           ) : null}
         </div>
 
-        {(canApprove || canEdit || canCancel || canDelete || (canReceive && hasReceiptItems)) ? (
+        {(canApprove || canEdit || canCancel || (canReceive && hasReceiptItems)) ? (
           <div className="modal-footer">
             {canReceive && hasReceiptItems ? (
               <button
                 type="button"
                 className="miniAction miniActionPrimary"
                 onClick={handleReceiveSubmit}
-                disabled={isCancelling || isApproving || isDeleting || isReceiving || !hasPendingReceiptSelection}
+                disabled={isCancelling || isApproving || isReceiving || !hasPendingReceiptSelection}
               >
                 <PackageCheck size={16} />
                 {isReceiving ? "Confirmando..." : "Confirmar recibido"}
@@ -362,7 +359,7 @@ export default function PurchaseRequestReviewModal({
                 type="button"
                 className="miniAction miniActionPrimary"
                 onClick={onApprove}
-                disabled={isCancelling || isApproving || isDeleting || isReceiving}
+                disabled={isCancelling || isApproving || isReceiving}
               >
                 <CheckCircle2 size={16} />
                 {isApproving ? "Aprobando..." : "Aprobar"}
@@ -374,7 +371,7 @@ export default function PurchaseRequestReviewModal({
                 type="button"
                 className="miniAction"
                 onClick={onEdit}
-                disabled={isCancelling || isApproving || isDeleting || isReceiving}
+                disabled={isCancelling || isApproving || isReceiving}
               >
                 <PencilLine size={16} />
                 Editar
@@ -386,22 +383,10 @@ export default function PurchaseRequestReviewModal({
                 type="button"
                 className="miniAction miniActionDanger"
                 onClick={onCancel}
-                disabled={isCancelling || isApproving || isDeleting || isReceiving}
+                disabled={isCancelling || isApproving || isReceiving}
               >
                 <XCircle size={16} />
                 {isCancelling ? "Cancelando..." : "Cancelar solicitud"}
-              </button>
-            ) : null}
-
-            {canDelete ? (
-              <button
-                type="button"
-                className="miniAction miniActionDanger"
-                onClick={onDelete}
-                disabled={isCancelling || isApproving || isDeleting || isReceiving}
-              >
-                <Trash2 size={16} />
-                {isDeleting ? "Eliminando..." : "Eliminar"}
               </button>
             ) : null}
           </div>

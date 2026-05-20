@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import {
   Archive,
   Box,
   ClipboardList,
   ClipboardCheck,
+  History,
   Package,
   PencilLine,
   Power,
@@ -109,10 +111,6 @@ export default function ProductViewModal({
                 <span className={`${styles.status} ${isActive ? styles.statusActive : styles.statusInactive}`}>
                   {isActive ? "Activo" : "Inactivo"}
                 </span>
-                <span className={styles.typeBadge}>
-                  {PRODUCT_TYPE_LABELS[productType] || productType}
-                </span>
-
               </div>
               <button
                 type="button"
@@ -126,12 +124,6 @@ export default function ProductViewModal({
             </div>
           </div>
           <div className="modal-header">
-            {requiresWeightControl && (
-              <span className={styles.weightBadge}>
-                <Scale size={13} />
-                Controlar Peso
-              </span>
-            )}
             <h3 className="modal-title">{name}</h3>
 
             <p className="modal-description">
@@ -285,6 +277,18 @@ export default function ProductViewModal({
               <p className={styles.notesText}>{notes || "Sin notas registradas."}</p>
             </div>
           </section>
+
+          <div className={styles.historyActionRow}>
+            <Link
+              href={`/dashboard/products/${product._id}/history`}
+              className="action-button action-button--neutral"
+            >
+              <span className="action-button__icon">
+                <History size={16} />
+              </span>
+              <span className="action-button__label">Historial</span>
+            </Link>
+          </div>
           </div>
         </div>
 

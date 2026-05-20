@@ -256,7 +256,6 @@ export default function PurchasesPage() {
   const [isApprovingRequest, setIsApprovingRequest] = useState(false);
   const [isApprovingAllRequests, setIsApprovingAllRequests] = useState(false);
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
-  const [isDeletingRequest, setIsDeletingRequest] = useState(false);
   const [isReceivingRequest, setIsReceivingRequest] = useState(false);
   const [dispatchingBatchId, setDispatchingBatchId] = useState("");
   const [isDispatchingAllBatches, setIsDispatchingAllBatches] = useState(false);
@@ -264,7 +263,6 @@ export default function PurchasesPage() {
   const [approveAllConfirmOpen, setApproveAllConfirmOpen] = useState(false);
   const [dispatchAllConfirmOpen, setDispatchAllConfirmOpen] = useState(false);
   const [cancelRequestTarget, setCancelRequestTarget] = useState(null);
-  const [deleteRequestTarget, setDeleteRequestTarget] = useState(null);
 
   const [builderFamilies, setBuilderFamilies] = useState([]);
   const [builderCategories, setBuilderCategories] = useState([]);
@@ -440,8 +438,7 @@ export default function PurchasesPage() {
       reviewModalOpen ||
       Boolean(dispatchBatchTarget) ||
       dispatchAllConfirmOpen ||
-      Boolean(cancelRequestTarget) ||
-      Boolean(deleteRequestTarget);
+      Boolean(cancelRequestTarget);
 
     if (hasBlockingModal) {
       return undefined;
@@ -475,7 +472,6 @@ export default function PurchasesPage() {
     dispatchBatchTarget,
     dispatchAllConfirmOpen,
     cancelRequestTarget,
-    deleteRequestTarget,
     page,
     search,
     statusFilter,
@@ -664,7 +660,7 @@ export default function PurchasesPage() {
 
     if (isAdmin) {
       baseStats.push({ label: "Por comprar", value: shoppingList.length });
-      baseStats.push({ label: "Compras", value: batchesTotal });
+      baseStats.push({ label: "Registradas", value: batchesTotal });
     } else {
       baseStats.push({ label: "Completadas", value: summary?.completed || 0 });
     }
@@ -759,7 +755,7 @@ export default function PurchasesPage() {
   }
 
   function closeReviewModal() {
-    if (isCancellingRequest || isApprovingRequest || isDeletingRequest || isReceivingRequest) return;
+    if (isCancellingRequest || isApprovingRequest || isReceivingRequest) return;
     setReviewModalOpen(false);
   }
 
@@ -848,15 +844,6 @@ export default function PurchasesPage() {
   function closeCancelRequestConfirm() {
     if (isCancellingRequest) return;
     setCancelRequestTarget(null);
-  }
-
-  function openDeleteRequestConfirm(request) {
-    setDeleteRequestTarget(request || selectedRequest || null);
-  }
-
-  function closeDeleteRequestConfirm() {
-    if (isDeletingRequest) return;
-    setDeleteRequestTarget(null);
   }
 
   function closePurchaseModal() {
@@ -1118,44 +1105,6 @@ export default function PurchasesPage() {
       });
     } finally {
       setIsApprovingAllRequests(false);
-    }
-  }
-
-  async function handleDeleteRequest() {
-    const requestToDelete = deleteRequestTarget || selectedRequest;
-    if (!requestToDelete?._id) return;
-
-    try {
-      setIsDeletingRequest(true);
-
-      const response = await fetch(`/api/purchase-requests/${requestToDelete._id}`, {
-        method: "DELETE",
-      });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo eliminar la solicitud.");
-      }
-
-      setDeleteRequestTarget(null);
-      dismissReviewModal();
-      setDialogModal({
-        open: true,
-        title: "Solicitud eliminada",
-        message: "La solicitud de compra se elimino correctamente.",
-        variant: "success",
-      });
-      await loadPage({ silent: true });
-    } catch (error) {
-      console.error(error);
-      setDialogModal({
-        open: true,
-        title: "No se pudo eliminar la solicitud",
-        message: error.message || "Intenta nuevamente.",
-        variant: "danger",
-      });
-    } finally {
-      setIsDeletingRequest(false);
     }
   }
 
@@ -1481,10 +1430,10 @@ export default function PurchasesPage() {
       <div className="page">
         <section className={`hero fadeScaleIn ${styles.heroShell}`}>
           <div className="heroCopy">
-            <span className="eyebrow">Compras</span>
-            <h1 className="title">Compras</h1>
+            <span className="eyebrow">Abastecimiento</span>
+            <h1 className="title">Solicitudes y ejecucion</h1>
             <p className="description">
-              Gestiona solicitudes, necesidades pendientes y la ejecucion real de compras desde un solo modulo.
+              Coordina pedidos internos, pendientes por comprar y despachos desde un solo flujo.
             </p>
           </div>
 
@@ -1932,17 +1881,14 @@ export default function PurchasesPage() {
         canApprove={isAdmin && selectedRequest?.status === "pending"}
         canEdit={selectedRequest?.status === "pending"}
         canCancel={selectedRequest?.status === "pending"}
-        canDelete={isAdmin}
         canReceive={canConfirmReceipt(selectedRequest)}
         isApproving={isApprovingRequest}
         isCancelling={isCancellingRequest}
-        isDeleting={isDeletingRequest}
         isReceiving={isReceivingRequest}
         onClose={closeReviewModal}
         onApprove={handleApproveRequest}
         onEdit={() => openEditRequestModal(selectedRequest)}
         onCancel={() => openCancelRequestConfirm(selectedRequest)}
-        onDelete={() => openDeleteRequestConfirm(selectedRequest)}
         onReceive={handleReceiveRequest}
       />
 
@@ -2034,21 +1980,6 @@ export default function PurchasesPage() {
         onConfirm={handleCancelRequest}
       />
 
-      <ConfirmModal
-        open={Boolean(deleteRequestTarget)}
-        title="Eliminar solicitud"
-        description={
-          deleteRequestTarget
-            ? `Esta accion eliminara ${deleteRequestTarget.requestNumber} de forma permanente.`
-            : "Confirma la eliminacion de esta solicitud."
-        }
-        confirmLabel="Eliminar"
-        cancelLabel="Volver"
-        variant="danger"
-        isSubmitting={isDeletingRequest}
-        onClose={closeDeleteRequestConfirm}
-        onConfirm={handleDeleteRequest}
-      />
     </>
   );
 }

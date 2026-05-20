@@ -30,8 +30,40 @@ const LOCATION_OPTIONS = [
 ];
 const DAILY_CONTROL_VIEW_MODE_STORAGE_KEY = "bodega:daily-control:view-mode:v1";
 const DAILY_CONTROL_VIEW_MODES = ["cards", "list"];
+const BUSINESS_TIME_ZONE = "America/Guayaquil";
+const MONTH_LABELS = [
+    "ene",
+    "feb",
+    "mar",
+    "abr",
+    "may",
+    "jun",
+    "jul",
+    "ago",
+    "sept",
+    "oct",
+    "nov",
+    "dic",
+];
 
 function getTodayValue() {
+    try {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: BUSINESS_TIME_ZONE,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(new Date());
+
+        const year = parts.find((part) => part.type === "year")?.value;
+        const month = parts.find((part) => part.type === "month")?.value;
+        const day = parts.find((part) => part.type === "day")?.value;
+
+        if (year && month && day) return `${year}-${month}-${day}`;
+    } catch {
+        // Si Intl falla, usamos la fecha local como respaldo.
+    }
+
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -39,17 +71,23 @@ function getTodayValue() {
     return `${year}-${month}-${day}`;
 }
 
-function formatDate(value) {
-    if (!value) return "Sin fecha";
+function getDateOnlyValue(value) {
+    if (!value) return "";
 
-    try {
-        return new Intl.DateTimeFormat("es-EC", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(value));
-    } catch {
-        return "Sin fecha";
-    }
+    const rawValue = String(value);
+    const dateOnlyMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})/);
+
+    return dateOnlyMatch?.[1] || "";
+}
+
+function formatControlDate(value) {
+    const dateOnlyValue = getDateOnlyValue(value);
+    if (!dateOnlyValue) return "Sin fecha";
+
+    const [year, month, day] = dateOnlyValue.split("-").map(Number);
+    if (!year || !month || !day || month < 1 || month > 12) return "Sin fecha";
+
+    return `${day} ${MONTH_LABELS[month - 1]} ${year}`;
 }
 
 function formatNumber(value) {
@@ -70,15 +108,13 @@ function normalizeIssuedInput(value, maxAllowed, unit) {
 }
 
 function formatShortDate(value) {
-    if (!value) return getTodayValue();
+    const dateOnlyValue = getDateOnlyValue(value);
+    if (!dateOnlyValue) return getTodayValue();
 
-    try {
-        return new Intl.DateTimeFormat("es-EC", {
-            dateStyle: "medium",
-        }).format(new Date(value));
-    } catch {
-        return getTodayValue();
-    }
+    const [year, month, day] = dateOnlyValue.split("-").map(Number);
+    if (!year || !month || !day || month < 1 || month > 12) return getTodayValue();
+
+    return `${day} ${MONTH_LABELS[month - 1]} ${year}`;
 }
 
 function buildInitialLineValues(products = [], existingLines = []) {
@@ -177,6 +213,7 @@ export default function DailyControlPage() {
 
     const isAdmin = currentUser?.role === "admin";
     const todayDate = getTodayValue();
+    const controlDateValue = context?.controlDateValue || todayDate;
     const effectiveLocation = isAdmin
         ? selectedLocation || "kitchen"
         : currentUser?.role === "loung"
@@ -218,7 +255,6 @@ export default function DailyControlPage() {
             const params = new URLSearchParams({
                 mode: "context",
                 location: effectiveLocation,
-                date: todayDate,
             });
 
             const response = await fetch(
@@ -470,7 +506,7 @@ export default function DailyControlPage() {
             setIsSubmitting(true);
 
             const payload = {
-                date: todayDate,
+                date: controlDateValue,
                 location: effectiveLocation,
                 notes: controlNotes,
                 lines: Object.entries(lineValues).map(([productId, values]) => ({
@@ -639,7 +675,7 @@ export default function DailyControlPage() {
                             <div>
                                 <h2 className={styles.sectionTitle}>Registrar cierre de hoy</h2>
                                 <p className={styles.sectionDescription}>
-                                    {getLocationLabel(effectiveLocation)} · {formatShortDate(todayDate)}
+                                    {getLocationLabel(effectiveLocation)} · {formatShortDate(controlDateValue)}
                                 </p>
                             </div>
                         </div>
@@ -970,7 +1006,7 @@ export default function DailyControlPage() {
 
                                             <div className={styles.summaryItem}>
                                                 <span>Fecha</span>
-                                                <strong>{formatShortDate(todayDate)}</strong>
+                                                <strong>{formatShortDate(controlDateValue)}</strong>
                                             </div>
 
                                             <div className={styles.summaryItem}>
@@ -1156,7 +1192,7 @@ export default function DailyControlPage() {
                                                         </h3>
                                                         <p className={styles.historyMeta}>
                                                             {control.locationLabel} ·{" "}
-                                                            {formatDate(control.controlDate)} ·
+                                                            {formatControlDate(control.controlDateValue || control.controlDate)} ·
                                                             {" "}Registrado por{" "}
                                                             <strong>
                                                                 {getUserDisplayName(
@@ -1220,7 +1256,7 @@ export default function DailyControlPage() {
                                                         </h3>
                                                         <p className={styles.historyMeta}>
                                                             {control.locationLabel} ·{" "}
-                                                            {formatDate(control.controlDate)}
+                                                            {formatControlDate(control.controlDateValue || control.controlDate)}
                                                         </p>
                                                     </div>
 

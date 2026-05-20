@@ -8,6 +8,7 @@ import styles from "./dashboard-topbar.module.scss";
 
 const routeTitles = {
   "/dashboard": { eyebrow: "Panel de control", title: "Resumen" },
+  "/dashboard/products/": { eyebrow: "Productos", title: "Historial" },
   "/dashboard/products": { eyebrow: "Inventario", title: "Productos" },
   "/dashboard/inventory": { eyebrow: "Modulo", title: "Inventario general" },
   "/dashboard/inventory/history": { eyebrow: "Inventario", title: "Historico" },
@@ -18,7 +19,7 @@ const routeTitles = {
   "/dashboard/config/categories": { eyebrow: "Sistema", title: "Jerarquia" },
   "/dashboard/config/hierarchy": { eyebrow: "Sistema", title: "Jerarquia" },
   "/dashboard/requests": { eyebrow: "Modulo", title: "Solicitudes" },
-  "/dashboard/purchases": { eyebrow: "Compras", title: "Compras" },
+  "/dashboard/purchases": { eyebrow: "Abastecimiento", title: "Solicitudes y compras" },
   "/dashboard/purchases/history": { eyebrow: "Compras", title: "Historial" },
   "/dashboard/notifications": { eyebrow: "Actividad", title: "Notificaciones" },
   "/dashboard/receiving": { eyebrow: "Operacion", title: "Pendientes de recibir" },

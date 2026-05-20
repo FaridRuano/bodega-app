@@ -19,6 +19,8 @@ import {
 } from "@libs/notifications";
 import { assertValidQuantityForUnit } from "@libs/unitQuantities";
 
+const BUSINESS_TIME_ZONE = "America/Guayaquil";
+
 function normalizeLocation(value, fallback = null) {
     const normalized = String(value || "")
         .trim()
@@ -31,20 +33,60 @@ function normalizeDateOnly(value) {
     const raw = String(value || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
 
-    const date = new Date(`${raw}T00:00:00.000Z`);
+    const date = new Date(`${raw}T12:00:00.000Z`);
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function getDateOnlyValue(value) {
+    if (!value) return "";
+
+    if (typeof value === "string") {
+        const raw = value.trim();
+        const dateOnlyMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (dateOnlyMatch) return dateOnlyMatch[1];
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return date.toISOString().slice(0, 10);
+}
+
+function getBusinessDateValue(value = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: BUSINESS_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(new Date(value));
+
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    const day = parts.find((part) => part.type === "day")?.value;
+
+    return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+function getDefaultBusinessDate() {
+    return normalizeDateOnly(getBusinessDateValue()) || new Date();
+}
+
+function getControlDateValue(value) {
+    return getDateOnlyValue(value);
+}
+
 function startOfUtcDay(date) {
-    const nextDate = new Date(date);
-    nextDate.setUTCHours(0, 0, 0, 0);
-    return nextDate;
+    const dateOnlyValue = getDateOnlyValue(date);
+    if (!dateOnlyValue) return new Date(date);
+
+    return new Date(`${dateOnlyValue}T00:00:00.000Z`);
 }
 
 function endOfUtcDay(date) {
-    const nextDate = new Date(date);
-    nextDate.setUTCHours(23, 59, 59, 999);
-    return nextDate;
+    const dateOnlyValue = getDateOnlyValue(date);
+    if (!dateOnlyValue) return new Date(date);
+
+    return new Date(`${dateOnlyValue}T23:59:59.999Z`);
 }
 
 function resolveOpeningQuantity(previousClosingMap, productId, fallbackQuantity = 0) {
@@ -120,10 +162,13 @@ function countChangedLines(previousLines = [], nextLines = []) {
 }
 
 function formatControl(control) {
+    const controlDateValue = getControlDateValue(control.controlDate);
+
     return {
         _id: control._id,
         controlNumber: control.controlNumber || "",
-        controlDate: control.controlDate,
+        controlDate: controlDateValue,
+        controlDateValue,
         location: control.location,
         locationLabel: getLocationLabel(control.location, "Ubicacion"),
         notes: control.notes || "",
@@ -290,12 +335,14 @@ async function buildContext({ location, controlDate }) {
     return {
         location,
         locationLabel: getLocationLabel(location, "Ubicacion"),
-        controlDate,
+        controlDate: getControlDateValue(controlDate),
+        controlDateValue: getControlDateValue(controlDate),
         previousControl: previousControl
             ? {
                   _id: previousControl._id,
                   controlNumber: previousControl.controlNumber || "",
-                  controlDate: previousControl.controlDate,
+                  controlDate: getControlDateValue(previousControl.controlDate),
+                  controlDateValue: getControlDateValue(previousControl.controlDate),
               }
             : null,
         existingControl: existingControl ? formatControl(existingControl) : null,
@@ -304,7 +351,7 @@ async function buildContext({ location, controlDate }) {
 }
 
 async function generateControlNumber(controlDate, location) {
-    const datePart = controlDate.toISOString().slice(0, 10).replace(/-/g, "");
+    const datePart = getControlDateValue(controlDate).replace(/-/g, "");
     const prefix = location === "kitchen" ? "CDC" : "CDS";
 
     const count = await DailyInventoryControl.countDocuments({
@@ -333,7 +380,7 @@ export async function GET(request) {
         const mode = String(searchParams.get("mode") || "").trim().toLowerCase();
         const requestedLocation = normalizeLocation(searchParams.get("location"));
         const currentDate =
-            normalizeDateOnly(searchParams.get("date")) || startOfUtcDay(new Date());
+            normalizeDateOnly(searchParams.get("date")) || getDefaultBusinessDate();
 
         const effectiveLocation =
             user.role === "admin"
@@ -504,7 +551,7 @@ export async function POST(request) {
 
         const previousControl = await DailyInventoryControl.findOne({
             location,
-            controlDate: { $lt: normalizedDate },
+            controlDate: { $lt: startOfUtcDay(normalizedDate) },
         })
             .sort({ controlDate: -1, createdAt: -1 })
             .lean();
@@ -761,7 +808,7 @@ export async function PATCH(request) {
 
         const previousControl = await DailyInventoryControl.findOne({
             location,
-            controlDate: { $lt: normalizedDate },
+            controlDate: { $lt: startOfUtcDay(normalizedDate) },
         })
             .sort({ controlDate: -1, createdAt: -1 })
             .lean();

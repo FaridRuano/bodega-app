@@ -40,9 +40,7 @@
   flex-wrap: wrap;
 }
 
-.status,
-.typeBadge,
-.weightBadge {
+.status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -62,18 +60,6 @@
 .statusInactive {
   background: var(--warning-soft);
   color: var(--warning);
-}
-
-.typeBadge {
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-}
-
-.weightBadge {
-  background: var(--accent-soft);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
 }
 
 .infoSection,
@@ -182,6 +168,11 @@
   line-height: 1.6;
   color: var(--text-secondary);
   white-space: pre-wrap;
+}
+
+.historyActionRow {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .footer {
