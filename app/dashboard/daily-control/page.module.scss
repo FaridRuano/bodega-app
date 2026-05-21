@@ -91,6 +91,31 @@
     min-width: 0;
 }
 
+.operationalDatePicker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    min-width: min(100%, 420px);
+}
+
+.operationalDatePicker .filterLabel {
+    width: 100%;
+    text-align: right;
+}
+
+.operationalDateActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.operationalDateActions :global(.miniAction) {
+    min-height: 42px;
+    height: 42px;
+}
+
 .filterLabel {
     min-height: 16px;
     font-size: 11px;
@@ -124,6 +149,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
     min-height: 0;
     padding: 16px;
     border-radius: 20px;
@@ -231,13 +257,21 @@
 }
 
 .compactList {
+    display: block;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-width: 0;
     max-height: min(68vh, 900px);
     overflow: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .compactTable {
     display: flex;
     flex-direction: column;
+    inline-size: 760px;
+    max-inline-size: none;
     min-width: 760px;
     border: 1px solid var(--border-subtle);
     border-radius: 18px;
@@ -248,7 +282,7 @@
 .compactHeader,
 .compactRow {
     display: grid;
-    grid-template-columns: minmax(220px, 1.4fr) 90px 120px 90px minmax(180px, 1fr);
+    grid-template-columns: minmax(220px, 1.4fr) 90px 82px 90px minmax(180px, 1fr);
     gap: 10px;
     align-items: center;
     padding: 10px 12px;
@@ -278,6 +312,13 @@
 .compactRow > span {
     font-size: 13px;
     color: var(--text-primary);
+}
+
+.compactRow input[type="number"] {
+    width: 82px;
+    min-width: 82px;
+    padding-inline: 10px;
+    text-align: left;
 }
 
 .compactProduct {
@@ -422,10 +463,12 @@
 }
 
 .historyTableWrap {
-    display: flex;
-    flex-direction: column;
+    display: block;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
     border-radius: 14px;
     border: 1px solid var(--border-subtle);
     background: var(--surface-primary);
@@ -615,6 +658,28 @@
         grid-template-columns: 1fr;
     }
 
+    .operationalDatePicker {
+        align-items: stretch;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .operationalDatePicker .filterLabel {
+        text-align: left;
+    }
+
+    .operationalDateActions {
+        justify-content: stretch;
+    }
+
+    .operationalDateActions :global(.miniAction) {
+        flex: 0 0 auto;
+    }
+
+    .catalogCard {
+        overflow: hidden;
+    }
+
     .iconViewSwitch {
         justify-content: flex-end;
     }
@@ -626,6 +691,24 @@
     .familyList {
         max-height: none;
         overflow: visible;
+    }
+
+    .compactList {
+        inline-size: 100%;
+        max-inline-size: 100%;
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: visible;
+        padding-bottom: 6px;
+    }
+
+    .compactTable {
+        inline-size: 720px;
+        min-width: 720px;
+    }
+
+    .historyTableWrap {
+        padding-bottom: 6px;
     }
 
     .summaryActions {

@@ -67,8 +67,40 @@ function getBusinessDateValue(value = new Date()) {
     return year && month && day ? `${year}-${month}-${day}` : "";
 }
 
+function getBusinessHourValue(value = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: BUSINESS_TIME_ZONE,
+        hour: "2-digit",
+        hourCycle: "h23",
+    }).formatToParts(new Date(value));
+
+    const hour = Number(parts.find((part) => part.type === "hour")?.value);
+    return Number.isFinite(hour) ? hour : null;
+}
+
 function getDefaultBusinessDate() {
     return normalizeDateOnly(getBusinessDateValue()) || new Date();
+}
+
+function addDaysToDateValue(value, days) {
+    const dateOnlyValue = getDateOnlyValue(value);
+    if (!dateOnlyValue) return "";
+
+    const [year, month, day] = dateOnlyValue.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + days, 12));
+
+    return date.toISOString().slice(0, 10);
+}
+
+function isAllowedOperationalDate(date) {
+    const dateOnlyValue = getControlDateValue(date);
+    const today = getBusinessDateValue();
+    const yesterday = addDaysToDateValue(today, -1);
+    const businessHour = getBusinessHourValue();
+
+    if (dateOnlyValue === today) return true;
+
+    return businessHour !== null && businessHour < 4 && dateOnlyValue === yesterday;
 }
 
 function getControlDateValue(value) {
@@ -163,6 +195,9 @@ function countChangedLines(previousLines = [], nextLines = []) {
 
 function formatControl(control) {
     const controlDateValue = getControlDateValue(control.controlDate);
+    const correctionsCount = Array.isArray(control.editHistory)
+        ? control.editHistory.length
+        : 0;
 
     return {
         _id: control._id,
@@ -187,9 +222,8 @@ function formatControl(control) {
             : [],
         registeredBy: control.registeredBy || null,
         lastEditedBy: control.lastEditedBy || null,
-        correctionsCount: Array.isArray(control.editHistory)
-            ? control.editHistory.length
-            : 0,
+        correctionsCount,
+        canEdit: correctionsCount < 1,
         editHistory: Array.isArray(control.editHistory)
             ? control.editHistory.map((entry) => ({
                   _id: entry._id,
@@ -519,6 +553,16 @@ export async function POST(request) {
             );
         }
 
+        if (!isAllowedOperationalDate(normalizedDate)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Solo puedes registrar el cierre operativo de ayer hasta las 4 a. m.; después solo puedes registrar hoy.",
+                },
+                { status: 400 }
+            );
+        }
+
         const existingControl = await DailyInventoryControl.findOne({
             location,
             controlDate: {
@@ -776,6 +820,16 @@ export async function PATCH(request) {
             );
         }
 
+        if (!isAllowedOperationalDate(normalizedDate)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Solo puedes corregir el cierre operativo de ayer hasta las 4 a. m.; después solo puedes corregir hoy.",
+                },
+                { status: 400 }
+            );
+        }
+
         const existingControl = await DailyInventoryControl.findOne({
             location,
             controlDate: {
@@ -788,9 +842,19 @@ export async function PATCH(request) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "No existe un cierre diario registrado para corregir hoy.",
+                    message: "No existe un cierre diario registrado para corregir esta fecha operativa.",
                 },
                 { status: 404 }
+            );
+        }
+
+        if (Array.isArray(existingControl.editHistory) && existingControl.editHistory.length >= 1) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Este cierre diario ya tuvo su corrección permitida.",
+                },
+                { status: 409 }
             );
         }
 

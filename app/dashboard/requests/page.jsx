@@ -455,13 +455,13 @@ export default function RequestsPage() {
     setFormData(createInitialFormData("request", getOperationalLocation()));
   }
 
-  async function openCreateModal(flowKind = "request") {
-    await fetchProducts();
+  function openCreateModal(flowKind = "request") {
     setFormData(createInitialFormData(flowKind, getOperationalLocation()));
     setFormModal({
       open: true,
       mode: "create",
     });
+    fetchProducts();
   }
 
   function openEditModal() {
@@ -1029,10 +1029,7 @@ export default function RequestsPage() {
               <button
                 type="button"
                 className="miniAction miniActionBalanced miniActionSecondary"
-                onClick={() => {
-                  setRequestTypeFilter("transfer");
-                  openCreateModal("transfer");
-                }}
+                onClick={() => openCreateModal("transfer")}
               >
                 <Plus size={14} />
                 Nueva transferencia
@@ -1043,10 +1040,7 @@ export default function RequestsPage() {
               <button
                 type="button"
                 className="miniAction miniActionBalanced miniActionPrimary"
-                onClick={() => {
-                  setRequestTypeFilter("request");
-                  openCreateModal("request");
-                }}
+                onClick={() => openCreateModal("request")}
               >
                 <Plus size={14} />
                 Nueva solicitud

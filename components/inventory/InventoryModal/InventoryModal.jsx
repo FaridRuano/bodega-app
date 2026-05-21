@@ -63,6 +63,8 @@ export default function InventoryMovementModal({
     onSubmit,
     isSubmitting = false,
     locationOptions = LOCATION_OPTIONS,
+    sourceLocationOptions = locationOptions,
+    destinationLocationOptions = locationOptions,
 }) {
     const config = MODE_CONFIG[mode] || MODE_CONFIG.entry;
     const Icon = config.icon;
@@ -286,7 +288,7 @@ export default function InventoryMovementModal({
                                                 onChange={onChange}
                                                 required
                                             >
-                                                {locationOptions.map((option) => (
+                                                {sourceLocationOptions.map((option) => (
                                                     <option key={option.value} value={option.value}>
                                                         {option.label}
                                                     </option>
@@ -308,7 +310,7 @@ export default function InventoryMovementModal({
                                                 onChange={onChange}
                                                 required
                                             >
-                                                {locationOptions.map((option) => (
+                                                {destinationLocationOptions.map((option) => (
                                                     <option key={option.value} value={option.value}>
                                                         {option.label}
                                                     </option>

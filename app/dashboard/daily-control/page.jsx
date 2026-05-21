@@ -30,6 +30,7 @@ const LOCATION_OPTIONS = [
 ];
 const DAILY_CONTROL_VIEW_MODE_STORAGE_KEY = "bodega:daily-control:view-mode:v1";
 const DAILY_CONTROL_VIEW_MODES = ["cards", "list"];
+const DEFAULT_DAILY_CONTROL_VIEW_MODE = "list";
 const BUSINESS_TIME_ZONE = "America/Guayaquil";
 const MONTH_LABELS = [
     "ene",
@@ -71,6 +72,40 @@ function getTodayValue() {
     return `${year}-${month}-${day}`;
 }
 
+function addDaysToDateValue(value, days) {
+    const dateOnlyValue = getDateOnlyValue(value);
+    if (!dateOnlyValue) return getTodayValue();
+
+    const [year, month, day] = dateOnlyValue.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + days, 12));
+
+    return date.toISOString().slice(0, 10);
+}
+
+function getBusinessHour() {
+    try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: BUSINESS_TIME_ZONE,
+            hour: "2-digit",
+            hourCycle: "h23",
+        }).formatToParts(new Date());
+
+        const hour = Number(parts.find((part) => part.type === "hour")?.value);
+        return Number.isFinite(hour) ? hour : null;
+    } catch {
+        return null;
+    }
+}
+
+function getDefaultOperationalDateValue() {
+    const today = getTodayValue();
+    const businessHour = getBusinessHour();
+
+    return businessHour !== null && businessHour < 4
+        ? addDaysToDateValue(today, -1)
+        : today;
+}
+
 function getDateOnlyValue(value) {
     if (!value) return "";
 
@@ -88,6 +123,15 @@ function formatControlDate(value) {
     if (!year || !month || !day || month < 1 || month > 12) return "Sin fecha";
 
     return `${day} ${MONTH_LABELS[month - 1]} ${year}`;
+}
+
+function getOperationalDateHint(value) {
+    const today = getTodayValue();
+    const yesterday = addDaysToDateValue(today, -1);
+
+    if (value === today) return "Hoy";
+    if (value === yesterday) return "Ayer";
+    return "Fecha operativa";
 }
 
 function formatNumber(value) {
@@ -146,7 +190,7 @@ function buildInitialNotes(nextContext) {
     return nextContext?.existingControl?.notes || "";
 }
 
-function normalizeViewMode(value, fallback = "cards") {
+function normalizeViewMode(value, fallback = DEFAULT_DAILY_CONTROL_VIEW_MODE) {
     const normalized = String(value || "").trim();
     return DAILY_CONTROL_VIEW_MODES.includes(normalized) ? normalized : fallback;
 }
@@ -190,7 +234,12 @@ export default function DailyControlPage() {
     const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
     const [summary, setSummary] = useState({ total: 0, kitchen: 0, lounge: 0 });
     const [lineFilter, setLineFilter] = useState(() => getStringParam(searchParams, "lineFilter"));
-    const [viewMode, setViewMode] = useState(() => getStoredViewMode() || "cards");
+    const [viewMode, setViewMode] = useState(
+        () => getStoredViewMode() || DEFAULT_DAILY_CONTROL_VIEW_MODE
+    );
+    const [operationalDate, setOperationalDate] = useState(() =>
+        getDefaultOperationalDateValue()
+    );
     const [dateFrom, setDateFrom] = useState(() => getStringParam(searchParams, "dateFrom"));
     const [dateTo, setDateTo] = useState(() => getStringParam(searchParams, "dateTo"));
     const [historyLocation, setHistoryLocation] = useState(() =>
@@ -213,7 +262,10 @@ export default function DailyControlPage() {
 
     const isAdmin = currentUser?.role === "admin";
     const todayDate = getTodayValue();
-    const controlDateValue = context?.controlDateValue || todayDate;
+    const yesterdayDate = addDaysToDateValue(todayDate, -1);
+    const businessHour = getBusinessHour();
+    const canSelectYesterday = businessHour !== null && businessHour < 4;
+    const controlDateValue = context?.controlDateValue || operationalDate;
     const effectiveLocation = isAdmin
         ? selectedLocation || "kitchen"
         : currentUser?.role === "loung"
@@ -255,6 +307,7 @@ export default function DailyControlPage() {
             const params = new URLSearchParams({
                 mode: "context",
                 location: effectiveLocation,
+                date: operationalDate,
             });
 
             const response = await fetch(
@@ -337,7 +390,13 @@ export default function DailyControlPage() {
         if (!currentUser?.role) return;
         loadContext();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentUser?.role, effectiveLocation]);
+    }, [currentUser?.role, effectiveLocation, operationalDate]);
+
+    useEffect(() => {
+        if (!canSelectYesterday && operationalDate === yesterdayDate) {
+            setOperationalDate(todayDate);
+        }
+    }, [canSelectYesterday, operationalDate, todayDate, yesterdayDate]);
 
     useEffect(() => {
         if (!currentUser?.role) return;
@@ -673,10 +732,41 @@ export default function DailyControlPage() {
                     <section className={`${styles.registerCard} fadeSlideIn delayTwo`}>
                         <div className={styles.sectionHeader}>
                             <div>
-                                <h2 className={styles.sectionTitle}>Registrar cierre de hoy</h2>
+                                <h2 className={styles.sectionTitle}>Registrar cierre operativo</h2>
                                 <p className={styles.sectionDescription}>
-                                    {getLocationLabel(effectiveLocation)} · {formatShortDate(controlDateValue)}
+                                    {getLocationLabel(effectiveLocation)} ·{" "}
+                                    {getOperationalDateHint(controlDateValue)} ·{" "}
+                                    {formatShortDate(controlDateValue)}
                                 </p>
+                            </div>
+
+                            <div className={styles.operationalDatePicker}>
+                                <span className={styles.filterLabel}>Día operativo</span>
+                                <div className={styles.operationalDateActions}>
+                                    <button
+                                        type="button"
+                                        className={`miniAction ${
+                                            operationalDate === yesterdayDate
+                                                ? "miniActionPrimary"
+                                                : ""
+                                        }`}
+                                        onClick={() => setOperationalDate(yesterdayDate)}
+                                        disabled={!canSelectYesterday}
+                                    >
+                                        Ayer
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`miniAction ${
+                                            operationalDate === todayDate
+                                                ? "miniActionPrimary"
+                                                : ""
+                                        }`}
+                                        onClick={() => setOperationalDate(todayDate)}
+                                    >
+                                        Hoy
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -693,22 +783,27 @@ export default function DailyControlPage() {
                                             context.existingControl.registeredBy,
                                             "Sin responsable"
                                         )}{" "}
-                                        · Puedes corregir este cierre si necesitas ajustar cantidades.
+                                        ·{" "}
+                                        {context.existingControl.canEdit
+                                            ? "Puedes corregir este cierre una sola vez si necesitas ajustar cantidades."
+                                            : "Este cierre ya tuvo su corrección permitida y quedó bloqueado."}
                                     </p>
-                                    <div className={styles.lockedActions}>
-                                        <button
-                                            type="button"
-                                            className="miniAction"
-                                            onClick={() => {
-                                                resetControlForm();
-                                                setIsCorrectionOpen((current) => !current);
-                                            }}
-                                        >
-                                            {isCorrectionOpen
-                                                ? "Ocultar"
-                                                : "Modificar"}
-                                        </button>
-                                    </div>
+                                    {context.existingControl.canEdit ? (
+                                        <div className={styles.lockedActions}>
+                                            <button
+                                                type="button"
+                                                className="miniAction"
+                                                onClick={() => {
+                                                    resetControlForm();
+                                                    setIsCorrectionOpen((current) => !current);
+                                                }}
+                                            >
+                                                {isCorrectionOpen
+                                                    ? "Ocultar"
+                                                    : "Modificar"}
+                                            </button>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
                         ) : null}
@@ -1005,7 +1100,7 @@ export default function DailyControlPage() {
                                             </div>
 
                                             <div className={styles.summaryItem}>
-                                                <span>Fecha</span>
+                                                <span>Día operativo</span>
                                                 <strong>{formatShortDate(controlDateValue)}</strong>
                                             </div>
 

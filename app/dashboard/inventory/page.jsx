@@ -40,6 +40,17 @@ const INVENTORY_SCOPE_LABELS = {
   kitchen: "Cocina",
   lounge: "Salon",
 };
+const INVENTORY_LOCATION_OPTIONS = [
+  { value: "warehouse", label: "Bodega" },
+  { value: "kitchen", label: "Cocina" },
+  { value: "lounge", label: "Salon" },
+];
+
+function getOperationalScopeForRole(role = "") {
+  if (role === "loung") return "lounge";
+  if (["warehouse", "kitchen", "lounge"].includes(role)) return role;
+  return "";
+}
 
 function getAvailableScopesForRole(role = "") {
   switch (String(role || "").trim()) {
@@ -150,16 +161,17 @@ export default function InventoryPage() {
   );
   const activeScope = availableScopes.includes(scope) ? scope : availableScopes[0] || "all";
   const isGeneralScope = activeScope === "all";
-  const operationalScope = currentUser?.role === "loung" ? "lounge" : currentUser?.role;
+  const operationalScope = getOperationalScopeForRole(currentUser?.role);
   const canAdjustCurrentScope =
-    currentUser?.role === "admin" ||
-    currentUser?.role === "warehouse" ||
-    (!isGeneralScope &&
-      ["kitchen", "loung"].includes(currentUser?.role || "") &&
-      operationalScope === activeScope);
-  const canTransferInventory = ["admin", "warehouse", "kitchen", "loung"].includes(
-    currentUser?.role || ""
-  );
+    !isGeneralScope &&
+    (currentUser?.role === "admin" || operationalScope === activeScope);
+  const canTransferInventory =
+    !isGeneralScope &&
+    (currentUser?.role === "admin" ||
+      (currentUser?.role === "warehouse" && activeScope === operationalScope) ||
+      (["kitchen", "loung"].includes(currentUser?.role || "") &&
+        Boolean(operationalScope) &&
+        activeScope !== operationalScope));
   const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
   const canAccessInventoryHistory = currentUser?.role === "admin";
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
@@ -169,9 +181,30 @@ export default function InventoryPage() {
     ? "Revisa stock por ubicacion y cambia entre tarjetas o seguimiento desde un solo modulo."
     : `Consulta solo productos con stock en ${scopeLabel.toLowerCase()} y registra ajustes rapidos.`;
   const shouldUseQuickAdjustModal =
+    movementModal.mode !== "transfer" &&
     !isGeneralScope &&
     ["kitchen", "loung"].includes(currentUser?.role || "") &&
     operationalScope === activeScope;
+  const movementLocationOptions = useMemo(() => {
+    if (!canAdjustCurrentScope) return [];
+    if (currentUser?.role === "admin") {
+      return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
+    }
+
+    return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === operationalScope);
+  }, [activeScope, canAdjustCurrentScope, currentUser?.role, operationalScope]);
+  const transferSourceOptions = useMemo(() => {
+    if (!canTransferInventory) return [];
+    return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
+  }, [activeScope, canTransferInventory]);
+  const transferDestinationOptions = useMemo(() => {
+    if (!canTransferInventory) return [];
+    if (["kitchen", "loung"].includes(currentUser?.role || "")) {
+      return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === operationalScope);
+    }
+
+    return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value !== activeScope);
+  }, [activeScope, canTransferInventory, currentUser?.role, operationalScope]);
 
   const hasActiveFilters =
     Boolean(searchTerm.trim()) ||
@@ -445,6 +478,22 @@ export default function InventoryPage() {
   }
 
   function openMovementModal(mode, product) {
+    const canOpenMovement =
+      mode === "transfer" ? canTransferInventory : canAdjustCurrentScope;
+
+    if (!canOpenMovement) {
+      setDialogModal({
+        open: true,
+        title: "Accion no disponible",
+        message:
+          mode === "transfer"
+            ? "Solo puedes transferir desde una ubicacion permitida hacia tu inventario."
+            : "Solo puedes ajustar manualmente tu inventario asignado.",
+        variant: "warning",
+      });
+      return;
+    }
+
     const defaultLocation = isGeneralScope ? "warehouse" : activeScope;
     const defaultTransferFrom = activeScope === "all" ? "warehouse" : activeScope;
     let defaultTransferTo =
@@ -981,6 +1030,9 @@ export default function InventoryPage() {
           onClose={closeMovementModal}
           onSubmit={handleSubmitMovement}
           isSubmitting={isSubmittingMovement}
+          locationOptions={movementLocationOptions}
+          sourceLocationOptions={transferSourceOptions}
+          destinationLocationOptions={transferDestinationOptions}
         />
       )}
 

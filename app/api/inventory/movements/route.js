@@ -40,6 +40,12 @@ function normalizeMovementType(value) {
     return allowed.includes(type) ? type : null;
 }
 
+function getOperationalLocationForRole(role = "") {
+    if (role === "loung") return "lounge";
+    if (["warehouse", "kitchen", "lounge"].includes(role)) return role;
+    return null;
+}
+
 function normalizeDate(value) {
     const raw = String(value || "").trim();
 
@@ -187,37 +193,23 @@ export async function POST(request) {
             );
         }
 
-        const isKitchenUser = user.role === "kitchen";
-        const isLoungeUser = user.role === "loung";
+        const operationalLocation = getOperationalLocationForRole(user.role);
 
-        if (isKitchenUser) {
+        if (user.role !== "admin" && operationalLocation) {
             const isAllowedMovement =
-                movementType === "transfer" ||
+                (movementType === "transfer" &&
+                    ((user.role === "warehouse" && fromLocation === operationalLocation) ||
+                        (["kitchen", "loung"].includes(user.role) &&
+                            toLocation === operationalLocation &&
+                            fromLocation !== operationalLocation))) ||
                 (["adjustment_in", "adjustment_out"].includes(movementType) &&
-                    location === "kitchen");
+                    location === operationalLocation);
 
             if (!isAllowedMovement) {
                 return NextResponse.json(
                     {
                         success: false,
-                        message: "Cocina solo puede registrar ajustes manuales dentro de su inventario o transferencias con motivo.",
-                    },
-                    { status: 403 }
-                );
-            }
-        }
-
-        if (isLoungeUser) {
-            const isAllowedMovement =
-                movementType === "transfer" ||
-                (["adjustment_in", "adjustment_out"].includes(movementType) &&
-                    location === "lounge");
-
-            if (!isAllowedMovement) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        message: "Lounge solo puede registrar ajustes manuales dentro de su inventario o transferencias con motivo.",
+                        message: `Solo puedes registrar movimientos desde ${getLocationLabel(operationalLocation).toLowerCase()}.`,
                     },
                     { status: 403 }
                 );
