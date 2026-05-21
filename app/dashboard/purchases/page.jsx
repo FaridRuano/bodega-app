@@ -84,6 +84,7 @@ function getPurchaseBatchStatusLabel(status) {
 
 function canConfirmReceipt(request) {
   if (!request) return false;
+  if (String(request?.requestedBy?.role || "").toLowerCase() === "admin") return false;
 
   return (request.items || []).some(
     (item) =>
@@ -232,6 +233,7 @@ export default function PurchasesPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const hasInitializedPageReset = useRef(false);
+  const suppressExecutionModalAutoOpenRef = useRef(false);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [hasResolvedCurrentUser, setHasResolvedCurrentUser] = useState(false);
@@ -539,6 +541,13 @@ export default function PurchasesPage() {
     const shouldOpenExecutionModal =
       activeTab === "execution" && getStringParam(searchParams, "modal") === "execution";
 
+    if (!shouldOpenExecutionModal) {
+      suppressExecutionModalAutoOpenRef.current = false;
+      return;
+    }
+
+    if (suppressExecutionModalAutoOpenRef.current) return;
+
     if (shouldOpenExecutionModal && !purchaseModalOpen) {
       setPurchaseModalOpen(true);
     }
@@ -715,14 +724,14 @@ export default function PurchasesPage() {
   const selectedPurchaseItems = useMemo(
     () =>
       Object.entries(purchaseDraft.itemsByProduct)
-        .filter(([, item]) => Number(item.quantity) > 0)
+        .filter(([, item]) => Number(item.quantity) > 0 || Boolean(item.note?.trim()))
         .map(([, item]) => item),
     [purchaseDraft.itemsByProduct]
   );
 
   const hasPurchaseSelection = selectedPurchaseItems.length > 0;
   const hasPurchaseDraftData =
-    hasPurchaseSelection ||
+    selectedPurchaseItems.some((item) => Number(item.quantity) > 0) ||
     Boolean(purchaseDraft.supplierName?.trim()) ||
     Boolean(purchaseDraft.note?.trim());
 
@@ -794,12 +803,14 @@ export default function PurchasesPage() {
   }
 
   function openPurchaseModal() {
+    suppressExecutionModalAutoOpenRef.current = false;
     setPurchaseDraft((prev) => mergePurchaseDraftWithShoppingList(prev, shoppingList));
     setPurchaseModalOpen(true);
   }
 
   function openPurchaseDraft(batch) {
     if (!batch?._id) return;
+    suppressExecutionModalAutoOpenRef.current = false;
     setPurchaseDraft(buildPurchaseDraftFromBatch(batch, shoppingList));
     setPurchaseModalOpen(true);
   }
@@ -848,10 +859,15 @@ export default function PurchasesPage() {
 
   function closePurchaseModal() {
     if (isSubmittingPurchase || isDeletingPurchaseDraft) return;
+    suppressExecutionModalAutoOpenRef.current = true;
     setPurchaseModalOpen(false);
+
+    const nextQuery = buildSearchParams(searchParams, { modal: null });
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
   }
 
   function dismissPurchaseModal() {
+    suppressExecutionModalAutoOpenRef.current = true;
     setPurchaseModalOpen(false);
   }
 
@@ -1153,7 +1169,7 @@ export default function PurchasesPage() {
 
     const items = selectedPurchaseItems.map((item) => ({
       productId: item.productId,
-      quantity: Number(item.quantity),
+      quantity: Number(item.quantity || 0),
       unitCost: item.unitCost === "" ? null : Number(item.unitCost),
       note: item.note || "",
     }));
@@ -1233,7 +1249,7 @@ export default function PurchasesPage() {
         .filter((item) => Number(item.quantity) > 0)
         .map((item) => ({
           productId: item.productId,
-          quantity: Number(item.quantity),
+          quantity: Number(item.quantity || 0),
           unitCost: item.unitCost === "" ? null : Number(item.unitCost),
           note: item.note || "",
         }));

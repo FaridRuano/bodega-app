@@ -169,6 +169,12 @@
         background-color 0.18s ease;
 }
 
+.dateFilter svg {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
 .dateFilter:focus-within {
     border-color: var(--border-accent);
     box-shadow: 0 0 0 4px var(--focus-ring);
@@ -181,18 +187,13 @@
     outline: 0;
     background: transparent;
     color: var(--text-primary);
-    color-scheme: light;
+    color-scheme: dark;
     font-size: 13px;
 }
 
 .dateFilter input::-webkit-calendar-picker-indicator {
-    cursor: pointer;
-    margin-right: -4px;
-    opacity: 0.9;
-}
-
-:global(html.dark) .dateFilter input {
-    color-scheme: dark;
+    display: none;
+    appearance: none;
 }
 
 .listSection {

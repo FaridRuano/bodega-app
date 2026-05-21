@@ -129,6 +129,7 @@ function createAutoAllocationPlan(requests, purchasedItems) {
         let remainingToAllocate = Number(item.quantity || 0);
         const queue = requestsByProduct.get(String(item.productId)) || [];
         const allocations = [];
+        let lastAllocation = null;
 
         for (const requestItem of queue) {
             if (remainingToAllocate <= 0) break;
@@ -136,18 +137,65 @@ function createAutoAllocationPlan(requests, purchasedItems) {
             const quantity = Math.min(remainingToAllocate, requestItem.remainingQuantity);
             if (quantity <= 0) continue;
 
-            allocations.push({
+            lastAllocation = {
                 purchaseRequestId: requestItem.purchaseRequestId,
                 purchaseRequestItemId: requestItem.purchaseRequestItemId,
                 quantity,
-            });
+            };
+            allocations.push(lastAllocation);
 
             requestItem.remainingQuantity -= quantity;
             remainingToAllocate -= quantity;
         }
 
+        if (remainingToAllocate > 0 && lastAllocation) {
+            lastAllocation.quantity = Number(lastAllocation.quantity || 0) + remainingToAllocate;
+            remainingToAllocate = 0;
+        }
+
         return allocations;
     });
+}
+
+function normalizePurchaseAllocations(rawAllocations = [], purchasedQuantity = 0) {
+    const allocations = (rawAllocations || [])
+        .map((allocation) => ({
+            purchaseRequestId: allocation.purchaseRequestId,
+            purchaseRequestItemId: allocation.purchaseRequestItemId,
+            quantity: Number(allocation.quantity || 0),
+        }))
+        .filter((allocation) =>
+            allocation.purchaseRequestId &&
+            allocation.purchaseRequestItemId &&
+            allocation.quantity > 0
+        );
+
+    const allocatedQuantity = allocations.reduce(
+        (sum, allocation) => sum + Number(allocation.quantity || 0),
+        0
+    );
+    const pendingOverflow = Number(purchasedQuantity || 0) - allocatedQuantity;
+
+    if (pendingOverflow > 0 && allocations.length) {
+        allocations[allocations.length - 1].quantity =
+            Number(allocations[allocations.length - 1].quantity || 0) + pendingOverflow;
+    }
+
+    return allocations;
+}
+
+function buildItemNotesByProduct(items = []) {
+    const notesByProduct = new Map();
+
+    for (const item of items || []) {
+        const productId = normalizeText(item.productId);
+        const note = normalizeNullableText(item.note);
+
+        if (!productId || !note) continue;
+        notesByProduct.set(productId, note);
+    }
+
+    return notesByProduct;
 }
 
 export async function GET(request) {
@@ -258,16 +306,20 @@ export async function POST(request) {
         const batchId = normalizeText(body.batchId);
         const saveAsDraft = Boolean(body.saveAsDraft);
         const rawItems = Array.isArray(body.items) ? body.items : [];
+        const meaningfulItems = rawItems.filter(
+            (item) => Number(item?.quantity) > 0 || Boolean(normalizeNullableText(item?.note))
+        );
         const normalizedItems = rawItems.filter((item) => Number(item?.quantity) > 0);
+        const itemNotesByProduct = buildItemNotesByProduct(meaningfulItems);
 
         const hasMeaningfulDraftContent =
-            normalizedItems.length > 0 ||
+            meaningfulItems.length > 0 ||
             Boolean(normalizeNullableText(body.supplierName)) ||
             Boolean(normalizeNullableText(body.note));
 
-        if (!saveAsDraft && !normalizedItems.length) {
+        if (!saveAsDraft && !normalizedItems.length && !itemNotesByProduct.size) {
             return NextResponse.json(
-                { success: false, message: "Debes registrar al menos un producto comprado." },
+                { success: false, message: "Debes registrar al menos un producto comprado o una nota por producto." },
                 { status: 400 }
             );
         }
@@ -279,7 +331,7 @@ export async function POST(request) {
             );
         }
 
-        const productIds = [...new Set(normalizedItems.map((item) => normalizeText(item.productId)).filter(Boolean))];
+        const productIds = [...new Set(meaningfulItems.map((item) => normalizeText(item.productId)).filter(Boolean))];
 
         if (productIds.some((id) => !isValidObjectId(id))) {
             return NextResponse.json(
@@ -365,7 +417,7 @@ export async function POST(request) {
         }
 
         const pendingRequests =
-            saveAsDraft || !productIds.length
+            saveAsDraft || (!productIds.length && !itemNotesByProduct.size)
                 ? []
                 : await PurchaseRequest.find({
                     status: { $in: ["approved", "in_progress", "partially_purchased"] },
@@ -381,6 +433,57 @@ export async function POST(request) {
         const purchasedAt = body.purchasedAt ? new Date(body.purchasedAt) : new Date();
 
         session.startTransaction();
+
+        if (!saveAsDraft && !purchaseItems.length && itemNotesByProduct.size) {
+            let updatedRequestsCount = 0;
+
+            for (const purchaseRequest of pendingRequests) {
+                let requestWasUpdated = false;
+
+                purchaseRequest.items = purchaseRequest.items.map((item) => {
+                    const note = itemNotesByProduct.get(String(item.productId));
+
+                    if (note) {
+                        item.adminNote = note;
+                        requestWasUpdated = true;
+                    }
+
+                    return item;
+                });
+
+                if (requestWasUpdated) {
+                    purchaseRequest.addActivity({
+                        type: "purchase_registered",
+                        performedBy: user.id,
+                        title: "Nota de compra registrada",
+                        description: "Se agrego una nota del administrador para productos pendientes de compra.",
+                        metadata: {
+                            notes: Array.from(itemNotesByProduct.entries()).map(([productId, note]) => ({
+                                productId,
+                                note,
+                            })),
+                        },
+                        performedAt: purchasedAt,
+                    });
+
+                    await purchaseRequest.save({ session });
+                    updatedRequestsCount += 1;
+                }
+            }
+
+            await session.commitTransaction();
+
+            return NextResponse.json(
+                {
+                    success: true,
+                    message: updatedRequestsCount
+                        ? "Notas registradas correctamente en las solicitudes pendientes."
+                        : "No habia solicitudes pendientes para actualizar con esas notas.",
+                    data: null,
+                },
+                { status: 200 }
+            );
+        }
 
         const batch = draftBatch || new PurchaseBatch({
             batchNumber,
@@ -401,11 +504,7 @@ export async function POST(request) {
             const item = purchaseItems[index];
             const product = productMap.get(String(item.productId));
             const allocations = item.allocations.length
-                ? item.allocations.map((allocation) => ({
-                    purchaseRequestId: allocation.purchaseRequestId,
-                    purchaseRequestItemId: allocation.purchaseRequestItemId,
-                    quantity: Number(allocation.quantity || 0),
-                }))
+                ? normalizePurchaseAllocations(item.allocations, item.quantity)
                 : autoAllocations[index];
 
             batch.items.push({
@@ -483,9 +582,15 @@ export async function POST(request) {
             purchaseRequest.items = purchaseRequest.items.map((item) => {
                 const key = `${purchaseRequest._id}:${item._id}`;
                 const purchasedIncrement = allocationMap.get(key) || 0;
+                const itemNote = itemNotesByProduct.get(String(item.productId));
 
                 if (purchasedIncrement > 0) {
                     item.purchasedQuantity = Number(item.purchasedQuantity || 0) + purchasedIncrement;
+                    requestWasUpdated = true;
+                }
+
+                if (itemNote) {
+                    item.adminNote = itemNote;
                     requestWasUpdated = true;
                 }
 

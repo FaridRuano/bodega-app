@@ -184,7 +184,7 @@
 }
 
 .cardDetailsOpen {
-    max-height: 960px;
+    max-height: 420px;
     opacity: 1;
 }
 
@@ -449,13 +449,13 @@
     }
 
     .panel {
-        max-height: none;
-        overflow: visible;
+        height: min(680px, calc(100vh - 180px));
+        overflow: hidden;
     }
 
     .familyList,
     .categorySections {
-        overflow: visible;
+        overflow-y: auto;
         padding-right: 0;
     }
 }

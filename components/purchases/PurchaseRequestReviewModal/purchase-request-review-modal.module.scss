@@ -1,5 +1,17 @@
+.reviewStack {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+}
+
 .modalShell {
-  max-width: 760px;
+  max-width: none;
+  max-height: min(760px, calc(100vh - 120px));
+  overflow: hidden;
+}
+
+.body {
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .summaryCard,
@@ -170,7 +182,24 @@
   resize: vertical;
 }
 
+.footer {
+  justify-content: flex-end;
+}
+
+.footer :global(.miniAction) {
+  width: fit-content;
+}
+
 @media (max-width: 640px) {
+  .reviewStack {
+    width: min(100%, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+  }
+
+  .modalShell {
+    max-height: calc(100vh - 104px);
+  }
+
   .summaryTop,
   .itemRow {
     grid-template-columns: 1fr;
@@ -192,5 +221,15 @@
 
   .receiveInput {
     max-width: none;
+  }
+
+  .footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .footer :global(.miniAction) {
+    flex: 0 0 auto;
   }
 }

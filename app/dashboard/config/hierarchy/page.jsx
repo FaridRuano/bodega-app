@@ -739,23 +739,6 @@ export default function HierarchyPage() {
                                                             "Sin descripcion registrada."}
                                                     </p>
 
-                                                    {family.categories.length > 0 ? (
-                                                        <div className={styles.tagsRow}>
-                                                            {family.categories.map((category) => (
-                                                                <span
-                                                                    key={category._id}
-                                                                    className={styles.dataTag}
-                                                                >
-                                                                    {category.name}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <span className={styles.emptyChip}>
-                                                            Sin categorias asociadas
-                                                        </span>
-                                                    )}
-
                                                     <div className={styles.cardActions}>
                                                         <ActionButton
                                                             icon={<PencilLine size={15} />}

@@ -84,12 +84,43 @@ export default function PurchaseRequestReviewModal({
   onCancel,
   onReceive,
 }) {
-  const [receiptNote, setReceiptNote] = useState("");
-  const [receiptItems, setReceiptItems] = useState({});
   const latestDispatchMap = useMemo(
     () => buildLatestDispatchMap(request),
     [request]
   );
+  const receiptRequestKey = String(request?._id || request?.requestNumber || "");
+  const initialReceiptItems = useMemo(() => {
+    if (!request) return {};
+
+    return (request.items || []).reduce((acc, item) => {
+      const pendingReceipt = Math.max(
+        Number(item.dispatchedQuantity || 0) - Number(item.receivedQuantity || 0),
+        0
+      );
+
+      if (pendingReceipt > 0) {
+        acc[item._id] = "";
+      }
+
+      return acc;
+    }, {});
+  }, [request]);
+  const [receiptState, setReceiptState] = useState({
+    requestKey: "",
+    note: "",
+    items: {},
+  });
+
+  if (open && request && receiptState.requestKey !== receiptRequestKey) {
+    setReceiptState({
+      requestKey: receiptRequestKey,
+      note: "",
+      items: initialReceiptItems,
+    });
+  }
+
+  const receiptNote = receiptState.note;
+  const receiptItems = receiptState.items;
 
   useEffect(() => {
     function handleEscape(event) {
@@ -105,26 +136,6 @@ export default function PurchaseRequestReviewModal({
     };
   }, [isApproving, isCancelling, isReceiving, onClose, open]);
 
-  useEffect(() => {
-    if (!open || !request) return;
-
-    setReceiptNote("");
-    setReceiptItems(
-      (request.items || []).reduce((acc, item) => {
-        const pendingReceipt = Math.max(
-          Number(item.dispatchedQuantity || 0) - Number(item.receivedQuantity || 0),
-          0
-        );
-
-        if (pendingReceipt > 0) {
-          acc[item._id] = "";
-        }
-
-        return acc;
-      }, {})
-    );
-  }, [open, request]);
-
   if (!open || !request) return null;
 
   const pendingReceiptItems = (request.items || []).filter(
@@ -138,9 +149,12 @@ export default function PurchaseRequestReviewModal({
   const hasReceiptItems = pendingReceiptItems.length > 0;
 
   function handleReceiptValueChange(itemId, value, unit) {
-    setReceiptItems((prev) => ({
+    setReceiptState((prev) => ({
       ...prev,
-      [itemId]: normalizeQuantityInput(value, unit),
+      items: {
+        ...prev.items,
+        [itemId]: normalizeQuantityInput(value, unit),
+      },
     }));
   }
 
@@ -154,9 +168,12 @@ export default function PurchaseRequestReviewModal({
       ? Math.min(latestDispatchedQuantity, pendingReceipt)
       : pendingReceipt;
 
-    setReceiptItems((prev) => ({
+    setReceiptState((prev) => ({
       ...prev,
-      [item._id]: suggestedQuantity > 0 ? String(suggestedQuantity) : "",
+      items: {
+        ...prev.items,
+        [item._id]: suggestedQuantity > 0 ? String(suggestedQuantity) : "",
+      },
     }));
   }
 
@@ -185,163 +202,174 @@ export default function PurchaseRequestReviewModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={`modal-container modal-container--lg ${styles.modalShell}`}
+        className={`modalDetachedStack modal-container--lg ${styles.reviewStack}`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="modal-top">
-          <div className="modal-headerContent">
-            <div className="modal-icon modal-icon--info">
-              <ClipboardList size={20} />
+        <div className={`modal-container modal-container--lg ${styles.modalShell}`}>
+          <div className="modal-top">
+            <div className="modal-headerContent">
+              <div className="modal-icon modal-icon--info">
+                <ClipboardList size={20} />
+              </div>
+              <div>
+                <h2 className="modal-title">Solicitud de compra</h2>
+                <p className="modal-description">
+                  Revisa el resumen de la solicitud antes de editarla o cancelarla.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="modal-title">Solicitud de compra</h2>
-              <p className="modal-description">
-                Revisa el resumen de la solicitud antes de editarla o cancelarla.
-              </p>
-            </div>
+
+            <button
+              type="button"
+              className="modal-close"
+              onClick={onClose}
+              aria-label="Cerrar modal"
+              disabled={isCancelling || isApproving || isReceiving}
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          <button
-            type="button"
-            className="modal-close"
-            onClick={onClose}
-            aria-label="Cerrar modal"
-            disabled={isCancelling || isApproving || isReceiving}
-          >
-            <X size={18} />
-          </button>
-        </div>
+          <div className={`modal-body ${styles.body}`}>
+            <section className={styles.summaryCard}>
+              <div className={styles.summaryTop}>
+                <div>
+                  <strong className={styles.requestNumber}>{request.requestNumber}</strong>
+                  <p className={styles.summaryMeta}>{formatDate(request.requestedAt)}</p>
+                  <p className={styles.summaryMeta}>{getRequesterLabel(request)}</p>
+                </div>
 
-        <div className="modal-body">
-          <section className={styles.summaryCard}>
-            <div className={styles.summaryTop}>
-              <div>
-                <strong className={styles.requestNumber}>{request.requestNumber}</strong>
-                <p className={styles.summaryMeta}>{formatDate(request.requestedAt)}</p>
-                <p className={styles.summaryMeta}>{getRequesterLabel(request)}</p>
+                <span className={styles.statusBadge}>
+                  {STATUS_LABELS[request.status] || request.status}
+                </span>
               </div>
 
-              <span className={styles.statusBadge}>
-                {STATUS_LABELS[request.status] || request.status}
-              </span>
-            </div>
-
-            <div className={styles.metricsRow}>
-              <span className={styles.metricChip}>{request.items?.length || 0} productos</span>
-              <span className={styles.metricChip}>{getLocationLabel(request.destinationLocation, "Bodega")}</span>
-            </div>
-
-            {request.requesterNote ? (
-              <div className={styles.noteCard}>
-                <span className={styles.noteLabel}>Nota general</span>
-                <p className={styles.noteText}>{request.requesterNote}</p>
-              </div>
-            ) : null}
-          </section>
-
-          <section className={styles.itemsCard}>
-            <div className={styles.itemsHeader}>
-              <h3 className={styles.itemsTitle}>Productos</h3>
-            </div>
-
-            <div className={styles.itemsList}>
-              {(request.items || []).map((item) => (
-                <article key={item._id} className={styles.itemRow}>
-                  <div className={styles.itemMain}>
-                    <strong>{item.product?.name || "Producto"}</strong>
-                    <span>{getUnitLabel(item.unitSnapshot)}</span>
-                  </div>
-
-                  <div className={styles.itemMetrics}>
-                    <div className={styles.metricBlock}>
-                      <strong>{formatQuantity(item.requestedQuantity)}</strong>
-                      <span>Solicitado</span>
-                    </div>
-                    <div className={styles.metricBlock}>
-                      <strong>{formatQuantity(item.purchasedQuantity)}</strong>
-                      <span>Comprado</span>
-                    </div>
-                    <div className={styles.metricBlock}>
-                      <strong>{formatQuantity(item.dispatchedQuantity)}</strong>
-                      <span>Despachado</span>
-                    </div>
-                    <div className={styles.metricBlock}>
-                      <strong>
-                        {formatQuantity(Math.max(
-                          Number(item.approvedQuantity || item.requestedQuantity || 0) -
-                          Number(item.receivedQuantity || 0),
-                          0
-                        ))}
-                      </strong>
-                      <span>Pendiente</span>
-                    </div>
-                  </div>
-
-                  {item.requesterNote ? (
-                    <p className={styles.itemNote}>{item.requesterNote}</p>
-                  ) : null}
-
-                  {canReceive && Math.max(
-                    Number(item.dispatchedQuantity || 0) - Number(item.receivedQuantity || 0),
-                    0
-                  ) > 0 ? (
-                    <div className={styles.receiveRow}>
-                      {Number(latestDispatchMap[item._id] || 0) > 0 ? (
-                        <span className={styles.receiveHint}>
-                          Último despacho: {formatQuantity(latestDispatchMap[item._id])}
-                        </span>
-                      ) : null}
-                      <input
-                        type="number"
-                        min="0"
-                        step={getQuantityInputStep(item.unitSnapshot || item.product?.unit)}
-                        className={`form-input ${styles.receiveInput}`}
-                        placeholder="Recibido"
-                        value={receiptItems[item._id] ?? ""}
-                        onChange={(event) =>
-                          handleReceiptValueChange(
-                            item._id,
-                            event.target.value,
-                            item.unitSnapshot || item.product?.unit
-                          )
-                        }
-                        disabled={isReceiving}
-                      />
-                      <button
-                        type="button"
-                        className="miniAction"
-                        onClick={() => autofillReceiptItem(item)}
-                        disabled={isReceiving}
-                      >
-                        <PackageCheck size={16} />
-                        Completar
-                      </button>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          </section>
-
-          {canReceive && hasReceiptItems ? (
-            <section className={styles.receiveCard}>
-              <div className={styles.itemsHeader}>
-                <h3 className={styles.itemsTitle}>Confirmar recepcion</h3>
+              <div className={styles.metricsRow}>
+                <span className={styles.metricChip}>{request.items?.length || 0} productos</span>
+                <span className={styles.metricChip}>{getLocationLabel(request.destinationLocation, "Bodega")}</span>
               </div>
 
-              <textarea
-                className={`form-textarea ${styles.receiveNote}`}
-                placeholder="Nota de recepcion opcional"
-                value={receiptNote}
-                onChange={(event) => setReceiptNote(event.target.value)}
-                disabled={isReceiving}
-              />
+              {request.requesterNote ? (
+                <div className={styles.noteCard}>
+                  <span className={styles.noteLabel}>Nota general</span>
+                  <p className={styles.noteText}>{request.requesterNote}</p>
+                </div>
+              ) : null}
             </section>
-          ) : null}
+
+            <section className={styles.itemsCard}>
+              <div className={styles.itemsHeader}>
+                <h3 className={styles.itemsTitle}>Productos</h3>
+              </div>
+
+              <div className={styles.itemsList}>
+                {(request.items || []).map((item) => (
+                  <article key={item._id} className={styles.itemRow}>
+                    <div className={styles.itemMain}>
+                      <strong>{item.product?.name || "Producto"}</strong>
+                      <span>{getUnitLabel(item.unitSnapshot)}</span>
+                    </div>
+
+                    <div className={styles.itemMetrics}>
+                      <div className={styles.metricBlock}>
+                        <strong>{formatQuantity(item.requestedQuantity)}</strong>
+                        <span>Solicitado</span>
+                      </div>
+                      <div className={styles.metricBlock}>
+                        <strong>{formatQuantity(item.purchasedQuantity)}</strong>
+                        <span>Comprado</span>
+                      </div>
+                      <div className={styles.metricBlock}>
+                        <strong>{formatQuantity(item.dispatchedQuantity)}</strong>
+                        <span>Despachado</span>
+                      </div>
+                      <div className={styles.metricBlock}>
+                        <strong>
+                          {formatQuantity(Math.max(
+                            Number(item.approvedQuantity || item.requestedQuantity || 0) -
+                            Number(item.receivedQuantity || 0),
+                            0
+                          ))}
+                        </strong>
+                        <span>Pendiente</span>
+                      </div>
+                    </div>
+
+                    {item.requesterNote ? (
+                      <p className={styles.itemNote}>{item.requesterNote}</p>
+                    ) : null}
+
+                    {item.adminNote ? (
+                      <p className={styles.itemNote}>Compra: {item.adminNote}</p>
+                    ) : null}
+
+                    {canReceive && Math.max(
+                      Number(item.dispatchedQuantity || 0) - Number(item.receivedQuantity || 0),
+                      0
+                    ) > 0 ? (
+                      <div className={styles.receiveRow}>
+                        {Number(latestDispatchMap[item._id] || 0) > 0 ? (
+                          <span className={styles.receiveHint}>
+                            Último despacho: {formatQuantity(latestDispatchMap[item._id])}
+                          </span>
+                        ) : null}
+                        <input
+                          type="number"
+                          min="0"
+                          step={getQuantityInputStep(item.unitSnapshot || item.product?.unit)}
+                          className={`form-input ${styles.receiveInput}`}
+                          placeholder="Recibido"
+                          value={receiptItems[item._id] ?? ""}
+                          onChange={(event) =>
+                            handleReceiptValueChange(
+                              item._id,
+                              event.target.value,
+                              item.unitSnapshot || item.product?.unit
+                            )
+                          }
+                          disabled={isReceiving}
+                        />
+                        <button
+                          type="button"
+                          className="miniAction"
+                          onClick={() => autofillReceiptItem(item)}
+                          disabled={isReceiving}
+                        >
+                          <PackageCheck size={16} />
+                          Completar
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            {canReceive && hasReceiptItems ? (
+              <section className={styles.receiveCard}>
+                <div className={styles.itemsHeader}>
+                  <h3 className={styles.itemsTitle}>Confirmar recepcion</h3>
+                </div>
+
+                <textarea
+                  className={`form-textarea ${styles.receiveNote}`}
+                  placeholder="Nota de recepcion opcional"
+                  value={receiptNote}
+                  onChange={(event) =>
+                    setReceiptState((prev) => ({
+                      ...prev,
+                      note: event.target.value,
+                    }))
+                  }
+                  disabled={isReceiving}
+                />
+              </section>
+            ) : null}
+          </div>
         </div>
 
         {(canApprove || canEdit || canCancel || (canReceive && hasReceiptItems)) ? (
-          <div className="modal-footer">
+          <div className={`modalDetachedFooter ${styles.footer}`}>
             {canReceive && hasReceiptItems ? (
               <button
                 type="button"

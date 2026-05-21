@@ -171,18 +171,25 @@ export default function PurchaseRequestModal({
 
           <div className={styles.filtersRow}>
             {showDestinationSelect ? (
-              <div className="selectWrap">
-                <select
-                  value={requestDraft.destinationLocation || ""}
-                  onChange={(event) => onDestinationChange(event.target.value)}
-                  className="filterSelect"
-                >
-                  {destinationOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+              <div className={styles.destinationField}>
+                <label className="form-label" htmlFor="purchase-request-destination">
+                  Destino de la solicitud
+                </label>
+                <div className="selectWrap">
+                  <select
+                    id="purchase-request-destination"
+                    value={requestDraft.destinationLocation || ""}
+                    onChange={(event) => onDestinationChange(event.target.value)}
+                    className="filterSelect"
+                    required
+                  >
+                    {destinationOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ) : null}
 

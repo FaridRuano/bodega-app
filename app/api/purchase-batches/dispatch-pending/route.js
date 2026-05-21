@@ -8,6 +8,8 @@ import {
 } from "@libs/purchaseRequests";
 import dbConnect from "@libs/mongodb";
 import { createNotificationsForUsers, NOTIFICATION_TYPES } from "@libs/notifications";
+import InventoryMovement from "@models/InventoryMovement";
+import InventoryStock from "@models/InventoryStock";
 import PurchaseBatch from "@models/PurchaseBatch";
 import PurchaseRequest from "@models/PurchaseRequest";
 import { STOCK_LOCATIONS } from "@models/InventoryStock";
@@ -17,6 +19,32 @@ function resolveDispatchLocation(value) {
     return STOCK_LOCATIONS.includes(normalizedValue)
         ? normalizedValue
         : DEFAULT_PURCHASE_LOCATION;
+}
+
+function isAdminCreatedRequest(purchaseRequest) {
+    return String(purchaseRequest?.requestedBy?.role || "").trim().toLowerCase() === "admin";
+}
+
+function getRequesterId(purchaseRequest) {
+    return String(purchaseRequest?.requestedBy?._id || purchaseRequest?.requestedBy || "");
+}
+
+async function getOrCreateStock(productId, location, session) {
+    let stock = await InventoryStock.findOne({ productId, location }).session(session);
+
+    if (!stock) {
+        [stock] = await InventoryStock.create(
+            [{
+                productId,
+                location,
+                quantity: 0,
+                reservedQuantity: 0,
+            }],
+            { session }
+        );
+    }
+
+    return stock;
 }
 
 function buildDispatchableBatchQuery(search) {
@@ -83,7 +111,9 @@ export async function POST(request) {
         );
 
         const purchaseRequests = allRequestIds.length
-            ? await PurchaseRequest.find({ _id: { $in: allRequestIds } }).session(session)
+            ? await PurchaseRequest.find({ _id: { $in: allRequestIds } })
+                .populate("requestedBy", "role")
+                .session(session)
             : [];
         const purchaseRequestMap = new Map(
             purchaseRequests.map((purchaseRequest) => [
@@ -96,6 +126,7 @@ export async function POST(request) {
 
         for (const batch of batches) {
             const requestDispatchSummary = new Map();
+            const requestReceiptSummary = new Map();
 
             for (const item of batch.items || []) {
                 for (const allocation of item.allocations || []) {
@@ -110,9 +141,44 @@ export async function POST(request) {
                     );
                     if (!requestItem) continue;
 
+                    const quantity = Number(allocation.quantity || 0);
+                    if (quantity <= 0) continue;
+                    const destinationLocation = resolveDispatchLocation(purchaseRequest.destinationLocation);
+
                     requestItem.dispatchedQuantity =
                         Number(requestItem.dispatchedQuantity || 0) +
-                        Number(allocation.quantity || 0);
+                        quantity;
+
+                    if (isAdminCreatedRequest(purchaseRequest)) {
+                        const destinationStock = await getOrCreateStock(
+                            requestItem.productId,
+                            destinationLocation,
+                            session
+                        );
+
+                        destinationStock.quantity = Number(destinationStock.quantity || 0) + quantity;
+                        destinationStock.lastMovementAt = dispatchedAt;
+                        await destinationStock.save({ session });
+
+                        requestItem.receivedQuantity =
+                            Number(requestItem.receivedQuantity || 0) + quantity;
+
+                        await InventoryMovement.create(
+                            [{
+                                productId: requestItem.productId,
+                                movementType: "purchase_entry",
+                                quantity,
+                                unitSnapshot: requestItem.unitSnapshot,
+                                toLocation: destinationLocation,
+                                referenceType: "request",
+                                referenceId: purchaseRequest._id,
+                                notes: "Recepcion automatica por compra creada por administrador.",
+                                performedBy: user.id,
+                                movementDate: dispatchedAt,
+                            }],
+                            { session }
+                        );
+                    }
 
                     const requestKey = String(purchaseRequest._id);
                     if (!requestDispatchSummary.has(requestKey)) {
@@ -121,12 +187,21 @@ export async function POST(request) {
 
                     requestDispatchSummary.get(requestKey).push({
                         purchaseRequestItemId: requestItem._id,
-                        quantity: Number(allocation.quantity || 0),
-                        location: purchaseRequest.destinationLocation,
+                        quantity,
+                        location: destinationLocation,
                     });
 
-                    if (purchaseRequest.requestedBy) {
-                        notifiedRequesterIds.add(String(purchaseRequest.requestedBy));
+                    if (isAdminCreatedRequest(purchaseRequest)) {
+                        if (!requestReceiptSummary.has(requestKey)) {
+                            requestReceiptSummary.set(requestKey, []);
+                        }
+
+                        requestReceiptSummary.get(requestKey).push({
+                            purchaseRequestItemId: requestItem._id,
+                            quantity,
+                        });
+                    } else if (purchaseRequest.requestedBy) {
+                        notifiedRequesterIds.add(getRequesterId(purchaseRequest));
                     }
                 }
             }
@@ -135,20 +210,42 @@ export async function POST(request) {
                 const purchaseRequest = purchaseRequestMap.get(purchaseRequestId);
                 if (!purchaseRequest || !dispatchItems.length) continue;
 
+                const receiptItems = requestReceiptSummary.get(purchaseRequestId) || [];
                 purchaseRequest.recalculateStatus();
                 purchaseRequest.addActivity({
                     type: "purchase_registered",
                     performedBy: user.id,
                     title: "Compra despachada",
-                    description: `Se despacho compra hacia ${resolveDispatchLocation(
-                        purchaseRequest.destinationLocation
-                    )}. La solicitud queda lista para que el solicitante confirme lo recibido.`,
+                    description: receiptItems.length
+                        ? `Se despacho compra hacia ${resolveDispatchLocation(
+                            purchaseRequest.destinationLocation
+                        )} y se confirmo la recepcion automaticamente porque la solicitud fue creada por administrador.`
+                        : `Se despacho compra hacia ${resolveDispatchLocation(
+                            purchaseRequest.destinationLocation
+                        )}. La solicitud queda lista para que el solicitante confirme lo recibido.`,
                     metadata: {
                         batchId: batch._id,
                         batchNumber: batch.batchNumber,
                         items: dispatchItems,
                     },
                 });
+
+                if (receiptItems.length) {
+                    purchaseRequest.addActivity({
+                        type: "purchase_registered",
+                        performedBy: user.id,
+                        title: "Recepcion automatica",
+                        description:
+                            "La recepcion fue confirmada automaticamente porque la solicitud fue creada por administrador.",
+                        metadata: {
+                            batchId: batch._id,
+                            batchNumber: batch.batchNumber,
+                            destinationLocation: resolveDispatchLocation(purchaseRequest.destinationLocation),
+                            items: receiptItems,
+                        },
+                        performedAt: dispatchedAt,
+                    });
+                }
             }
 
             batch.status = "dispatched";
@@ -158,8 +255,9 @@ export async function POST(request) {
                 type: "purchase_dispatched",
                 performedBy: user.id,
                 title: "Compra despachada",
-                description:
-                    "La compra fue marcada como despachada junto con otras compras pendientes.",
+                description: requestReceiptSummary.size
+                    ? "La compra fue marcada como despachada junto con otras compras pendientes. Las solicitudes creadas por administrador se recibieron automaticamente."
+                    : "La compra fue marcada como despachada junto con otras compras pendientes.",
                 metadata: {
                     requests: Array.from(requestDispatchSummary.entries()).map(
                         ([purchaseRequestId, items]) => ({
@@ -170,6 +268,23 @@ export async function POST(request) {
                 },
                 performedAt: dispatchedAt,
             });
+            for (const [purchaseRequestId, items] of requestReceiptSummary.entries()) {
+                const purchaseRequest = purchaseRequestMap.get(purchaseRequestId);
+                batch.addActivity({
+                    type: "receipt_confirmed",
+                    performedBy: user.id,
+                    title: "Recepcion automatica",
+                    description:
+                        "La recepcion fue confirmada automaticamente porque la solicitud fue creada por administrador.",
+                    metadata: {
+                        purchaseRequestId,
+                        requestNumber: purchaseRequest?.requestNumber || "",
+                        destinationLocation: resolveDispatchLocation(purchaseRequest?.destinationLocation),
+                        items,
+                    },
+                    performedAt: dispatchedAt,
+                });
+            }
         }
 
         await Promise.all(
@@ -181,17 +296,19 @@ export async function POST(request) {
 
         await session.commitTransaction();
 
-        await createNotificationsForUsers(Array.from(notifiedRequesterIds), {
-            type: NOTIFICATION_TYPES.purchase_batch_dispatched,
-            title: "Compra despachada",
-            message: "Tu compra ya fue despachada y está esperando confirmación.",
-            href: "/dashboard/receiving",
-            entityType: "purchase_batch",
-            entityId: batches[0]?._id || null,
-            priority: "high",
-        }).catch((notificationError) => {
-            console.error("bulk purchase batches dispatched notification error:", notificationError);
-        });
+        if (notifiedRequesterIds.size) {
+            await createNotificationsForUsers(Array.from(notifiedRequesterIds), {
+                type: NOTIFICATION_TYPES.purchase_batch_dispatched,
+                title: "Compra despachada",
+                message: "Tu compra ya fue despachada y está esperando confirmación.",
+                href: "/dashboard/receiving",
+                entityType: "purchase_batch",
+                entityId: batches[0]?._id || null,
+                priority: "high",
+            }).catch((notificationError) => {
+                console.error("bulk purchase batches dispatched notification error:", notificationError);
+            });
+        }
 
         return NextResponse.json(
             {

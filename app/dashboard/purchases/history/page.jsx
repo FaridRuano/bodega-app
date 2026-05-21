@@ -233,6 +233,17 @@ export default function PurchaseHistoryPage() {
   return (
     <>
     <div className="page">
+      <div className={`${styles.topActions} fadeSlideIn`}>
+        <button
+          type="button"
+          className="miniAction"
+          onClick={() => router.push("/dashboard/purchases?tab=execution")}
+        >
+          <ArrowLeft size={14} />
+          Volver a compras
+        </button>
+      </div>
+
       <section className={`hero fadeScaleIn ${styles.heroShell}`}>
         <div className="heroCopy">
           <span className="eyebrow">Compras</span>
@@ -243,14 +254,6 @@ export default function PurchaseHistoryPage() {
         </div>
 
         <div className={styles.heroStats}>
-          <button
-            type="button"
-            className="miniAction"
-            onClick={() => router.push("/dashboard/purchases?tab=execution")}
-          >
-            <ArrowLeft size={14} />
-            Volver a compras
-          </button>
           <div className="compactStat">
             <span>
               Registros <strong>{meta.total || 0}</strong>
