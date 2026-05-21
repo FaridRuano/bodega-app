@@ -163,15 +163,15 @@ export default function InventoryPage() {
   const isGeneralScope = activeScope === "all";
   const operationalScope = getOperationalScopeForRole(currentUser?.role);
   const canAdjustCurrentScope =
-    !isGeneralScope &&
-    (currentUser?.role === "admin" || operationalScope === activeScope);
+    currentUser?.role === "admin" ||
+    (!isGeneralScope && operationalScope === activeScope);
   const canTransferInventory =
-    !isGeneralScope &&
-    (currentUser?.role === "admin" ||
-      (currentUser?.role === "warehouse" && activeScope === operationalScope) ||
-      (["kitchen", "loung"].includes(currentUser?.role || "") &&
-        Boolean(operationalScope) &&
-        activeScope !== operationalScope));
+    currentUser?.role === "admin" ||
+    (!isGeneralScope &&
+      ((currentUser?.role === "warehouse" && activeScope === operationalScope) ||
+        (["kitchen", "loung"].includes(currentUser?.role || "") &&
+          Boolean(operationalScope) &&
+          activeScope !== operationalScope)));
   const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
   const canAccessInventoryHistory = currentUser?.role === "admin";
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
@@ -188,23 +188,26 @@ export default function InventoryPage() {
   const movementLocationOptions = useMemo(() => {
     if (!canAdjustCurrentScope) return [];
     if (currentUser?.role === "admin") {
+      if (isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
       return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
     }
 
     return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === operationalScope);
-  }, [activeScope, canAdjustCurrentScope, currentUser?.role, operationalScope]);
+  }, [activeScope, canAdjustCurrentScope, currentUser?.role, isGeneralScope, operationalScope]);
   const transferSourceOptions = useMemo(() => {
     if (!canTransferInventory) return [];
+    if (currentUser?.role === "admin" && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
     return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
-  }, [activeScope, canTransferInventory]);
+  }, [activeScope, canTransferInventory, currentUser?.role, isGeneralScope]);
   const transferDestinationOptions = useMemo(() => {
     if (!canTransferInventory) return [];
+    if (currentUser?.role === "admin" && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
     if (["kitchen", "loung"].includes(currentUser?.role || "")) {
       return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === operationalScope);
     }
 
     return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value !== activeScope);
-  }, [activeScope, canTransferInventory, currentUser?.role, operationalScope]);
+  }, [activeScope, canTransferInventory, currentUser?.role, isGeneralScope, operationalScope]);
 
   const hasActiveFilters =
     Boolean(searchTerm.trim()) ||
