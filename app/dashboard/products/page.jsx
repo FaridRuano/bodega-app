@@ -62,9 +62,11 @@ export default function ProductsPage() {
   const hasInitializedPageReset = useRef(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [families, setFamilies] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [search, setSearch] = useState(() => getStringParam(searchParams, "search"));
+  const [familyFilter, setFamilyFilter] = useState(() => getStringParam(searchParams, "familyId"));
   const [categoryFilter, setCategoryFilter] = useState(() => getStringParam(searchParams, "categoryId"));
   const [statusFilter, setStatusFilter] = useState(() => getStringParam(searchParams, "status", "all"));
   const [typeFilter, setTypeFilter] = useState(() => getStringParam(searchParams, "productType", "all"));
@@ -85,11 +87,24 @@ export default function ProductsPage() {
   const productsWithDailyControl = products.filter(
     (product) => product.requiresDailyControl
   ).length;
+  const categoriesById = useMemo(
+    () => new Map(categories.map((category) => [String(category._id), category])),
+    [categories]
+  );
+  const filteredCategories = useMemo(() => {
+    if (!familyFilter) return categories;
+
+    return categories.filter(
+      (category) => String(category.familyId?._id || category.familyId || "") === familyFilter
+    );
+  }, [categories, familyFilter]);
   const hasActiveFilters =
     Boolean(search.trim()) ||
+    Boolean(familyFilter) ||
     Boolean(categoryFilter) ||
     statusFilter !== "all" ||
     typeFilter !== "all";
+  const isFamilyFilterLoading = isLoading && families.length === 0;
   const isCategoryFilterLoading = isLoading && categories.length === 0;
 
   const [dialogState, setDialogState] = useState({
@@ -133,17 +148,34 @@ export default function ProductsPage() {
     return result.data || [];
   }
 
+  async function fetchFamilies() {
+    const response = await fetch("/api/families", {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "No se pudieron obtener las familias.");
+    }
+
+    return result.data || [];
+  }
+
   async function loadInitialData() {
     try {
       setIsLoading(true);
 
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsData, categoriesData, familiesData] = await Promise.all([
         fetchProducts(),
         fetchCategories(),
+        fetchFamilies(),
       ]);
 
       setProducts(productsData);
       setCategories(categoriesData.filter((category) => category.isActive));
+      setFamilies(familiesData.filter((family) => family.isActive));
     } catch (error) {
       console.error(error);
 
@@ -178,11 +210,20 @@ export default function ProductsPage() {
     }
 
     setPage(1);
-  }, [search, categoryFilter, statusFilter, typeFilter]);
+  }, [search, familyFilter, categoryFilter, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    if (!categoryFilter) return;
+
+    if (familyFilter && !filteredCategories.some((category) => category._id === categoryFilter)) {
+      setCategoryFilter("");
+    }
+  }, [categoryFilter, familyFilter, filteredCategories]);
 
   useEffect(() => {
     const nextQuery = buildSearchParams(searchParams, {
       search: search.trim() || null,
+      familyId: familyFilter || null,
       categoryId: categoryFilter || null,
       status: statusFilter !== "all" ? statusFilter : null,
       productType: typeFilter !== "all" ? typeFilter : null,
@@ -192,7 +233,7 @@ export default function ProductsPage() {
     if (nextQuery !== searchParams.toString()) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }
-  }, [categoryFilter, page, pathname, router, search, searchParams, statusFilter, typeFilter]);
+  }, [categoryFilter, familyFilter, page, pathname, router, search, searchParams, statusFilter, typeFilter]);
 
   const filteredProducts = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
@@ -208,6 +249,11 @@ export default function ProductsPage() {
         const matchesCategory =
           !categoryFilter || getProductCategoryId(product) === categoryFilter;
 
+        const productCategory = categoriesById.get(getProductCategoryId(product));
+        const matchesFamily =
+          !familyFilter ||
+          String(productCategory?.familyId?._id || productCategory?.familyId || "") === familyFilter;
+
         const matchesStatus =
           statusFilter === "all" ||
           (statusFilter === "active" && product.isActive) ||
@@ -216,9 +262,9 @@ export default function ProductsPage() {
         const matchesType =
           typeFilter === "all" || product.productType === typeFilter;
 
-        return matchesSearch && matchesCategory && matchesStatus && matchesType;
+        return matchesSearch && matchesFamily && matchesCategory && matchesStatus && matchesType;
       });
-  }, [products, search, categoryFilter, statusFilter, typeFilter]);
+  }, [categoriesById, products, search, familyFilter, categoryFilter, statusFilter, typeFilter]);
 
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -553,6 +599,7 @@ export default function ProductsPage() {
 
   function handleClearFilters() {
     setSearch("");
+    setFamilyFilter("");
     setCategoryFilter("");
     setStatusFilter("all");
     setTypeFilter("all");
@@ -635,6 +682,34 @@ export default function ProductsPage() {
           <div className={styles.filtersGrid}>
             <div className="selectWrap">
               <select
+                value={familyFilter}
+                onChange={(event) => {
+                  setFamilyFilter(event.target.value);
+                  setCategoryFilter("");
+                }}
+                className="form-input"
+                disabled={isFamilyFilterLoading}
+              >
+                {isFamilyFilterLoading ? (
+                  <option value={familyFilter || ""}>
+                    {familyFilter ? "Cargando familia..." : "Cargando familias..."}
+                  </option>
+                ) : (
+                  <option value="">Todas las familias</option>
+                )}
+                {familyFilter && !families.some((family) => family._id === familyFilter) ? (
+                  <option value={familyFilter}>Familia seleccionada</option>
+                ) : null}
+                {families.map((family) => (
+                  <option key={family._id} value={family._id}>
+                    {family.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="selectWrap">
+              <select
                 value={categoryFilter}
                 onChange={(event) => setCategoryFilter(event.target.value)}
                 className="form-input"
@@ -650,7 +725,7 @@ export default function ProductsPage() {
                 {categoryFilter && !categories.some((category) => category._id === categoryFilter) ? (
                   <option value={categoryFilter}>Categoria seleccionada</option>
                 ) : null}
-                {categories.map((category) => (
+                {filteredCategories.map((category) => (
                   <option key={category._id} value={category._id}>
                     {category.name}
                   </option>

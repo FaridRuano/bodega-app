@@ -331,10 +331,23 @@
         grid-template-columns: minmax(0, 128px) minmax(46px, 1fr) 5px !important;
     }
 
+    .tableHeader[data-combined="true"],
+    .tableRow[data-combined="true"] {
+        grid-template-columns: minmax(0, 96px) repeat(3, minmax(34px, 1fr)) 5px !important;
+    }
+
+    .tableRow[data-combined="true"].activeRow {
+        grid-template-columns: minmax(0, 96px) minmax(0, 1fr) 5px !important;
+    }
+
     .tableRow[data-scope="warehouse"] .productName,
     .tableRow[data-scope="kitchen"] .productName,
     .tableRow[data-scope="lounge"] .productName {
         max-width: 128px;
+    }
+
+    .tableRow[data-combined="true"] .productName {
+        max-width: 96px;
     }
 }
 

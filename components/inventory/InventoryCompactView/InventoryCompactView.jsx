@@ -23,16 +23,22 @@ export default function InventoryCompactView({
   canTransfer = true,
   scope = "all",
   scopeLabel = "",
+  visibleLocations = [],
 }) {
   const wrapperRef = useRef(null);
   const [activeProductId, setActiveProductId] = useState("");
   const isGeneralScope = scope === "all";
+  const hasCustomLocations = Array.isArray(visibleLocations) && visibleLocations.length > 0;
   const showActions = canAdjust || canTransfer;
   const quantityLabel = scopeLabel || "Cantidad";
   const gridTemplateColumns = isGeneralScope
     ? showActions
       ? "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr)) minmax(122px, auto)"
       : "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr))"
+    : hasCustomLocations
+      ? showActions
+        ? `minmax(180px, 2fr) repeat(${visibleLocations.length}, minmax(46px, 0.55fr)) minmax(122px, auto)`
+        : `minmax(180px, 2fr) repeat(${visibleLocations.length}, minmax(46px, 0.55fr))`
     : showActions
       ? "minmax(180px, 2fr) minmax(46px, 0.55fr) minmax(122px, auto)"
       : "minmax(180px, 2fr) minmax(46px, 0.55fr)";
@@ -61,7 +67,7 @@ export default function InventoryCompactView({
   if (isLoading) {
     return (
       <div className={styles.tableWrap}>
-        <div className={styles.tableHeader} style={{ gridTemplateColumns }} data-scope={scope}>
+        <div className={styles.tableHeader} style={{ gridTemplateColumns }} data-scope={scope} data-combined={hasCustomLocations ? "true" : "false"}>
           <span>Producto</span>
           {isGeneralScope ? (
             <>
@@ -70,6 +76,10 @@ export default function InventoryCompactView({
               <span>Cocina</span>
               <span>Salon</span>
             </>
+          ) : hasCustomLocations ? (
+            visibleLocations.map((location) => (
+              <span key={location.value}>{location.label}</span>
+            ))
           ) : (
             <span>{quantityLabel}</span>
           )}
@@ -107,7 +117,7 @@ export default function InventoryCompactView({
 
   return (
     <div className={styles.tableWrap} ref={wrapperRef}>
-      <div className={styles.tableHeader} style={{ gridTemplateColumns }} data-scope={scope}>
+      <div className={styles.tableHeader} style={{ gridTemplateColumns }} data-scope={scope} data-combined={hasCustomLocations ? "true" : "false"}>
         <span>Producto</span>
         {isGeneralScope ? (
           <>
@@ -116,6 +126,10 @@ export default function InventoryCompactView({
             <span>Cocina</span>
             <span>Salon</span>
           </>
+        ) : hasCustomLocations ? (
+          visibleLocations.map((location) => (
+            <span key={location.value}>{location.label}</span>
+          ))
         ) : (
           <span>{quantityLabel}</span>
         )}
@@ -129,6 +143,7 @@ export default function InventoryCompactView({
             className={`${styles.tableRow} ${activeProductId === product._id ? styles.activeRow : ""} fadeSlideIn`}
             style={{ animationDelay: `${0.02 * index}s`, gridTemplateColumns }}
             data-scope={scope}
+            data-combined={hasCustomLocations ? "true" : "false"}
             data-status={product.status || "available"}
             onClick={() => handleRowClick(product._id)}
             onMouseLeave={() => {
@@ -156,6 +171,12 @@ export default function InventoryCompactView({
                 <span className={styles.amountCell}>{formatQuantity(product.inventory?.kitchen)}</span>
                 <span className={styles.amountCell}>{formatQuantity(product.inventory?.lounge)}</span>
               </>
+            ) : hasCustomLocations ? (
+              visibleLocations.map((location) => (
+                <strong key={location.value} className={styles.amountCell}>
+                  {formatQuantity(product.inventory?.[location.value])}
+                </strong>
+              ))
             ) : (
               <strong className={styles.amountCell}>{formatQuantity(product.inventory?.[scope])}</strong>
             )}

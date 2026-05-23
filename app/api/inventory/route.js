@@ -242,6 +242,15 @@ function normalizeLocation(value) {
     return STOCK_LOCATIONS.includes(normalized) ? normalized : null;
 }
 
+function normalizeLocations(value) {
+    const locations = String(value || "")
+        .split(",")
+        .map((entry) => normalizeLocation(entry))
+        .filter(Boolean);
+
+    return Array.from(new Set(locations));
+}
+
 function normalizeAlertFilter(value) {
     const normalized = String(value || "").trim().toLowerCase();
 
@@ -267,6 +276,7 @@ export async function GET(request) {
         const limit = Math.min(parsePositiveNumber(searchParams.get("limit"), 10), 100);
         const search = searchParams.get("search") || "";
         const location = normalizeLocation(searchParams.get("location"));
+        const locations = normalizeLocations(searchParams.get("locations"));
         const alert = normalizeAlertFilter(searchParams.get("alert"));
         const inStockOnly = searchParams.get("inStockOnly") === "true";
         const activeOnly = searchParams.get("activeOnly") === "true";
@@ -337,7 +347,15 @@ export async function GET(request) {
                 return false;
             }
 
-            if (location && inStockOnly) {
+            if (inStockOnly && locations.length) {
+                const quantity = locations.reduce(
+                    (sum, currentLocation) => sum + Number(product.inventory?.[currentLocation] || 0),
+                    0
+                );
+                if (quantity <= 0) {
+                    return false;
+                }
+            } else if (location && inStockOnly) {
                 const quantity = Number(product.inventory?.[location] || 0);
                 if (quantity <= 0) {
                     return false;
@@ -353,7 +371,12 @@ export async function GET(request) {
             }
 
             if (alert === "out") {
-                const quantity = location
+                const quantity = locations.length
+                    ? locations.reduce(
+                        (sum, currentLocation) => sum + Number(product.inventory?.[currentLocation] || 0),
+                        0
+                    )
+                    : location
                     ? Number(product.inventory?.[location] || 0)
                     : Number(product.inventory?.total || 0);
 
@@ -376,7 +399,12 @@ export async function GET(request) {
             activeProducts: normalizedProducts.filter((product) => product.isActive).length,
             trackedProducts: normalizedProducts.filter((product) => product.tracksStock).length,
             outOfStockProducts: normalizedProducts.filter((product) => {
-                const quantity = location
+                const quantity = locations.length
+                    ? locations.reduce(
+                        (sum, currentLocation) => sum + Number(product.inventory?.[currentLocation] || 0),
+                        0
+                    )
+                    : location
                     ? Number(product.inventory?.[location] || 0)
                     : Number(product.inventory?.total || 0);
                 return quantity <= 0;
@@ -384,6 +412,7 @@ export async function GET(request) {
             lowStockProducts: normalizedProducts.filter((product) => product.status === "low").length,
             warningStockProducts: normalizedProducts.filter((product) => product.status === "warning").length,
             selectedLocation: location,
+            selectedLocations: locations,
             selectedAlert: alert,
             asOfDate: asOfDate?.value || null,
             isHistorical: Boolean(asOfDate),

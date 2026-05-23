@@ -55,15 +55,20 @@ function getOperationalScopeForRole(role = "") {
 function getAvailableScopesForRole(role = "") {
   switch (String(role || "").trim()) {
     case "kitchen":
-      return ["all", "kitchen", "warehouse", "lounge"];
+      return ["kitchen"];
     case "loung":
-      return ["all", "lounge", "warehouse", "kitchen"];
+      return ["lounge"];
     case "warehouse":
       return ["all", "warehouse"];
     case "admin":
-    default:
       return ["all", "warehouse", "kitchen", "lounge"];
+    default:
+      return ["all"];
   }
+}
+
+function isOperationalFloorRole(role = "") {
+  return ["kitchen", "loung"].includes(String(role || "").trim());
 }
 
 function getStatusClass(status, stylesRef) {
@@ -162,6 +167,20 @@ export default function InventoryPage() {
   const activeScope = availableScopes.includes(scope) ? scope : availableScopes[0] || "all";
   const isGeneralScope = activeScope === "all";
   const operationalScope = getOperationalScopeForRole(currentUser?.role);
+  const isCombinedOperationalView =
+    isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope);
+  const effectiveViewMode = isCombinedOperationalView ? "compact" : viewMode;
+  const combinedViewLocations = useMemo(
+    () =>
+      isCombinedOperationalView
+        ? [
+            { value: "total", label: "Total" },
+            { value: operationalScope, label: INVENTORY_SCOPE_LABELS[operationalScope] || "Area" },
+            { value: "warehouse", label: "Bodega" },
+          ]
+        : [],
+    [isCombinedOperationalView, operationalScope]
+  );
   const canAdjustCurrentScope =
     currentUser?.role === "admin" ||
     (!isGeneralScope && operationalScope === activeScope);
@@ -169,21 +188,21 @@ export default function InventoryPage() {
     currentUser?.role === "admin" ||
     (!isGeneralScope &&
       ((currentUser?.role === "warehouse" && activeScope === operationalScope) ||
-        (["kitchen", "loung"].includes(currentUser?.role || "") &&
-          Boolean(operationalScope) &&
-          activeScope !== operationalScope)));
+        (isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope))));
   const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
   const canAccessInventoryHistory = currentUser?.role === "admin";
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
   const heroEyebrow = isGeneralScope ? "Inventario" : scopeLabel;
   const heroTitle = isGeneralScope ? "Control de existencias" : `Inventario de ${scopeLabel.toLowerCase()}`;
-  const heroDescription = isGeneralScope
+  const heroDescription = isCombinedOperationalView
+    ? `Consulta ${scopeLabel.toLowerCase()} y bodega en una sola tabla. Las entradas y salidas manuales afectan solo ${scopeLabel.toLowerCase()}; bodega se mueve por transferencia.`
+    : isGeneralScope
     ? "Revisa stock por ubicacion y cambia entre tarjetas o seguimiento desde un solo modulo."
     : `Consulta solo productos con stock en ${scopeLabel.toLowerCase()} y registra ajustes rapidos.`;
   const shouldUseQuickAdjustModal =
     movementModal.mode !== "transfer" &&
     !isGeneralScope &&
-    ["kitchen", "loung"].includes(currentUser?.role || "") &&
+    isOperationalFloorRole(currentUser?.role) &&
     operationalScope === activeScope;
   const movementLocationOptions = useMemo(() => {
     if (!canAdjustCurrentScope) return [];
@@ -197,13 +216,20 @@ export default function InventoryPage() {
   const transferSourceOptions = useMemo(() => {
     if (!canTransferInventory) return [];
     if (currentUser?.role === "admin" && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
+    if (isOperationalFloorRole(currentUser?.role)) {
+      return INVENTORY_LOCATION_OPTIONS.filter((option) =>
+        ["warehouse", operationalScope].includes(option.value)
+      );
+    }
     return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
-  }, [activeScope, canTransferInventory, currentUser?.role, isGeneralScope]);
+  }, [activeScope, canTransferInventory, currentUser?.role, isGeneralScope, operationalScope]);
   const transferDestinationOptions = useMemo(() => {
     if (!canTransferInventory) return [];
     if (currentUser?.role === "admin" && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
-    if (["kitchen", "loung"].includes(currentUser?.role || "")) {
-      return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === operationalScope);
+    if (isOperationalFloorRole(currentUser?.role)) {
+      return INVENTORY_LOCATION_OPTIONS.filter((option) =>
+        ["warehouse", operationalScope].includes(option.value)
+      );
     }
 
     return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value !== activeScope);
@@ -221,13 +247,13 @@ export default function InventoryPage() {
     if (alertFilter) params.set("alert", alertFilter);
     if (familyFilter) params.set("familyId", familyFilter);
     if (categoryFilter) params.set("categoryId", categoryFilter);
-    if (activeScope !== "all") params.set("scope", activeScope);
-    if (viewMode !== "compact") params.set("view", viewMode);
+    if (!isCombinedOperationalView && activeScope !== "all") params.set("scope", activeScope);
+    if (!isCombinedOperationalView && effectiveViewMode !== "compact") params.set("view", effectiveViewMode);
     if (page > 1) params.set("page", String(page));
 
     const query = params.toString();
     return query ? `/dashboard/inventory/history?${query}` : "/dashboard/inventory/history";
-  }, [activeScope, alertFilter, categoryFilter, familyFilter, page, searchTerm, viewMode]);
+  }, [activeScope, alertFilter, categoryFilter, effectiveViewMode, familyFilter, isCombinedOperationalView, page, searchTerm]);
   const areFamilyFiltersLoading = isLoading && families.length === 0;
   const areCategoryFiltersLoading = isLoading && categories.length === 0;
 
@@ -281,6 +307,11 @@ export default function InventoryPage() {
   }, [availableScopes, scope]);
 
   useEffect(() => {
+    if (isCombinedOperationalView) {
+      setViewMode("compact");
+      return;
+    }
+
     const viewFromUrl = normalizeViewMode(getStringParam(searchParams, "view", ""), "");
 
     if (viewFromUrl) {
@@ -293,7 +324,7 @@ export default function InventoryPage() {
     if (storedViewMode) {
       setViewMode(storedViewMode);
     }
-  }, [searchParams]);
+  }, [isCombinedOperationalView, searchParams]);
 
   useEffect(() => {
     const nextQuery = buildSearchParams(searchParams, {
@@ -301,15 +332,15 @@ export default function InventoryPage() {
       alert: alertFilter || null,
       familyId: familyFilter || null,
       categoryId: categoryFilter || null,
-      scope: activeScope !== "all" ? activeScope : null,
-      view: viewMode !== "compact" ? viewMode : null,
+      scope: !isCombinedOperationalView && activeScope !== "all" ? activeScope : null,
+      view: !isCombinedOperationalView && effectiveViewMode !== "compact" ? effectiveViewMode : null,
       page: page > 1 ? page : null,
     });
 
     if (nextQuery !== searchParams.toString()) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }
-  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, viewMode]);
+  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, effectiveViewMode, isCombinedOperationalView]);
 
   async function fetchInventory(options = {}) {
     const { silent = false } = options;
@@ -340,7 +371,10 @@ export default function InventoryPage() {
         params.set("categoryId", categoryFilter);
       }
 
-      if (!isGeneralScope) {
+      if (isCombinedOperationalView) {
+        params.set("locations", ["warehouse", operationalScope].join(","));
+        params.set("inStockOnly", "true");
+      } else if (!isGeneralScope) {
         params.set("location", activeScope);
         params.set("inStockOnly", "true");
       }
@@ -422,7 +456,7 @@ export default function InventoryPage() {
         });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeScope, alertFilter, categoryFilter, familyFilter, page, searchTerm]);
+  }, [activeScope, alertFilter, categoryFilter, familyFilter, isCombinedOperationalView, operationalScope, page, searchTerm]);
 
   useEffect(() => {
     if (categories.length === 0) return;
@@ -468,6 +502,8 @@ export default function InventoryPage() {
     familyFilter,
     categoryFilter,
     activeScope,
+    isCombinedOperationalView,
+    operationalScope,
   ]);
 
   function toggleAlertFilter(nextFilter) {
@@ -498,7 +534,11 @@ export default function InventoryPage() {
     }
 
     const defaultLocation = isGeneralScope ? "warehouse" : activeScope;
-    const defaultTransferFrom = activeScope === "all" ? "warehouse" : activeScope;
+    const defaultTransferFrom = isOperationalFloorRole(currentUser?.role)
+      ? "warehouse"
+      : activeScope === "all"
+        ? "warehouse"
+        : activeScope;
     let defaultTransferTo =
       currentUser?.role === "loung"
         ? "lounge"
@@ -721,41 +761,45 @@ export default function InventoryPage() {
             </button>
           ) : null}
 
-          <div className={styles.viewSwitch}>
-            {availableScopes.map((scopeOption) => (
-              <button
-                key={scopeOption}
-                type="button"
-                className={`miniAction ${activeScope === scopeOption ? "miniActionPrimary" : ""}`}
-                onClick={() => setScope(scopeOption)}
-              >
-                {INVENTORY_SCOPE_LABELS[scopeOption]}
-              </button>
-            ))}
-          </div>
+          {!isCombinedOperationalView ? (
+            <>
+              <div className={styles.viewSwitch}>
+                {availableScopes.map((scopeOption) => (
+                  <button
+                    key={scopeOption}
+                    type="button"
+                    className={`miniAction ${activeScope === scopeOption ? "miniActionPrimary" : ""}`}
+                    onClick={() => setScope(scopeOption)}
+                  >
+                    {INVENTORY_SCOPE_LABELS[scopeOption]}
+                  </button>
+                ))}
+              </div>
 
-          <div className={`${styles.viewSwitch} ${styles.iconViewSwitch}`}>
-            <button
-              type="button"
-              className={`miniAction miniActionIconOnly ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
-              onClick={() => updateViewMode("cards")}
-              aria-label="Tarjetas"
-              disabled={products.length === 0}
-            >
-              <LayoutGrid size={14} />
-              <span className="miniActionLabel">Tarjetas</span>
-            </button>
-            <button
-              type="button"
-              className={`miniAction miniActionIconOnly ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
-              onClick={() => updateViewMode("compact")}
-              aria-label="Seguimiento"
-              disabled={products.length === 0}
-            >
-              <List size={14} />
-              <span className="miniActionLabel">Seguimiento</span>
-            </button>
-          </div>
+              <div className={`${styles.viewSwitch} ${styles.iconViewSwitch}`}>
+                <button
+                  type="button"
+                  className={`miniAction miniActionIconOnly ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
+                  onClick={() => updateViewMode("cards")}
+                  aria-label="Tarjetas"
+                  disabled={products.length === 0}
+                >
+                  <LayoutGrid size={14} />
+                  <span className="miniActionLabel">Tarjetas</span>
+                </button>
+                <button
+                  type="button"
+                  className={`miniAction miniActionIconOnly ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
+                  onClick={() => updateViewMode("compact")}
+                  aria-label="Seguimiento"
+                  disabled={products.length === 0}
+                >
+                  <List size={14} />
+                  <span className="miniActionLabel">Seguimiento</span>
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div className={styles.filterRow}>
@@ -820,7 +864,7 @@ export default function InventoryPage() {
               {loadError}
             </div>
           ) : null}
-          {viewMode === "compact" ? (
+          {effectiveViewMode === "compact" ? (
             <>
               <InventoryCompactView
                 products={products}
@@ -833,6 +877,7 @@ export default function InventoryPage() {
                 canTransfer={canTransferInventory}
                 scope={activeScope}
                 scopeLabel={scopeLabel}
+                visibleLocations={combinedViewLocations}
               />
 
               {!isLoading && products.length > 0 ? (

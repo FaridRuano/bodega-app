@@ -46,6 +46,13 @@ function getOperationalLocationForRole(role = "") {
     return null;
 }
 
+function isWarehouseOperationalTransfer(fromLocation, toLocation, operationalLocation) {
+    return (
+        (fromLocation === "warehouse" && toLocation === operationalLocation) ||
+        (fromLocation === operationalLocation && toLocation === "warehouse")
+    );
+}
+
 function normalizeDate(value) {
     const raw = String(value || "").trim();
 
@@ -200,8 +207,7 @@ export async function POST(request) {
                 (movementType === "transfer" &&
                     ((user.role === "warehouse" && fromLocation === operationalLocation) ||
                         (["kitchen", "loung"].includes(user.role) &&
-                            toLocation === operationalLocation &&
-                            fromLocation !== operationalLocation))) ||
+                            isWarehouseOperationalTransfer(fromLocation, toLocation, operationalLocation)))) ||
                 (["adjustment_in", "adjustment_out"].includes(movementType) &&
                     location === operationalLocation);
 
@@ -209,7 +215,9 @@ export async function POST(request) {
                 return NextResponse.json(
                     {
                         success: false,
-                        message: `Solo puedes registrar movimientos desde ${getLocationLabel(operationalLocation).toLowerCase()}.`,
+                        message: ["kitchen", "loung"].includes(user.role)
+                            ? `Solo puedes ajustar ${getLocationLabel(operationalLocation).toLowerCase()} o transferir entre bodega y ${getLocationLabel(operationalLocation).toLowerCase()}.`
+                            : `Solo puedes registrar movimientos desde ${getLocationLabel(operationalLocation).toLowerCase()}.`,
                     },
                     { status: 403 }
                 );
