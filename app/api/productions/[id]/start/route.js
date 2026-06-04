@@ -26,7 +26,7 @@ export async function POST(_request, { params }) {
     try {
         await dbConnect();
 
-        const { user, response } = await requireUserRole(["admin", "kitchen"]);
+        const { user, response } = await requireUserRole(["admin", "manager", "kitchen"]);
         if (response) return response;
 
         const { id } = await params;

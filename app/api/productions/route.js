@@ -132,7 +132,7 @@ export async function POST(request) {
     let session = null;
 
     try {
-        const { user, response } = await requireUserRole(["admin", "kitchen"]);
+        const { user, response } = await requireUserRole(["admin", "manager", "kitchen"]);
         if (response) return response;
 
         await dbConnect();
