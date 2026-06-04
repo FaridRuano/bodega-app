@@ -498,7 +498,7 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "loung"]);
+        const { user, response } = await requireUserRole(["admin", "manager", "warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();

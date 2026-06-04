@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { normalizeUserRole } from "@libs/userRoles";
 
 const ROLE_OPTIONS = [
+    { value: "manager", label: "Manager" },
     { value: "kitchen", label: "Chef" },
     { value: "warehouse", label: "Bodeguero" },
     { value: "loung", label: "Mesero" },

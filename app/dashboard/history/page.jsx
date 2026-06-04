@@ -28,6 +28,7 @@ import { PRODUCTION_STATUS_LABELS } from "@libs/constants/productionStatus";
 import { getPurposeLabel } from "@libs/constants/purposes";
 import { getUnitLabel } from "@libs/constants/units";
 import { formatQuantity } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 const PAGE_SIZE = 12;
 const REQUEST_ACTIVITY_LIMIT = 5;
@@ -699,7 +700,7 @@ export default function HistoryPage() {
         }
 
         const user = meResult.user;
-        const isAdmin = user.role === "admin";
+        const isAdmin = isPrivilegedUserRole(user.role);
 
         const requestsParams = new URLSearchParams({ limit: "160" });
         const purchaseRequestsParams = new URLSearchParams({ limit: "160" });
@@ -857,7 +858,7 @@ export default function HistoryPage() {
 
   const scopedHistoryItems = useMemo(() => {
     const currentUserId = String(currentUser?.id || currentUser?._id || "");
-    const isAdmin = currentUser?.role === "admin";
+    const isAdmin = isPrivilegedUserRole(currentUser?.role);
 
     if (!currentUserId || isAdmin) {
       return historyItems;
@@ -1018,7 +1019,7 @@ export default function HistoryPage() {
             />
           </div>
 
-          {currentUser?.role === "admin" ? (
+          {isPrivilegedUserRole(currentUser?.role) ? (
             <div className="form-field">
               <label className="form-label">Usuario</label>
               <div className="selectWrap">

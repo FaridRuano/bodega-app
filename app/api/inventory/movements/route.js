@@ -14,6 +14,7 @@ import {
     getMovementTypeLabel,
     getReferenceTypeLabel,
 } from "@libs/constants/domainLabels";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 function normalizeLocation(value) {
     const location = String(value || "").trim().toLowerCase();
@@ -202,7 +203,7 @@ export async function POST(request) {
 
         const operationalLocation = getOperationalLocationForRole(user.role);
 
-        if (user.role !== "admin" && operationalLocation) {
+        if (!isPrivilegedUserRole(user.role) && operationalLocation) {
             const isAllowedMovement =
                 (movementType === "transfer" &&
                     ((user.role === "warehouse" && fromLocation === operationalLocation) ||

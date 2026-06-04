@@ -22,6 +22,7 @@ import PurchaseRequestReviewModal from "@components/purchases/PurchaseRequestRev
 import { getLocationLabel } from "@libs/constants/domainLabels";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
 import { formatQuantity } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 import styles from "./page.module.scss";
 
 const PAGE_SIZE = 12;
@@ -84,7 +85,7 @@ function getPurchaseBatchStatusLabel(status) {
 
 function canConfirmReceipt(request) {
   if (!request) return false;
-  if (String(request?.requestedBy?.role || "").toLowerCase() === "admin") return false;
+  if (isPrivilegedUserRole(request?.requestedBy?.role)) return false;
 
   return (request.items || []).some(
     (item) =>
@@ -287,7 +288,7 @@ export default function PurchasesPage() {
     variant: "info",
   });
 
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isPrivilegedUserRole(currentUser?.role);
   const pendingRequestsCount = Number(summary?.pending || 0);
   const canApproveAllRequests =
     isAdmin && pendingRequestsCount > 0 && !isLoading && !isApprovingAllRequests;
@@ -370,7 +371,7 @@ export default function PurchasesPage() {
         requestParams.set("status", statusFilter);
       }
 
-      if (user?.role !== "admin") {
+      if (!isPrivilegedUserRole(user?.role)) {
         requestParams.set("mine", "true");
       }
 
@@ -380,7 +381,7 @@ export default function PurchasesPage() {
         }),
       ];
 
-      if (user?.role === "admin") {
+      if (isPrivilegedUserRole(user?.role)) {
         tasks.push(
           fetch("/api/purchase-batches?page=1&limit=24", {
             cache: "no-store",
@@ -399,7 +400,7 @@ export default function PurchasesPage() {
       setSummary(requestsResult.summary || null);
       setShoppingList(requestsResult.consolidatedShoppingList || []);
 
-      if (user?.role === "admin" && batchesResponse) {
+      if (isPrivilegedUserRole(user?.role) && batchesResponse) {
         const batchesResult = await batchesResponse.json();
 
         if (!batchesResponse.ok || !batchesResult.success) {

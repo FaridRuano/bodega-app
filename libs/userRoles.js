@@ -1,4 +1,5 @@
-export const USER_ROLES = ["admin", "warehouse", "kitchen", "loung"];
+export const USER_ROLES = ["admin", "manager", "warehouse", "kitchen", "loung"];
+export const PRIVILEGED_USER_ROLES = ["admin", "manager"];
 
 const USER_ROLE_ALIASES = {
     lounge: "loung",
@@ -20,4 +21,9 @@ export function normalizeUserRole(role, fallback = "") {
 
 export function isValidUserRole(role) {
     return Boolean(normalizeUserRole(role));
+}
+
+export function isPrivilegedUserRole(role) {
+    const normalizedRole = normalizeUserRole(role);
+    return PRIVILEGED_USER_ROLES.includes(normalizedRole);
 }

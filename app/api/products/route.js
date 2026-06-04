@@ -225,7 +225,7 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
-        const { response } = await requireUserRole(["admin"]);
+        const { response } = await requireUserRole(["admin", "manager"]);
         if (response) return response;
 
         await dbConnect();

@@ -23,6 +23,7 @@ import {
     getQuantityInputStep,
     normalizeQuantityInput,
 } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 const LOCATION_OPTIONS = [
     { value: "kitchen", label: "Cocina" },
@@ -260,7 +261,7 @@ export default function DailyControlPage() {
         variant: "info",
     });
 
-    const isAdmin = currentUser?.role === "admin";
+    const isAdmin = isPrivilegedUserRole(currentUser?.role);
     const todayDate = getTodayValue();
     const yesterdayDate = addDaysToDateValue(todayDate, -1);
     const businessHour = getBusinessHour();

@@ -76,6 +76,10 @@ const adminNavigationItems = [
     },
 ];
 
+const managerNavigationItems = adminNavigationItems.filter(
+    (item) => item.href !== "/dashboard/config"
+);
+
 const kitchenNavigationItems = [
     {
         label: "Resumen",
@@ -199,6 +203,8 @@ function getNavigationByRole(role) {
             return warehouseNavigationItems;
         case "loung":
             return loungeNavigationItems;
+        case "manager":
+            return managerNavigationItems;
         case "admin":
         default:
             return adminNavigationItems;

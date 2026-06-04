@@ -133,7 +133,7 @@ export async function GET(_, { params }) {
 
 export async function PATCH(request, { params }) {
     try {
-        const { response } = await requireUserRole(["admin"]);
+        const { response } = await requireUserRole(["admin", "manager"]);
         if (response) return response;
 
         await dbConnect();
@@ -354,7 +354,7 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(_, { params }) {
     try {
-        const { response } = await requireUserRole(["admin"]);
+        const { response } = await requireUserRole(["admin", "manager"]);
         if (response) return response;
 
         await dbConnect();

@@ -5,6 +5,7 @@ import dbConnect from "@libs/mongodb";
 import { createNotificationsForRoles, NOTIFICATION_TYPES } from "@libs/notifications";
 import PurchaseRequest from "@models/PurchaseRequest";
 import { isValidObjectId, normalizeNullableText } from "@libs/purchaseRequests";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 export async function POST(request, { params }) {
     try {
@@ -32,7 +33,7 @@ export async function POST(request, { params }) {
 
         const isOwner = String(purchaseRequest.requestedBy) === user.id;
         const canCancel =
-            user.role === "admin" ||
+            isPrivilegedUserRole(user.role) ||
             (isOwner && purchaseRequest.status === "pending");
 
         if (!canCancel) {

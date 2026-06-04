@@ -25,6 +25,7 @@ import { getLocationLabel } from "@libs/constants/domainLabels";
 import { getRequestStatusLabel } from "@libs/constants/domainLabels";
 import { PRODUCTION_STATUS_LABELS } from "@libs/constants/productionStatus";
 import { getUserDisplayName } from "@libs/userDisplay";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 const PURCHASE_REQUEST_STATUS_LABELS = {
     pending: "Pendiente",
@@ -280,6 +281,7 @@ export default function DashboardPage() {
                 setIsLoading(true);
 
                 const currentUserId = String(user.id || user._id || "");
+                const hasPrivilegedRole = isPrivilegedUserRole(user.role);
                 const today = getTodayValue();
                 const requestParams = new URLSearchParams();
                 const purchaseRequestParams = new URLSearchParams();
@@ -310,7 +312,7 @@ export default function DashboardPage() {
                     ),
                 ];
 
-                if (user.role === "admin" || user.role === "kitchen") {
+                if (hasPrivilegedRole || user.role === "kitchen") {
                     tasks.push(
                         fetch(
                             `/api/productions${productionParams.toString() ? `?${productionParams.toString()}` : ""}`,
@@ -321,7 +323,7 @@ export default function DashboardPage() {
                     tasks.push(Promise.resolve({ ok: true, json: async () => ({ success: true, data: { items: [] } }) }));
                 }
 
-                if (user.role === "admin") {
+                if (hasPrivilegedRole) {
                     tasks.push(fetch("/api/purchase-batches", { cache: "no-store" }));
                     tasks.push(
                         fetch(
@@ -368,9 +370,9 @@ export default function DashboardPage() {
                             ? purchaseBatchesResult.data
                             : [],
                         dailyControlContext:
-                            user.role === "admin" ? null : dailyControlResult?.data || null,
+                            hasPrivilegedRole ? null : dailyControlResult?.data || null,
                         dailyControlsToday:
-                            user.role === "admin" && Array.isArray(dailyControlResult?.data)
+                            hasPrivilegedRole && Array.isArray(dailyControlResult?.data)
                                 ? dailyControlResult.data
                                 : [],
                     });
@@ -405,6 +407,8 @@ export default function DashboardPage() {
 
     const dashboard = useMemo(() => {
         const role = user?.role || "";
+        const hasPrivilegedRole = isPrivilegedUserRole(role);
+        const roleView = hasPrivilegedRole ? "admin" : role;
         const userId = String(user?.id || user?._id || "");
         const locationRole =
             role === "loung"
@@ -419,12 +423,12 @@ export default function DashboardPage() {
         const purchaseBatches = data.purchaseBatches || [];
 
         const scopedInventory = inventoryItems.filter((item) => {
-            if (!locationRole || role === "admin") return true;
+            if (!locationRole || hasPrivilegedRole) return true;
             return getScopedInventoryTotal(item, role) > 0;
         });
 
         const stockAlerts = inventoryItems.filter((item) => {
-            if (role === "admin") {
+            if (hasPrivilegedRole) {
                 return ["low", "warning", "out"].includes(item.status);
             }
 
@@ -449,7 +453,7 @@ export default function DashboardPage() {
             ["approved", "in_progress", "partially_purchased"].includes(item.status)
         );
         const pendingPurchaseReceipts = purchaseRequests.filter((item) => {
-            if (!locationRole || role === "admin") return false;
+            if (!locationRole || hasPrivilegedRole) return false;
             return (
                 item.destinationLocation === locationRole &&
                 hasPendingPurchaseReceipt(item)
@@ -485,12 +489,12 @@ export default function DashboardPage() {
         };
 
         const todayClosed =
-            role === "admin"
+            hasPrivilegedRole
                 ? null
                 : Boolean(data.dailyControlContext?.existingControl);
 
         const recentRequests = sortByRecent(
-            role === "admin" || role === "warehouse"
+            hasPrivilegedRole || role === "warehouse"
                 ? requests
                 : requests.filter((item) => String(item.requestedBy?._id || item.requestedBy?.id || "") === userId),
             getRequestDate
@@ -866,23 +870,23 @@ export default function DashboardPage() {
 
         return {
             role,
-            title: heroTitleMap[role] || "Resumen",
-            description: heroDescriptionMap[role] || "Resumen operativo",
+            title: heroTitleMap[roleView] || "Resumen",
+            description: heroDescriptionMap[roleView] || "Resumen operativo",
             eyebrow:
-                role === "admin"
+                hasPrivilegedRole
                     ? "Vista global"
                     : `Operacion · ${getLocationLabel(role, "Usuario")}`,
-            heroStats: heroStatsByRole[role] || [],
-            quickLinks: quickLinksByRole[role] || [],
-            attentionCards: attentionCardsByRole[role] || [],
-            recentPrimary: recentPrimaryByRole[role] || [],
-            recentSecondary: recentSecondaryByRole[role] || [],
+            heroStats: heroStatsByRole[roleView] || [],
+            quickLinks: quickLinksByRole[roleView] || [],
+            attentionCards: attentionCardsByRole[roleView] || [],
+            recentPrimary: recentPrimaryByRole[roleView] || [],
+            recentSecondary: recentSecondaryByRole[roleView] || [],
             recentPrimaryTitle:
-                role === "admin" || role === "warehouse"
+                hasPrivilegedRole || role === "warehouse"
                     ? "Solicitudes recientes"
                     : "Tus solicitudes recientes",
             recentSecondaryTitle:
-                role === "admin"
+                hasPrivilegedRole
                     ? "Compras recientes"
                     : role === "warehouse"
                       ? "Alertas recientes"
@@ -890,11 +894,11 @@ export default function DashboardPage() {
                         ? "Producción reciente"
                         : "Compras recientes",
             recentPrimaryHref:
-                role === "admin" || role === "warehouse"
+                hasPrivilegedRole || role === "warehouse"
                     ? "/dashboard/requests"
                     : "/dashboard/requests",
             recentSecondaryHref:
-                role === "admin"
+                hasPrivilegedRole
                     ? "/dashboard/purchases?tab=requests"
                     : role === "warehouse"
                       ? "/dashboard/inventory?scope=warehouse"
@@ -902,7 +906,7 @@ export default function DashboardPage() {
                         ? "/dashboard/production"
                         : "/dashboard/purchases?tab=requests",
             todayInfo:
-                role === "admin"
+                hasPrivilegedRole
                     ? `${data.dailyControlsToday.length} cierres registrados hoy`
                     : role === "warehouse"
                       ? "Bodega opera con control por solicitudes, despachos y stock."
@@ -971,7 +975,7 @@ export default function DashboardPage() {
                     <span>{dashboard.todayInfo}</span>
                 </div>
 
-                {dashboard.role === "admin" && dashboard.draftsCount ? (
+                {isPrivilegedUserRole(dashboard.role) && dashboard.draftsCount ? (
                     <Link href="/dashboard/purchases?tab=execution" className="miniAction">
                         Borradores de compra: {dashboard.draftsCount}
                     </Link>

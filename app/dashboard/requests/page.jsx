@@ -21,6 +21,7 @@ import {
   getRequestStatusLabel,
   getRequestTypeLabel,
 } from "@libs/constants/domainLabels";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 const PAGE_SIZE = PAGE_LIMITS.requests;
 const AUTO_REFRESH_INTERVAL_MS = 30000;
@@ -437,7 +438,7 @@ export default function RequestsPage() {
   }, [formData, products]);
   const canCreateTransfers = ["warehouse", "kitchen", "loung"].includes(currentUser?.role);
   const canCreateRequests = ["kitchen", "loung"].includes(currentUser?.role);
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isPrivilegedUserRole(currentUser?.role);
   const heroEyebrow = isAdmin ? "Auditoria" : "Operacion";
   const heroTitle = isAdmin ? "Auditoria de solicitudes" : "Solicitudes internas";
   const heroDescription = isAdmin

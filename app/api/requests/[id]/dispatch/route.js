@@ -182,7 +182,7 @@ export async function POST(request, { params }) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "loung"]);
+        const { user, response } = await requireUserRole(["admin", "manager", "warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();

@@ -9,7 +9,7 @@ import { isValidQuantityForUnit } from "@libs/unitQuantities";
 
 export async function POST(request, { params }) {
     try {
-        const { user, response } = await requireUserRole(["admin"]);
+        const { user, response } = await requireUserRole(["admin", "manager"]);
         if (response) return response;
 
         await dbConnect();

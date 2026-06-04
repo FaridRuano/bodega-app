@@ -70,7 +70,7 @@ export async function POST(request) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin"]);
+        const { user, response } = await requireUserRole(["admin", "manager"]);
         if (response) return response;
 
         await dbConnect();

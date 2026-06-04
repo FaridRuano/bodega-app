@@ -6,6 +6,7 @@ import PurchaseRequest from "@models/PurchaseRequest";
 import Request from "@models/Request";
 import { STOCK_LOCATIONS } from "@models/InventoryStock";
 import { resolvePurchaseRequestStatus } from "@libs/purchaseRequests";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 function mapPurchaseRequestDocument(request) {
     const effectiveStatus = resolvePurchaseRequestStatus(request);
@@ -169,7 +170,7 @@ function mapInternalRequestDocument(request) {
 function buildScopeFilter(user) {
     const role = String(user?.role || "").trim();
 
-    if (role === "admin") {
+    if (isPrivilegedUserRole(role)) {
         return null;
     }
 

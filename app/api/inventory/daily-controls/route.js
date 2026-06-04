@@ -18,6 +18,7 @@ import {
     createStockAlertNotifications,
 } from "@libs/notifications";
 import { assertValidQuantityForUnit } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 const BUSINESS_TIME_ZONE = "America/Guayaquil";
 
@@ -403,6 +404,7 @@ export async function GET(request) {
     try {
         const { user, response } = await requireUserRole([
             "admin",
+            "manager",
             "kitchen",
             "loung",
         ]);
@@ -416,8 +418,9 @@ export async function GET(request) {
         const currentDate =
             normalizeDateOnly(searchParams.get("date")) || getDefaultBusinessDate();
 
+        const hasPrivilegedRole = isPrivilegedUserRole(user.role);
         const effectiveLocation =
-            user.role === "admin"
+            hasPrivilegedRole
                 ? requestedLocation || "kitchen"
                 : user.role === "kitchen"
                   ? "kitchen"
@@ -447,7 +450,7 @@ export async function GET(request) {
 
         const query = {};
 
-        if (user.role !== "admin") {
+        if (!hasPrivilegedRole) {
             query.location = effectiveLocation;
         } else if (requestedLocation) {
             query.location = requestedLocation;

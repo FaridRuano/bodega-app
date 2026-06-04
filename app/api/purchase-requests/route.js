@@ -21,6 +21,7 @@ import {
 } from "@libs/purchaseRequests";
 import { STOCK_LOCATIONS } from "@models/InventoryStock";
 import { assertValidQuantityForUnit } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 function mapPurchaseRequestDocument(request) {
     const effectiveStatus = resolvePurchaseRequestStatus(request);
@@ -160,7 +161,9 @@ export async function GET(request) {
 
         if (searchFilter) filters.push(searchFilter);
         if (status) filters.push({ status });
-        if (user.role === "admin") {
+        const hasPrivilegedRole = isPrivilegedUserRole(user.role);
+
+        if (hasPrivilegedRole) {
             if (mineParam) {
                 filters.push({ requestedBy: user.id });
             }
@@ -234,7 +237,7 @@ export async function GET(request) {
                 success: true,
                 data,
                 summary,
-                consolidatedShoppingList: consolidated && user.role === "admin"
+                consolidatedShoppingList: consolidated && hasPrivilegedRole
                     ? buildPendingShoppingList(
                         requests.filter((item) => ["approved", "in_progress", "partially_purchased"].includes(resolvePurchaseRequestStatus(item)))
                     )
@@ -269,7 +272,7 @@ export async function POST(request) {
         const requesterNote = normalizeNullableText(body.requesterNote || body.notes);
         const rawItems = Array.isArray(body.items) ? body.items : [];
         const requestedDestinationLocation = normalizeText(body.destinationLocation);
-        const destinationLocation = user.role === "admin"
+        const destinationLocation = isPrivilegedUserRole(user.role)
             ? (STOCK_LOCATIONS.includes(requestedDestinationLocation) ? requestedDestinationLocation : "")
             : getDefaultPurchaseRequestLocationForRole(user.role);
         const destinationLocationLabel = getLocationLabel(destinationLocation, "Bodega");

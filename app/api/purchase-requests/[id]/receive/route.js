@@ -16,6 +16,7 @@ import {
     NOTIFICATION_TYPES,
 } from "@libs/notifications";
 import { isValidQuantityForUnit } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 import InventoryMovement from "@models/InventoryMovement";
 import InventoryStock from "@models/InventoryStock";
 import PurchaseBatch from "@models/PurchaseBatch";
@@ -221,7 +222,7 @@ export async function POST(request, { params }) {
         }
 
         const isOwner = String(purchaseRequest.requestedBy?._id || purchaseRequest.requestedBy) === user.id;
-        if (user.role !== "admin" && !isOwner) {
+        if (!isPrivilegedUserRole(user.role) && !isOwner) {
             await session.abortTransaction();
             return NextResponse.json(
                 { success: false, message: "No tienes permiso para registrar esta recepcion." },

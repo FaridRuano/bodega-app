@@ -15,6 +15,7 @@ import {
     resolvePurchaseRequestStatus,
 } from "@libs/purchaseRequests";
 import { assertValidQuantityForUnit } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 function mapPurchaseRequestDocument(request) {
     const effectiveStatus = resolvePurchaseRequestStatus(request);
@@ -85,7 +86,9 @@ export async function GET(_request, { params }) {
             );
         }
 
-        if (user.role !== "admin" && String(purchaseRequest.requestedBy?._id || purchaseRequest.requestedBy) !== user.id) {
+        const hasPrivilegedRole = isPrivilegedUserRole(user.role);
+
+        if (!hasPrivilegedRole && String(purchaseRequest.requestedBy?._id || purchaseRequest.requestedBy) !== user.id) {
             return NextResponse.json(
                 { success: false, message: "No tienes acceso a esta solicitud." },
                 { status: 403 }
@@ -131,7 +134,8 @@ export async function PATCH(request, { params }) {
 
         const isOwner = String(purchaseRequest.requestedBy) === user.id;
         const effectiveStatus = resolvePurchaseRequestStatus(purchaseRequest);
-        const canEdit = user.role === "admin" || (isOwner && effectiveStatus === "pending");
+        const hasPrivilegedRole = isPrivilegedUserRole(user.role);
+        const canEdit = hasPrivilegedRole || (isOwner && effectiveStatus === "pending");
 
         if (!canEdit) {
             return NextResponse.json(
@@ -144,7 +148,7 @@ export async function PATCH(request, { params }) {
         const requesterNote = normalizeNullableText(body.requesterNote || body.notes);
         const rawItems = Array.isArray(body.items) ? body.items : [];
         const requestedDestinationLocation = normalizeText(body.destinationLocation);
-        const destinationLocation = user.role === "admin"
+        const destinationLocation = hasPrivilegedRole
             ? (STOCK_LOCATIONS.includes(requestedDestinationLocation) ? requestedDestinationLocation : "")
             : getDefaultPurchaseRequestLocationForRole(user.role);
         const destinationLocationLabel = getLocationLabel(destinationLocation, "Bodega");
@@ -203,10 +207,10 @@ export async function PATCH(request, { params }) {
                 productId: product._id,
                 unitSnapshot: product.unit,
                 requestedQuantity,
-                approvedQuantity: user.role === "admin" ? Number(item.approvedQuantity || 0) : 0,
-                purchasedQuantity: user.role === "admin" ? Number(item.purchasedQuantity || 0) : 0,
-                dispatchedQuantity: user.role === "admin" ? Number(item.dispatchedQuantity || 0) : 0,
-                receivedQuantity: user.role === "admin" ? Number(item.receivedQuantity || 0) : 0,
+                approvedQuantity: hasPrivilegedRole ? Number(item.approvedQuantity || 0) : 0,
+                purchasedQuantity: hasPrivilegedRole ? Number(item.purchasedQuantity || 0) : 0,
+                dispatchedQuantity: hasPrivilegedRole ? Number(item.dispatchedQuantity || 0) : 0,
+                receivedQuantity: hasPrivilegedRole ? Number(item.receivedQuantity || 0) : 0,
                 requesterNote: normalizeNullableText(item.requesterNote || item.notes),
                 adminNote: normalizeNullableText(item.adminNote),
             };
@@ -219,7 +223,7 @@ export async function PATCH(request, { params }) {
             type: "request_updated",
             performedBy: user.id,
             title: "Solicitud actualizada",
-            description: user.role === "admin"
+            description: hasPrivilegedRole
                 ? `El administrador actualizo la solicitud para ${destinationLocationLabel}.`
                 : `El solicitante ajusto los productos requeridos para ${destinationLocationLabel}.`,
         });

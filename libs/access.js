@@ -2,17 +2,17 @@ import { USER_ROLES, normalizeUserRole } from "@libs/userRoles";
 
 export const ACCESS_RULES = [
     { pattern: "/dashboard/config", roles: ["admin"] },
-    { pattern: "/dashboard/products", roles: ["admin", "warehouse"] },
-    { pattern: "/dashboard/inventory", roles: ["admin", "warehouse", "kitchen", "loung"] },
-    { pattern: "/dashboard/kitchen", roles: ["admin", "kitchen"] },
-    { pattern: "/dashboard/lounge", roles: ["admin", "loung"] },
-    { pattern: "/dashboard/movements", roles: ["admin", "warehouse"] },
-    { pattern: "/dashboard/notifications", roles: ["admin", "warehouse", "kitchen", "loung"] },
+    { pattern: "/dashboard/products", roles: ["admin", "manager", "warehouse"] },
+    { pattern: "/dashboard/inventory", roles: ["admin", "manager", "warehouse", "kitchen", "loung"] },
+    { pattern: "/dashboard/kitchen", roles: ["admin", "manager", "kitchen"] },
+    { pattern: "/dashboard/lounge", roles: ["admin", "manager", "loung"] },
+    { pattern: "/dashboard/movements", roles: ["admin", "manager", "warehouse"] },
+    { pattern: "/dashboard/notifications", roles: ["admin", "manager", "warehouse", "kitchen", "loung"] },
     { pattern: "/dashboard/receiving", roles: ["warehouse", "kitchen", "loung"] },
-    { pattern: "/dashboard/daily-control", roles: ["admin", "kitchen", "loung"] },
-    { pattern: "/dashboard/production", roles: ["admin", "kitchen"] },
-    { pattern: "/dashboard/purchases/history", roles: ["admin"] },
-    { pattern: "/dashboard/purchases", roles: ["admin", "warehouse", "kitchen", "loung"] },
+    { pattern: "/dashboard/daily-control", roles: ["admin", "manager", "kitchen", "loung"] },
+    { pattern: "/dashboard/production", roles: ["admin", "manager", "kitchen"] },
+    { pattern: "/dashboard/purchases/history", roles: ["admin", "manager"] },
+    { pattern: "/dashboard/purchases", roles: ["admin", "manager", "warehouse", "kitchen", "loung"] },
 ];
 
 export function isValidRole(role) {
@@ -32,6 +32,8 @@ export function getRoleLabel(role) {
     switch (normalizeUserRole(role)) {
         case "admin":
             return "Sistema";
+        case "manager":
+            return "Manager";
         case "warehouse":
             return "Bodeguero";
         case "kitchen":

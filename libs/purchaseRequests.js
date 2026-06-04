@@ -303,6 +303,7 @@ export function getDefaultPurchaseRequestLocationForRole(role = "") {
             return "lounge";
         case "warehouse":
         case "admin":
+        case "manager":
         default:
             return PURCHASE_REQUEST_RECEIPT_LOCATION;
     }

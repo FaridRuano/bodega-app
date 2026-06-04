@@ -9,6 +9,7 @@ import { getLocationLabel } from "@libs/constants/domainLabels";
 import { getUnitLabel } from "@libs/constants/units";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
 import { formatQuantity } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 import styles from "./page.module.scss";
 
 const PAGE_SIZE = 10;
@@ -145,7 +146,7 @@ export default function PurchaseHistoryPage() {
         const meResponse = await fetch("/api/auth/me", { cache: "no-store" });
         const meResult = await meResponse.json();
 
-        if (!meResult?.user || meResult.user.role !== "admin") {
+        if (!meResult?.user || !isPrivilegedUserRole(meResult.user.role)) {
           router.replace("/dashboard/purchases");
           return;
         }

@@ -8,7 +8,7 @@ import PurchaseBatch from "@models/PurchaseBatch";
 
 export async function DELETE(_, { params }) {
     try {
-        const { response, user } = await requireUserRole(["admin"]);
+        const { response, user } = await requireUserRole(["admin", "manager"]);
         if (response) return response;
 
         await dbConnect();

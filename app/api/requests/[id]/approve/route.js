@@ -145,7 +145,7 @@ async function getRequestById(id) {
 
 export async function POST(request, { params }) {
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse"]);
+        const { user, response } = await requireUserRole(["admin", "manager", "warehouse"]);
         if (response) return response;
 
         await dbConnect();

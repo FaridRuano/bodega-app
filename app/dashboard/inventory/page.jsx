@@ -29,6 +29,7 @@ import { PAGE_LIMITS } from "@libs/constants/pagination";
 import { getUnitLabel } from "@libs/constants/units";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
 import { formatQuantity } from "@libs/unitQuantities";
+import { isPrivilegedUserRole } from "@libs/userRoles";
 
 const PAGE_SIZE = PAGE_LIMITS.inventory;
 const AUTO_REFRESH_INTERVAL_MS = 30000;
@@ -61,6 +62,7 @@ function getAvailableScopesForRole(role = "") {
     case "warehouse":
       return ["all", "warehouse"];
     case "admin":
+    case "manager":
       return ["all", "warehouse", "kitchen", "lounge"];
     default:
       return ["all"];
@@ -182,15 +184,15 @@ export default function InventoryPage() {
     [isCombinedOperationalView, operationalScope]
   );
   const canAdjustCurrentScope =
-    currentUser?.role === "admin" ||
+    isPrivilegedUserRole(currentUser?.role) ||
     (!isGeneralScope && operationalScope === activeScope);
   const canTransferInventory =
-    currentUser?.role === "admin" ||
+    isPrivilegedUserRole(currentUser?.role) ||
     (!isGeneralScope &&
       ((currentUser?.role === "warehouse" && activeScope === operationalScope) ||
         (isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope))));
   const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
-  const canAccessInventoryHistory = currentUser?.role === "admin";
+  const canAccessInventoryHistory = isPrivilegedUserRole(currentUser?.role);
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
   const heroEyebrow = isGeneralScope ? "Inventario" : scopeLabel;
   const heroTitle = isGeneralScope ? "Control de existencias" : `Inventario de ${scopeLabel.toLowerCase()}`;
@@ -206,7 +208,7 @@ export default function InventoryPage() {
     operationalScope === activeScope;
   const movementLocationOptions = useMemo(() => {
     if (!canAdjustCurrentScope) return [];
-    if (currentUser?.role === "admin") {
+    if (isPrivilegedUserRole(currentUser?.role)) {
       if (isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
       return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
     }
@@ -215,7 +217,7 @@ export default function InventoryPage() {
   }, [activeScope, canAdjustCurrentScope, currentUser?.role, isGeneralScope, operationalScope]);
   const transferSourceOptions = useMemo(() => {
     if (!canTransferInventory) return [];
-    if (currentUser?.role === "admin" && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
+    if (isPrivilegedUserRole(currentUser?.role) && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
     if (isOperationalFloorRole(currentUser?.role)) {
       return INVENTORY_LOCATION_OPTIONS.filter((option) =>
         ["warehouse", operationalScope].includes(option.value)
@@ -225,7 +227,7 @@ export default function InventoryPage() {
   }, [activeScope, canTransferInventory, currentUser?.role, isGeneralScope, operationalScope]);
   const transferDestinationOptions = useMemo(() => {
     if (!canTransferInventory) return [];
-    if (currentUser?.role === "admin" && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
+    if (isPrivilegedUserRole(currentUser?.role) && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
     if (isOperationalFloorRole(currentUser?.role)) {
       return INVENTORY_LOCATION_OPTIONS.filter((option) =>
         ["warehouse", operationalScope].includes(option.value)

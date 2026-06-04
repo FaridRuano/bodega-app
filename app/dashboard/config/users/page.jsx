@@ -16,6 +16,7 @@ import UserModal from "@components/config/UserModal/UserModal";
 
 const ROLE_LABELS = {
   admin: "Sistema",
+  manager: "Manager",
   kitchen: "Chef",
   loung: "Mesero",
   lounge: "Mesero",
