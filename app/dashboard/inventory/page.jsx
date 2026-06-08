@@ -24,7 +24,7 @@ import InventoryProductPickerModal from "@components/inventory/InventoryProductP
 import InventoryQuickAdjustModal from "@components/inventory/InventoryQuickAdjustModal/InventoryQuickAdjustModal";
 import DialogModal from "@components/shared/DialogModal/DialogModal";
 import PaginationBar from "@components/shared/PaginationBar/PaginationBar";
-import { getInventoryStatusLabel } from "@libs/constants/domainLabels";
+import { getInventoryStatusLabel, getLocationLabel } from "@libs/constants/domainLabels";
 import { PAGE_LIMITS } from "@libs/constants/pagination";
 import { getUnitLabel } from "@libs/constants/units";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
@@ -131,6 +131,9 @@ export default function InventoryPage() {
   const [familyFilter, setFamilyFilter] = useState(() => getStringParam(searchParams, "familyId"));
   const [categoryFilter, setCategoryFilter] = useState(() => getStringParam(searchParams, "categoryId"));
   const [scope, setScope] = useState(() => getStringParam(searchParams, "scope", "all"));
+  const [inventoryStockMode, setInventoryStockMode] = useState(() =>
+    getStringParam(searchParams, "stock") === "all" ? "all" : "local"
+  );
   const [viewMode, setViewMode] = useState(() =>
     normalizeViewMode(getStringParam(searchParams, "view", "compact"))
   );
@@ -172,6 +175,7 @@ export default function InventoryPage() {
   const isCombinedOperationalView =
     isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope);
   const effectiveViewMode = viewMode;
+  const shouldShowAllInventoryProducts = isCombinedOperationalView && inventoryStockMode === "all";
   const combinedViewLocations = useMemo(
     () =>
       isCombinedOperationalView
@@ -188,9 +192,7 @@ export default function InventoryPage() {
     (!isGeneralScope && operationalScope === activeScope);
   const canTransferInventory =
     isPrivilegedUserRole(currentUser?.role) ||
-    (!isGeneralScope &&
-      ((currentUser?.role === "warehouse" && activeScope === operationalScope) ||
-        (isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope))));
+    ["warehouse", "kitchen", "loung"].includes(String(currentUser?.role || "").trim());
   const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
   const canAccessInventoryHistory = isPrivilegedUserRole(currentUser?.role);
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
@@ -217,31 +219,19 @@ export default function InventoryPage() {
   }, [activeScope, canAdjustCurrentScope, currentUser?.role, isGeneralScope, operationalScope]);
   const transferSourceOptions = useMemo(() => {
     if (!canTransferInventory) return [];
-    if (isPrivilegedUserRole(currentUser?.role) && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
-    if (isOperationalFloorRole(currentUser?.role)) {
-      return INVENTORY_LOCATION_OPTIONS.filter((option) =>
-        ["warehouse", operationalScope].includes(option.value)
-      );
-    }
-    return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
-  }, [activeScope, canTransferInventory, currentUser?.role, isGeneralScope, operationalScope]);
+    return INVENTORY_LOCATION_OPTIONS;
+  }, [canTransferInventory]);
   const transferDestinationOptions = useMemo(() => {
     if (!canTransferInventory) return [];
-    if (isPrivilegedUserRole(currentUser?.role) && isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
-    if (isOperationalFloorRole(currentUser?.role)) {
-      return INVENTORY_LOCATION_OPTIONS.filter((option) =>
-        ["warehouse", operationalScope].includes(option.value)
-      );
-    }
-
-    return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value !== activeScope);
-  }, [activeScope, canTransferInventory, currentUser?.role, isGeneralScope, operationalScope]);
+    return INVENTORY_LOCATION_OPTIONS;
+  }, [canTransferInventory]);
 
   const hasActiveFilters =
     Boolean(searchTerm.trim()) ||
     Boolean(alertFilter) ||
     Boolean(familyFilter) ||
-    Boolean(categoryFilter);
+    Boolean(categoryFilter) ||
+    shouldShowAllInventoryProducts;
   const historyHref = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -274,7 +264,7 @@ export default function InventoryPage() {
     }
 
     setPage(1);
-  }, [alertFilter, categoryFilter, familyFilter, searchTerm, activeScope]);
+  }, [alertFilter, categoryFilter, familyFilter, inventoryStockMode, searchTerm, activeScope]);
 
   useEffect(() => {
     let cancelled = false;
@@ -330,6 +320,7 @@ export default function InventoryPage() {
       familyId: familyFilter || null,
       categoryId: categoryFilter || null,
       scope: !isCombinedOperationalView && activeScope !== "all" ? activeScope : null,
+      stock: shouldShowAllInventoryProducts ? "all" : null,
       view: effectiveViewMode !== "compact" ? effectiveViewMode : null,
       page: page > 1 ? page : null,
     });
@@ -337,7 +328,7 @@ export default function InventoryPage() {
     if (nextQuery !== searchParams.toString()) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }
-  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, effectiveViewMode, isCombinedOperationalView]);
+  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, effectiveViewMode, isCombinedOperationalView, shouldShowAllInventoryProducts]);
 
   async function fetchInventory(options = {}) {
     const { silent = false } = options;
@@ -369,8 +360,10 @@ export default function InventoryPage() {
       }
 
       if (isCombinedOperationalView) {
-        params.set("locations", ["warehouse", operationalScope].join(","));
-        params.set("inStockOnly", "true");
+        params.set("location", operationalScope);
+        if (!shouldShowAllInventoryProducts) {
+          params.set("inStockOnly", "true");
+        }
       } else if (!isGeneralScope) {
         params.set("location", activeScope);
         params.set("inStockOnly", "true");
@@ -453,7 +446,7 @@ export default function InventoryPage() {
         });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeScope, alertFilter, categoryFilter, familyFilter, isCombinedOperationalView, operationalScope, page, searchTerm]);
+  }, [activeScope, alertFilter, categoryFilter, familyFilter, isCombinedOperationalView, operationalScope, page, searchTerm, shouldShowAllInventoryProducts]);
 
   useEffect(() => {
     if (categories.length === 0) return;
@@ -523,7 +516,7 @@ export default function InventoryPage() {
         title: "Accion no disponible",
         message:
           mode === "transfer"
-            ? "Solo puedes transferir desde una ubicacion permitida hacia tu inventario."
+            ? "No tienes permisos para transferir inventario."
             : "Solo puedes ajustar manualmente tu inventario asignado.",
         variant: "warning",
       });
@@ -674,13 +667,23 @@ export default function InventoryPage() {
           <div className={styles.heroStats}>
             <button
               type="button"
-              className={`compactStat ${styles.heroStatButton} ${!alertFilter ? styles.heroStatActive : ""}`}
-              onClick={() => setAlertFilter("")}
-              aria-pressed={!alertFilter}
+              className={`compactStat ${styles.heroStatButton} ${!alertFilter && !shouldShowAllInventoryProducts ? styles.heroStatActive : ""}`}
+              onClick={() => {
+                setAlertFilter("");
+                if (isCombinedOperationalView) {
+                  setInventoryStockMode("local");
+                }
+              }}
+              aria-pressed={!alertFilter && !shouldShowAllInventoryProducts}
             >
               <Boxes size={14} />
               <span>
-                Productos <strong>{summary?.totalProducts || 0}</strong>
+                Productos{" "}
+                <strong>
+                  {isCombinedOperationalView
+                    ? summary?.selectedStockProducts || 0
+                    : summary?.totalProducts || 0}
+                </strong>
               </span>
             </button>
             <button
@@ -705,17 +708,34 @@ export default function InventoryPage() {
                 Reposicion <strong>{summary?.warningStockProducts || 0}</strong>
               </span>
             </button>
-            <button
-              type="button"
-              className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${alertFilter === "out" ? styles.heroStatActive : ""}`}
-              onClick={() => toggleAlertFilter("out")}
-              aria-pressed={alertFilter === "out"}
-            >
-              <Warehouse size={14} />
-              <span>
-                Sin stock <strong>{summary?.outOfStockProducts || 0}</strong>
-              </span>
-            </button>
+            {isCombinedOperationalView ? (
+              <button
+                type="button"
+                className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${shouldShowAllInventoryProducts ? styles.heroStatActive : ""}`}
+                onClick={() => {
+                  setAlertFilter("");
+                  setInventoryStockMode((prev) => (prev === "all" ? "local" : "all"));
+                }}
+                aria-pressed={shouldShowAllInventoryProducts}
+              >
+                <Warehouse size={14} />
+                <span>
+                  Total <strong>{summary?.totalProducts || 0}</strong>
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${alertFilter === "out" ? styles.heroStatActive : ""}`}
+                onClick={() => toggleAlertFilter("out")}
+                aria-pressed={alertFilter === "out"}
+              >
+                <Warehouse size={14} />
+                <span>
+                  Sin stock <strong>{summary?.outOfStockProducts || 0}</strong>
+                </span>
+              </button>
+            )}
           </div>
         </section>
 
@@ -741,6 +761,7 @@ export default function InventoryPage() {
               setAlertFilter("");
               setFamilyFilter("");
               setCategoryFilter("");
+              setInventoryStockMode("local");
               setPage(1);
             }}
           >

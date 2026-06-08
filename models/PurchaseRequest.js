@@ -34,6 +34,11 @@ const purchaseRequestItemSchema = new Schema(
             default: 0,
             min: [0, "Purchased quantity cannot be negative."],
         },
+        notPurchasedQuantity: {
+            type: Number,
+            default: 0,
+            min: [0, "Not purchased quantity cannot be negative."],
+        },
         dispatchedQuantity: {
             type: Number,
             default: 0,

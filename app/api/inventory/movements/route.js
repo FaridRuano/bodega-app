@@ -47,13 +47,6 @@ function getOperationalLocationForRole(role = "") {
     return null;
 }
 
-function isWarehouseOperationalTransfer(fromLocation, toLocation, operationalLocation) {
-    return (
-        (fromLocation === "warehouse" && toLocation === operationalLocation) ||
-        (fromLocation === operationalLocation && toLocation === "warehouse")
-    );
-}
-
 function normalizeDate(value) {
     const raw = String(value || "").trim();
 
@@ -204,10 +197,7 @@ export async function POST(request) {
 
         if (!isPrivilegedUserRole(user.role) && operationalLocation) {
             const isAllowedMovement =
-                (movementType === "transfer" &&
-                    ((user.role === "warehouse" && fromLocation === operationalLocation) ||
-                        (["kitchen", "loung"].includes(user.role) &&
-                            isWarehouseOperationalTransfer(fromLocation, toLocation, operationalLocation)))) ||
+                movementType === "transfer" ||
                 (["adjustment_in", "adjustment_out"].includes(movementType) &&
                     location === operationalLocation);
 
@@ -215,9 +205,7 @@ export async function POST(request) {
                 return NextResponse.json(
                     {
                         success: false,
-                        message: ["kitchen", "loung"].includes(user.role)
-                            ? `Solo puedes ajustar ${getLocationLabel(operationalLocation).toLowerCase()} o transferir entre bodega y ${getLocationLabel(operationalLocation).toLowerCase()}.`
-                            : `Solo puedes registrar movimientos desde ${getLocationLabel(operationalLocation).toLowerCase()}.`,
+                        message: `Solo puedes ajustar manualmente ${getLocationLabel(operationalLocation).toLowerCase()}. Las transferencias pueden hacerse entre cualquier ubicacion.`,
                     },
                     { status: 403 }
                 );

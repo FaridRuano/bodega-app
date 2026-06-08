@@ -12,7 +12,6 @@ import {
     ArrowRightLeft,
     Boxes,
     SlidersHorizontal,
-    ClipboardList,
     History,
     ShoppingCart,
     PackageCheck,
@@ -43,11 +42,6 @@ const adminNavigationItems = [
         label: "Movimientos",
         href: "/dashboard/movements",
         icon: ArrowRightLeft,
-    },
-    {
-        label: "Solicitudes",
-        href: "/dashboard/requests",
-        icon: ClipboardList,
     },
     {
         label: "Compras",
@@ -87,11 +81,6 @@ const kitchenNavigationItems = [
         icon: LayoutGrid,
     },
     {
-        label: "Solicitudes",
-        href: "/dashboard/requests",
-        icon: ClipboardList,
-    },
-    {
         label: "Compras",
         href: "/dashboard/purchases",
         icon: ShoppingCart,
@@ -125,14 +114,14 @@ const kitchenNavigationItems = [
 
 const loungeNavigationItems = [
     {
+        label: "Resumen",
+        href: "/dashboard",
+        icon: LayoutGrid,
+    },
+    {
         label: "Inventario",
         href: "/dashboard/inventory",
         icon: Boxes,
-    },
-    {
-        label: "Solicitudes",
-        href: "/dashboard/requests",
-        icon: ClipboardList,
     },
     {
         label: "Compras",
@@ -171,11 +160,6 @@ const warehouseNavigationItems = [
         label: "Movimientos",
         href: "/dashboard/movements",
         icon: ArrowRightLeft,
-    },
-    {
-        label: "Solicitudes",
-        href: "/dashboard/requests",
-        icon: ClipboardList,
     },
     {
         label: "Compras",

@@ -37,7 +37,7 @@ function mapPurchaseRequestDocument(request) {
         rejectedAt: request.rejectedAt || null,
         cancelledAt: request.cancelledAt || null,
         completedAt: request.completedAt || null,
-        totals: request.totals || { requested: 0, approved: 0, purchased: 0, dispatched: 0, received: 0, pendingPurchase: 0, pendingDispatch: 0, pendingReceipt: 0, remaining: 0 },
+        totals: request.totals || { requested: 0, approved: 0, purchased: 0, notPurchased: 0, dispatched: 0, received: 0, pendingPurchase: 0, pendingDispatch: 0, pendingReceipt: 0, remaining: 0 },
         items: (request.items || []).map((item) => ({
             _id: item._id,
             productId: item.productId?._id || item.productId,
@@ -46,6 +46,7 @@ function mapPurchaseRequestDocument(request) {
             requestedQuantity: Number(item.requestedQuantity || 0),
             approvedQuantity: Number(item.approvedQuantity || 0),
             purchasedQuantity: Number(item.purchasedQuantity || 0),
+            notPurchasedQuantity: Number(item.notPurchasedQuantity || 0),
             dispatchedQuantity: Number(item.dispatchedQuantity || 0),
             receivedQuantity: Number(item.receivedQuantity || 0),
             requesterNote: item.requesterNote || "",

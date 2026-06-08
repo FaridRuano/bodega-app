@@ -26,7 +26,6 @@ import { isPrivilegedUserRole } from "@libs/userRoles";
 import styles from "./page.module.scss";
 
 const PAGE_SIZE = 12;
-const PURCHASE_DRAFT_STORAGE_KEY = "purchase-execution-draft:v1";
 const AUTO_REFRESH_INTERVAL_MS = 30000;
 
 const REQUEST_STATUS_LABELS = {
@@ -34,6 +33,7 @@ const REQUEST_STATUS_LABELS = {
   approved: "Aprobada",
   in_progress: "En proceso",
   partially_purchased: "Parcialmente atendida",
+  not_purchased: "No comprada",
   completed: "Completada",
   rejected: "Rechazada",
   cancelled: "Cancelada",
@@ -138,6 +138,10 @@ function getTodayDateTimeLocal() {
   const date = new Date();
   const offset = date.getTimezoneOffset();
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+}
+
+function getTodayDateOnly() {
+  return getTodayDateTimeLocal().slice(0, 10);
 }
 
 function formatDateTimeLocalInput(value) {
@@ -246,6 +250,9 @@ export default function PurchasesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState(() => getStringParam(searchParams, "search"));
   const [statusFilter, setStatusFilter] = useState(() => getStringParam(searchParams, "status", "all"));
+  const [purchaseDayFilter, setPurchaseDayFilter] = useState(() =>
+    getStringParam(searchParams, "purchaseDay", getTodayDateOnly())
+  );
   const [page, setPage] = useState(() => getPositiveIntParam(searchParams, "page", 1));
   const [activeTab, setActiveTab] = useState(() => getStringParam(searchParams, "tab", "requests"));
 
@@ -278,7 +285,6 @@ export default function PurchasesPage() {
   const [builderCategoryId, setBuilderCategoryId] = useState("");
   const [requestDraft, setRequestDraft] = useState(() => getDefaultRequestDraft());
   const [purchaseDraft, setPurchaseDraft] = useState(() => getDefaultPurchaseDraft());
-  const [hasInitializedPurchaseDraft, setHasInitializedPurchaseDraft] = useState(false);
 
   const [dialogModal, setDialogModal] = useState({
     open: false,
@@ -299,7 +305,7 @@ export default function PurchasesPage() {
     }
 
     setPage(1);
-  }, [search, statusFilter, activeTab]);
+  }, [search, statusFilter, activeTab, purchaseDayFilter]);
 
   useEffect(() => {
     if (!hasResolvedCurrentUser) return;
@@ -317,13 +323,14 @@ export default function PurchasesPage() {
       status: activeTab === "requests" && statusFilter !== "all" ? statusFilter : null,
       page: activeTab === "requests" && page > 1 ? page : null,
       tab: isAdmin && activeTab !== "requests" ? activeTab : null,
+      purchaseDay: isAdmin && activeTab === "execution" && purchaseDayFilter !== getTodayDateOnly() ? purchaseDayFilter : null,
       modal: purchaseModalOpen && activeTab === "execution" ? "execution" : null,
     });
 
     if (nextQuery !== searchParams.toString()) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }
-  }, [activeTab, hasResolvedCurrentUser, isAdmin, page, pathname, purchaseModalOpen, router, search, searchParams, statusFilter]);
+  }, [activeTab, hasResolvedCurrentUser, isAdmin, page, pathname, purchaseDayFilter, purchaseModalOpen, router, search, searchParams, statusFilter]);
 
   const filteredBuilderCategories = useMemo(() => {
     if (!builderFamilyId) {
@@ -374,6 +381,12 @@ export default function PurchasesPage() {
         requestParams.set("mine", "true");
       }
 
+      if (isPrivilegedUserRole(user?.role)) {
+        requestParams.set("consolidated", "true");
+        requestParams.set("dateFrom", purchaseDayFilter);
+        requestParams.set("dateTo", purchaseDayFilter);
+      }
+
       const tasks = [
         fetch(`/api/purchase-requests?${requestParams.toString()}`, {
           cache: "no-store",
@@ -381,8 +394,14 @@ export default function PurchasesPage() {
       ];
 
       if (isPrivilegedUserRole(user?.role)) {
+        const batchParams = new URLSearchParams();
+        batchParams.set("page", "1");
+        batchParams.set("limit", "24");
+        batchParams.set("dateFrom", purchaseDayFilter);
+        batchParams.set("dateTo", purchaseDayFilter);
+
         tasks.push(
-          fetch("/api/purchase-batches?page=1&limit=24", {
+          fetch(`/api/purchase-batches?${batchParams.toString()}`, {
             cache: "no-store",
           })
         );
@@ -408,7 +427,7 @@ export default function PurchasesPage() {
 
         setBatches(batchesResult.data || []);
         setBatchesTotal(batchesResult.meta?.total || 0);
-        setShoppingList(batchesResult.consolidatedShoppingList || requestsResult.consolidatedShoppingList || []);
+        setShoppingList(requestsResult.consolidatedShoppingList || []);
       } else {
         setBatches([]);
         setBatchesTotal(0);
@@ -431,7 +450,7 @@ export default function PurchasesPage() {
   useEffect(() => {
     loadPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, statusFilter]);
+  }, [page, purchaseDayFilter, search, statusFilter]);
 
   useEffect(() => {
     const hasBlockingModal =
@@ -520,20 +539,6 @@ export default function PurchasesPage() {
       isCancelled = true;
     };
   }, [builderCategories.length, builderFamilies.length, isAdmin]);
-
-  useEffect(() => {
-    if (!isAdmin || hasInitializedPurchaseDraft || !shoppingList.length) return;
-
-    try {
-      const savedDraft = JSON.parse(window.localStorage.getItem(PURCHASE_DRAFT_STORAGE_KEY) || "null");
-      setPurchaseDraft(mergePurchaseDraftWithShoppingList(savedDraft || getDefaultPurchaseDraft(), shoppingList));
-    } catch (error) {
-      console.error(error);
-      setPurchaseDraft(mergePurchaseDraftWithShoppingList(getDefaultPurchaseDraft(), shoppingList));
-    } finally {
-      setHasInitializedPurchaseDraft(true);
-    }
-  }, [hasInitializedPurchaseDraft, isAdmin, shoppingList]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -800,7 +805,7 @@ export default function PurchasesPage() {
 
   function openPurchaseModal() {
     suppressExecutionModalAutoOpenRef.current = false;
-    setPurchaseDraft((prev) => mergePurchaseDraftWithShoppingList(prev, shoppingList));
+    setPurchaseDraft(mergePurchaseDraftWithShoppingList(getDefaultPurchaseDraft(), shoppingList));
     setPurchaseModalOpen(true);
   }
 
@@ -936,19 +941,6 @@ export default function PurchasesPage() {
       };
     });
   }
-
-  useEffect(() => {
-    if (!isAdmin) return;
-
-    try {
-      window.localStorage.setItem(
-        PURCHASE_DRAFT_STORAGE_KEY,
-        JSON.stringify(mergePurchaseDraftWithShoppingList(purchaseDraft, shoppingList))
-      );
-    } catch (error) {
-      console.error(error);
-    }
-  }, [isAdmin, purchaseDraft, shoppingList]);
 
   async function handleCreateRequest(event) {
     event.preventDefault();
@@ -1191,11 +1183,11 @@ export default function PurchasesPage() {
       note: item.note || "",
     }));
 
-    if (!items.length) {
+    if (!items.length && !shoppingList.length) {
       setDialogModal({
         open: true,
         title: "Agrega productos",
-        message: "Selecciona al menos un producto para registrar la compra.",
+        message: "No hay pendientes para registrar o cerrar en el dia seleccionado.",
         variant: "warning",
       });
       return;
@@ -1213,6 +1205,8 @@ export default function PurchasesPage() {
           batchId: purchaseDraft.batchId || null,
           supplierName: purchaseDraft.supplierName,
           purchasedAt: purchaseDraft.purchasedAt || null,
+          purchaseScopeDate: purchaseDayFilter,
+          closeUnpurchased: true,
           note: purchaseDraft.note,
           items,
         }),
@@ -1226,7 +1220,6 @@ export default function PurchasesPage() {
 
       dismissPurchaseModal();
       setPurchaseDraft(getDefaultPurchaseDraft());
-      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
       setActiveTab("execution");
       setDialogModal({
         open: true,
@@ -1403,6 +1396,7 @@ export default function PurchasesPage() {
                   <option value="approved">Aprobada</option>
                   <option value="in_progress">En proceso</option>
                   <option value="partially_purchased">Parcialmente atendida</option>
+                  <option value="not_purchased">No comprada</option>
                   <option value="completed">Completada</option>
                   <option value="rejected">Rechazada</option>
                   <option value="cancelled">Cancelada</option>
@@ -1547,6 +1541,14 @@ export default function PurchasesPage() {
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
+
+              <input
+                type="date"
+                className={`form-input ${styles.purchaseDayInput}`}
+                value={purchaseDayFilter}
+                onChange={(event) => setPurchaseDayFilter(event.target.value || getTodayDateOnly())}
+                aria-label="Dia de solicitudes a comprar"
+              />
 
               <button
                 type="button"
@@ -1809,6 +1811,7 @@ export default function PurchasesPage() {
         categories={builderCategories}
         isSubmitting={isSubmittingPurchase}
         hasSelectedItems={hasPurchaseSelection}
+        canSubmitWithoutSelection={shoppingList.length > 0}
         isDraft={Boolean(purchaseDraft.batchId)}
         onClose={closePurchaseModal}
         onSubmit={handleCreatePurchase}

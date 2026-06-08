@@ -32,6 +32,7 @@ const PURCHASE_REQUEST_STATUS_LABELS = {
     approved: "Aprobada",
     in_progress: "En proceso",
     partially_purchased: "Parcialmente atendida",
+    not_purchased: "No comprada",
     completed: "Completada",
     rejected: "Rechazada",
     cancelled: "Cancelada",

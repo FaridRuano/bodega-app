@@ -5,6 +5,7 @@ export const PURCHASE_REQUEST_STATUSES = [
     "approved",
     "in_progress",
     "partially_purchased",
+    "not_purchased",
     "completed",
     "rejected",
     "cancelled",
@@ -17,6 +18,7 @@ export const PURCHASE_REQUEST_ACTIVITY_TYPES = [
     "request_rejected",
     "request_cancelled",
     "purchase_registered",
+    "purchase_not_purchased",
     "admin_override",
 ];
 
@@ -107,17 +109,19 @@ export function calculateRequestItemProgress(item = {}) {
         hasApprovedQuantity ? item.approvedQuantity : (requestedQuantity || 0)
     );
     const purchasedQuantity = Number(item.purchasedQuantity || 0);
+    const notPurchasedQuantity = Number(item.notPurchasedQuantity || 0);
     const dispatchedQuantity = Number(item.dispatchedQuantity || 0);
     const receivedQuantity = Number(item.receivedQuantity || 0);
-    const pendingPurchaseQuantity = Math.max(approvedQuantity - purchasedQuantity, 0);
+    const pendingPurchaseQuantity = Math.max(approvedQuantity - purchasedQuantity - notPurchasedQuantity, 0);
     const pendingDispatchQuantity = Math.max(purchasedQuantity - dispatchedQuantity, 0);
     const pendingReceiptQuantity = Math.max(dispatchedQuantity - receivedQuantity, 0);
-    const remainingQuantity = Math.max(approvedQuantity - receivedQuantity, 0);
+    const remainingQuantity = Math.max(approvedQuantity - receivedQuantity - notPurchasedQuantity, 0);
 
     return {
         requestedQuantity,
         approvedQuantity,
         purchasedQuantity,
+        notPurchasedQuantity,
         dispatchedQuantity,
         receivedQuantity,
         pendingPurchaseQuantity,
@@ -135,6 +139,7 @@ export function calculateRequestTotals(items = []) {
             acc.requested += progress.requestedQuantity;
             acc.approved += progress.approvedQuantity;
             acc.purchased += progress.purchasedQuantity;
+            acc.notPurchased += progress.notPurchasedQuantity;
             acc.dispatched += progress.dispatchedQuantity;
             acc.received += progress.receivedQuantity;
             acc.pendingPurchase += progress.pendingPurchaseQuantity;
@@ -143,14 +148,14 @@ export function calculateRequestTotals(items = []) {
             acc.remaining += progress.remainingQuantity;
             return acc;
         },
-        { requested: 0, approved: 0, purchased: 0, dispatched: 0, received: 0, pendingPurchase: 0, pendingDispatch: 0, pendingReceipt: 0, remaining: 0 }
+        { requested: 0, approved: 0, purchased: 0, notPurchased: 0, dispatched: 0, received: 0, pendingPurchase: 0, pendingDispatch: 0, pendingReceipt: 0, remaining: 0 }
     );
 }
 
 export function resolvePurchaseRequestStatus(request) {
     if (!request) return "pending";
 
-    if (["cancelled", "rejected"].includes(request.status)) {
+    if (["cancelled", "not_purchased", "rejected"].includes(request.status)) {
         return request.status;
     }
 
@@ -160,7 +165,11 @@ export function resolvePurchaseRequestStatus(request) {
         return "pending";
     }
 
-    if (totals.received >= totals.approved) {
+    if (totals.notPurchased >= totals.approved) {
+        return "not_purchased";
+    }
+
+    if (totals.received + totals.notPurchased >= totals.approved) {
         return "completed";
     }
 
@@ -223,6 +232,7 @@ export function getPurchaseBatchStatusLabel(value) {
 export function buildBatchReceiptProgressMap(batches = [], requests = []) {
     const progressMap = new Map();
     const requestItemReceivedMap = new Map();
+    const closedRequestItemIds = new Set();
     const allocationsByRequestItem = new Map();
 
     for (const batch of batches || []) {
@@ -235,11 +245,20 @@ export function buildBatchReceiptProgressMap(batches = [], requests = []) {
     }
 
     for (const request of requests || []) {
+        const isClosedRequest = ["completed", "not_purchased", "cancelled", "rejected"].includes(
+            String(request?.status || "").trim().toLowerCase()
+        );
+
         for (const item of request.items || []) {
+            const itemId = String(item._id);
             requestItemReceivedMap.set(
-                String(item._id),
+                itemId,
                 Number(item.receivedQuantity || 0)
             );
+
+            if (isClosedRequest) {
+                closedRequestItemIds.add(itemId);
+            }
         }
     }
 
@@ -269,17 +288,23 @@ export function buildBatchReceiptProgressMap(batches = [], requests = []) {
 
     for (const [requestItemId, allocations] of allocationsByRequestItem.entries()) {
         let remainingReceived = Number(requestItemReceivedMap.get(requestItemId) || 0);
+        const shouldTreatAsClosed = closedRequestItemIds.has(requestItemId);
 
         for (const allocation of allocations) {
             const current = progressMap.get(allocation.batchId);
             if (!current) continue;
 
             const allocationQuantity = Number(allocation.quantity || 0);
-            const coveredQuantity = Math.min(remainingReceived, allocationQuantity);
+            const coveredQuantity = shouldTreatAsClosed
+                ? allocationQuantity
+                : Math.min(remainingReceived, allocationQuantity);
 
             current.allocatedQuantity += allocationQuantity;
             current.receivedQuantity += coveredQuantity;
-            remainingReceived = Math.max(remainingReceived - coveredQuantity, 0);
+
+            if (!shouldTreatAsClosed) {
+                remainingReceived = Math.max(remainingReceived - coveredQuantity, 0);
+            }
         }
     }
 

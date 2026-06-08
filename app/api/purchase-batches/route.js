@@ -198,6 +198,20 @@ function buildItemNotesByProduct(items = []) {
     return notesByProduct;
 }
 
+function normalizeDateOnly(value, endOfDay = false) {
+    const raw = normalizeText(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+
+    const date = new Date(`${raw}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) return null;
+
+    if (endOfDay) {
+        date.setUTCHours(23, 59, 59, 999);
+    }
+
+    return date;
+}
+
 export async function GET(request) {
     try {
         const { response } = await requireUserRole(["admin", "manager"]);
@@ -305,6 +319,10 @@ export async function POST(request) {
         const body = await request.json();
         const batchId = normalizeText(body.batchId);
         const saveAsDraft = Boolean(body.saveAsDraft);
+        const closeUnpurchased = Boolean(body.closeUnpurchased);
+        const purchaseScopeDate = normalizeText(body.purchaseScopeDate);
+        const scopeDateFrom = normalizeDateOnly(purchaseScopeDate);
+        const scopeDateTo = normalizeDateOnly(purchaseScopeDate, true);
         const rawItems = Array.isArray(body.items) ? body.items : [];
         const meaningfulItems = rawItems.filter(
             (item) => Number(item?.quantity) > 0 || Boolean(normalizeNullableText(item?.note))
@@ -317,9 +335,16 @@ export async function POST(request) {
             Boolean(normalizeNullableText(body.supplierName)) ||
             Boolean(normalizeNullableText(body.note));
 
-        if (!saveAsDraft && !normalizedItems.length && !itemNotesByProduct.size) {
+        if (!saveAsDraft && !normalizedItems.length && !itemNotesByProduct.size && !closeUnpurchased) {
             return NextResponse.json(
                 { success: false, message: "Debes registrar al menos un producto comprado o una nota por producto." },
+                { status: 400 }
+            );
+        }
+
+        if (closeUnpurchased && (!scopeDateFrom || !scopeDateTo)) {
+            return NextResponse.json(
+                { success: false, message: "Debes elegir un dia valido para cerrar pendientes no comprados." },
                 { status: 400 }
             );
         }
@@ -416,13 +441,20 @@ export async function POST(request) {
             }
         }
 
+        const pendingRequestQuery = {
+            status: { $in: ["approved", "in_progress", "partially_purchased"] },
+        };
+
+        if (closeUnpurchased) {
+            pendingRequestQuery.requestedAt = { $gte: scopeDateFrom, $lte: scopeDateTo };
+        } else if (productIds.length) {
+            pendingRequestQuery["items.productId"] = { $in: productIds };
+        }
+
         const pendingRequests =
-            saveAsDraft || (!productIds.length && !itemNotesByProduct.size)
+            saveAsDraft || (!productIds.length && !itemNotesByProduct.size && !closeUnpurchased)
                 ? []
-                : await PurchaseRequest.find({
-                    status: { $in: ["approved", "in_progress", "partially_purchased"] },
-                    "items.productId": { $in: productIds },
-                })
+                : await PurchaseRequest.find(pendingRequestQuery)
                     .sort({ requestedAt: 1, createdAt: 1 })
                     .session(session);
 
@@ -434,7 +466,7 @@ export async function POST(request) {
 
         session.startTransaction();
 
-        if (!saveAsDraft && !purchaseItems.length && itemNotesByProduct.size) {
+        if (!saveAsDraft && !purchaseItems.length && itemNotesByProduct.size && !closeUnpurchased) {
             let updatedRequestsCount = 0;
 
             for (const purchaseRequest of pendingRequests) {
@@ -485,20 +517,22 @@ export async function POST(request) {
             );
         }
 
-        const batch = draftBatch || new PurchaseBatch({
+        const batch = purchaseItems.length ? (draftBatch || new PurchaseBatch({
             batchNumber,
             registeredBy: user.id,
             destinationLocation: DEFAULT_PURCHASE_LOCATION,
             items: [],
-        });
+        })) : null;
 
-        batch.batchNumber = batchNumber;
-        batch.status = saveAsDraft ? "draft" : "purchased";
-        batch.purchasedAt = purchasedAt;
-        batch.supplierName = normalizeNullableText(body.supplierName);
-        batch.note = normalizeNullableText(body.note);
-        batch.destinationLocation = DEFAULT_PURCHASE_LOCATION;
-        batch.items = [];
+        if (batch) {
+            batch.batchNumber = batchNumber;
+            batch.status = saveAsDraft ? "draft" : "purchased";
+            batch.purchasedAt = purchasedAt;
+            batch.supplierName = normalizeNullableText(body.supplierName);
+            batch.note = normalizeNullableText(body.note);
+            batch.destinationLocation = DEFAULT_PURCHASE_LOCATION;
+            batch.items = [];
+        }
 
         for (let index = 0; index < purchaseItems.length; index += 1) {
             const item = purchaseItems[index];
@@ -554,22 +588,24 @@ export async function POST(request) {
             );
         }
 
-        batch.addActivity({
-            type: "purchase_created",
-            performedBy: user.id,
-            title: draftBatch ? "Compra registrada desde borrador" : "Compra registrada",
-            description: draftBatch
-                ? "El borrador se registró como compra y queda pendiente de despacho."
-                : "La compra fue registrada y queda pendiente de despacho.",
-            metadata: {
-                purchasedAt,
-            },
-            performedAt: purchasedAt,
-        });
+        if (batch) {
+            batch.addActivity({
+                type: "purchase_created",
+                performedBy: user.id,
+                title: draftBatch ? "Compra registrada desde borrador" : "Compra registrada",
+                description: draftBatch
+                    ? "El borrador se registró como compra y queda pendiente de despacho."
+                    : "La compra fue registrada y queda pendiente de despacho.",
+                metadata: {
+                    purchasedAt,
+                },
+                performedAt: purchasedAt,
+            });
+        }
 
         const allocationMap = new Map();
 
-        for (const batchItem of batch.items) {
+        for (const batchItem of batch?.items || []) {
             for (const allocation of batchItem.allocations || []) {
                 const key = `${allocation.purchaseRequestId}:${allocation.purchaseRequestItemId}`;
                 allocationMap.set(key, (allocationMap.get(key) || 0) + Number(allocation.quantity || 0));
@@ -594,25 +630,54 @@ export async function POST(request) {
                     requestWasUpdated = true;
                 }
 
+                if (closeUnpurchased) {
+                    const progress = calculateRequestItemProgress(item);
+                    if (progress.pendingPurchaseQuantity > 0) {
+                        item.notPurchasedQuantity =
+                            Number(item.notPurchasedQuantity || 0) + progress.pendingPurchaseQuantity;
+                        item.adminNote =
+                            item.adminNote ||
+                            `No comprado en el cierre de compras del ${purchaseScopeDate}.`;
+                        requestWasUpdated = true;
+                    }
+                }
+
                 return item;
             });
 
             if (requestWasUpdated) {
                 purchaseRequest.recalculateStatus();
                 purchaseRequest.addActivity({
-                    type: "purchase_registered",
+                    type: batch ? "purchase_registered" : "purchase_not_purchased",
                     performedBy: user.id,
-                    title: "Compra registrada",
-                    description: `Se registro la compra del lote ${batch.batchNumber}. La solicitud queda en proceso hasta despacharse.`,
-                    metadata: { batchId: batch._id, batchNumber: batch.batchNumber },
+                    title: batch ? "Compra registrada" : "Pendientes marcados como no comprados",
+                    description: batch
+                        ? `Se registro la compra del lote ${batch.batchNumber}. Lo no comprado del dia quedo cerrado.`
+                        : `Se cerro el dia ${purchaseScopeDate} sin compra registrada para estos pendientes.`,
+                    metadata: batch
+                        ? { batchId: batch._id, batchNumber: batch.batchNumber, closedUnpurchased: closeUnpurchased }
+                        : { purchaseScopeDate, closedUnpurchased: true },
                 });
 
                 await purchaseRequest.save({ session });
             }
         }
 
-        await batch.save({ session });
+        if (batch) {
+            await batch.save({ session });
+        }
         await session.commitTransaction();
+
+        if (!batch) {
+            return NextResponse.json(
+                {
+                    success: true,
+                    message: "Los pendientes del dia fueron marcados como no comprados.",
+                    data: null,
+                },
+                { status: 200 }
+            );
+        }
 
         const populatedBatch = await PurchaseBatch.findById(batch._id)
             .populate("registeredBy", "firstName lastName username email role")

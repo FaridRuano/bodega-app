@@ -98,6 +98,7 @@ export default function PurchaseExecutionModal({
   categories = [],
   isSubmitting = false,
   hasSelectedItems = false,
+  canSubmitWithoutSelection = false,
   isDraft = false,
   onClose,
   onSubmit,
@@ -115,6 +116,7 @@ export default function PurchaseExecutionModal({
     [categories, families, renderableItems]
   );
   const canCompleteAll = renderableItems.some((item) => Number(item.pendingQuantity || 0) > 0);
+  const canSubmitPurchase = hasSelectedItems || canSubmitWithoutSelection;
 
   if (!open) return null;
 
@@ -305,7 +307,7 @@ export default function PurchaseExecutionModal({
               <button
                 type="submit"
                 className="miniAction miniActionPrimary"
-                disabled={isSubmitting || renderableItems.length === 0 || !hasSelectedItems}
+                disabled={isSubmitting || renderableItems.length === 0 || !canSubmitPurchase}
               >
                 {isSubmitting && hasSelectedItems ? "Registrando..." : "Registrar compra"}
               </button>
@@ -333,7 +335,7 @@ export default function PurchaseExecutionModal({
                 <button
                   type="submit"
                   className="miniAction miniActionPrimary"
-                  disabled={isSubmitting || renderableItems.length === 0 || !hasSelectedItems}
+                  disabled={isSubmitting || renderableItems.length === 0 || !canSubmitPurchase}
                 >
                   {isSubmitting && hasSelectedItems ? "Registrando..." : "Registrar compra"}
                 </button>

@@ -24,9 +24,13 @@
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 180px) 220px;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.purchaseDayInput {
+  min-height: 42px;
 }
 
 .toolbarAction {

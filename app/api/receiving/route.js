@@ -57,6 +57,7 @@ function mapPurchaseRequestDocument(request) {
             requestedQuantity: Number(item.requestedQuantity || 0),
             approvedQuantity: Number(item.approvedQuantity || 0),
             purchasedQuantity: Number(item.purchasedQuantity || 0),
+            notPurchasedQuantity: Number(item.notPurchasedQuantity || 0),
             dispatchedQuantity: Number(item.dispatchedQuantity || 0),
             receivedQuantity: Number(item.receivedQuantity || 0),
             requesterNote: item.requesterNote || "",

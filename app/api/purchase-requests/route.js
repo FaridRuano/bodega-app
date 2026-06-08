@@ -45,7 +45,7 @@ function mapPurchaseRequestDocument(request) {
         completedAt: request.completedAt || null,
         createdAt: request.createdAt || null,
         updatedAt: request.updatedAt || null,
-        totals: request.totals || { requested: 0, approved: 0, purchased: 0, dispatched: 0, received: 0, pendingPurchase: 0, pendingDispatch: 0, pendingReceipt: 0, remaining: 0 },
+        totals: request.totals || { requested: 0, approved: 0, purchased: 0, notPurchased: 0, dispatched: 0, received: 0, pendingPurchase: 0, pendingDispatch: 0, pendingReceipt: 0, remaining: 0 },
         items: (request.items || []).map((item) => ({
             _id: item._id,
             productId: item.productId?._id || item.productId,
@@ -62,6 +62,7 @@ function mapPurchaseRequestDocument(request) {
             requestedQuantity: Number(item.requestedQuantity || 0),
             approvedQuantity: Number(item.approvedQuantity || 0),
             purchasedQuantity: Number(item.purchasedQuantity || 0),
+            notPurchasedQuantity: Number(item.notPurchasedQuantity || 0),
             dispatchedQuantity: Number(item.dispatchedQuantity || 0),
             receivedQuantity: Number(item.receivedQuantity || 0),
             requesterNote: item.requesterNote || "",
@@ -99,6 +100,12 @@ function normalizeDestinationLocation(value) {
 }
 
 function hasPendingReceipt(request) {
+    const status = String(request?.status || "").trim().toLowerCase();
+
+    if (["completed", "not_purchased", "cancelled", "rejected"].includes(status)) {
+        return false;
+    }
+
     return (request?.items || []).some((item) =>
         Math.max(
             Number(item?.dispatchedQuantity || 0) - Number(item?.receivedQuantity || 0),
@@ -117,6 +124,7 @@ function buildPurchaseRequestSummary(requests = []) {
             if (statusKey === "approved") acc.approved += 1;
             if (statusKey === "in_progress") acc.inProgress += 1;
             if (statusKey === "partially_purchased") acc.partiallyPurchased += 1;
+            if (statusKey === "not_purchased") acc.notPurchased += 1;
             if (statusKey === "completed") acc.completed += 1;
             if (statusKey === "rejected") acc.rejected += 1;
             if (statusKey === "cancelled") acc.cancelled += 1;
@@ -129,6 +137,7 @@ function buildPurchaseRequestSummary(requests = []) {
             approved: 0,
             inProgress: 0,
             partiallyPurchased: 0,
+            notPurchased: 0,
             completed: 0,
             rejected: 0,
             cancelled: 0,
@@ -227,6 +236,7 @@ export async function GET(request) {
                 approved: await PurchaseRequest.countDocuments({ ...query, status: "approved" }),
                 inProgress: await PurchaseRequest.countDocuments({ ...query, status: "in_progress" }),
                 partiallyPurchased: await PurchaseRequest.countDocuments({ ...query, status: "partially_purchased" }),
+                notPurchased: await PurchaseRequest.countDocuments({ ...query, status: "not_purchased" }),
                 completed: await PurchaseRequest.countDocuments({ ...query, status: "completed" }),
                 rejected: await PurchaseRequest.countDocuments({ ...query, status: "rejected" }),
                 cancelled: await PurchaseRequest.countDocuments({ ...query, status: "cancelled" }),

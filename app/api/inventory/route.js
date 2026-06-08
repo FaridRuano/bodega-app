@@ -341,6 +341,20 @@ export async function GET(request) {
         const normalizedProducts = products.map((product) =>
             normalizeProduct(product, inventoryMap)
         );
+        const getScopedQuantity = (product) => {
+            if (locations.length) {
+                return locations.reduce(
+                    (sum, currentLocation) => sum + Number(product.inventory?.[currentLocation] || 0),
+                    0
+                );
+            }
+
+            if (location) {
+                return Number(product.inventory?.[location] || 0);
+            }
+
+            return Number(product.inventory?.total || 0);
+        };
 
         const filteredData = normalizedProducts.filter((product) => {
             if (purchaseEligibleOnly && !isPurchaseEligibleProductType(product.productType)) {
@@ -371,16 +385,7 @@ export async function GET(request) {
             }
 
             if (alert === "out") {
-                const quantity = locations.length
-                    ? locations.reduce(
-                        (sum, currentLocation) => sum + Number(product.inventory?.[currentLocation] || 0),
-                        0
-                    )
-                    : location
-                    ? Number(product.inventory?.[location] || 0)
-                    : Number(product.inventory?.total || 0);
-
-                return quantity <= 0;
+                return getScopedQuantity(product) <= 0;
             }
 
             if (alert === "attention") {
@@ -396,19 +401,10 @@ export async function GET(request) {
 
         const summary = {
             totalProducts: normalizedProducts.length,
+            selectedStockProducts: normalizedProducts.filter((product) => getScopedQuantity(product) > 0).length,
             activeProducts: normalizedProducts.filter((product) => product.isActive).length,
             trackedProducts: normalizedProducts.filter((product) => product.tracksStock).length,
-            outOfStockProducts: normalizedProducts.filter((product) => {
-                const quantity = locations.length
-                    ? locations.reduce(
-                        (sum, currentLocation) => sum + Number(product.inventory?.[currentLocation] || 0),
-                        0
-                    )
-                    : location
-                    ? Number(product.inventory?.[location] || 0)
-                    : Number(product.inventory?.total || 0);
-                return quantity <= 0;
-            }).length,
+            outOfStockProducts: normalizedProducts.filter((product) => getScopedQuantity(product) <= 0).length,
             lowStockProducts: normalizedProducts.filter((product) => product.status === "low").length,
             warningStockProducts: normalizedProducts.filter((product) => product.status === "warning").length,
             selectedLocation: location,

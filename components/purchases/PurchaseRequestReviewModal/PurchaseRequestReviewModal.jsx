@@ -16,6 +16,7 @@ const STATUS_LABELS = {
   approved: "Aprobada",
   in_progress: "En proceso",
   partially_purchased: "Parcialmente atendida",
+  not_purchased: "No comprada",
   completed: "Completada",
   rejected: "Rechazada",
   cancelled: "Cancelada",
@@ -279,6 +280,12 @@ export default function PurchaseRequestReviewModal({
                         <strong>{formatQuantity(item.purchasedQuantity)}</strong>
                         <span>Comprado</span>
                       </div>
+                      {Number(item.notPurchasedQuantity || 0) > 0 ? (
+                        <div className={styles.metricBlock}>
+                          <strong>{formatQuantity(item.notPurchasedQuantity)}</strong>
+                          <span>No comprado</span>
+                        </div>
+                      ) : null}
                       <div className={styles.metricBlock}>
                         <strong>{formatQuantity(item.dispatchedQuantity)}</strong>
                         <span>Despachado</span>
@@ -287,7 +294,8 @@ export default function PurchaseRequestReviewModal({
                         <strong>
                           {formatQuantity(Math.max(
                             Number(item.approvedQuantity || item.requestedQuantity || 0) -
-                            Number(item.receivedQuantity || 0),
+                            Number(item.receivedQuantity || 0) -
+                            Number(item.notPurchasedQuantity || 0),
                             0
                           ))}
                         </strong>
