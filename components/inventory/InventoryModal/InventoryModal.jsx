@@ -96,13 +96,11 @@ export default function InventoryMovementModal({
         formData.fromLocation &&
         formData.toLocation &&
         formData.fromLocation === formData.toLocation;
-    const isTransferReasonMissing = isTransfer && !String(formData.notes || "").trim();
-
     const isSubmitDisabled =
         isSubmitting ||
+        numericQuantity <= 0 ||
         exceedsAvailableStock ||
-        hasInvalidTransfer ||
-        isTransferReasonMissing;
+        hasInvalidTransfer;
 
     function handleFormSubmit(event) {
         event.preventDefault();
@@ -356,7 +354,7 @@ export default function InventoryMovementModal({
 
                         <div className="form-field">
                             <label className="form-label" htmlFor="movement-notes">
-                                {isTransfer ? "Motivo" : "Detalle"}
+                                {isTransfer ? "Motivo opcional" : "Detalle"}
                             </label>
                             <textarea
                                 id="movement-notes"
@@ -366,11 +364,10 @@ export default function InventoryMovementModal({
                                 onChange={onChange}
                                 placeholder={
                                     isTransfer
-                                        ? "Describe por que se realiza esta transferencia"
+                                        ? "Agrega un motivo si necesitas dejar contexto"
                                         : "Agrega una observacion o detalle del movimiento"
                                 }
                                 rows={3}
-                                required={isTransfer}
                             />
                         </div>
                     </section>

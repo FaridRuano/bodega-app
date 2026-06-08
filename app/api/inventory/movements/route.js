@@ -152,7 +152,7 @@ export async function POST(request) {
     const session = await mongoose.startSession();
 
     try {
-        const { user, response } = await requireUserRole(["admin", "warehouse", "kitchen", "loung"]);
+        const { user, response } = await requireUserRole(["admin", "manager", "warehouse", "kitchen", "loung"]);
         if (response) return response;
 
         await dbConnect();
@@ -168,7 +168,7 @@ export async function POST(request) {
         const productId = body.productId?.trim?.();
         const movementType = normalizeMovementType(body.movementType);
         const quantity = Number(body.quantity);
-        const notes = body.notes?.trim?.() || "";
+        let notes = body.notes?.trim?.() || "";
         const location = normalizeLocation(body.location);
         const fromLocation = normalizeLocation(body.fromLocation);
         const toLocation = normalizeLocation(body.toLocation);
@@ -194,14 +194,13 @@ export async function POST(request) {
             );
         }
 
-        if (movementType === "transfer" && !notes) {
-            return NextResponse.json(
-                { success: false, message: "El motivo es obligatorio para transferir inventario." },
-                { status: 400 }
-            );
-        }
-
         const operationalLocation = getOperationalLocationForRole(user.role);
+
+        if (movementType === "transfer" && !notes) {
+            notes = fromLocation && toLocation
+                ? `Transferencia de ${getLocationLabel(fromLocation).toLowerCase()} a ${getLocationLabel(toLocation).toLowerCase()}.`
+                : "Transferencia de inventario.";
+        }
 
         if (!isPrivilegedUserRole(user.role) && operationalLocation) {
             const isAllowedMovement =

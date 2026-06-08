@@ -151,8 +151,11 @@ export default function PurchaseHistoryPage() {
           return;
         }
 
+        const user = meResult.user;
+        const canLoadUsers = user.role === "admin";
+
         if (!cancelled) {
-          setCurrentUser(meResult.user);
+          setCurrentUser(user);
         }
 
         const params = new URLSearchParams();
@@ -166,19 +169,21 @@ export default function PurchaseHistoryPage() {
 
         const [batchesResponse, usersResponse] = await Promise.all([
           fetch(`/api/purchase-batches?${params.toString()}`, { cache: "no-store" }),
-          fetch("/api/users", { cache: "no-store" }),
+          canLoadUsers
+            ? fetch("/api/users", { cache: "no-store" })
+            : Promise.resolve(null),
         ]);
 
         const [batchesResult, usersResult] = await Promise.all([
           batchesResponse.json(),
-          usersResponse.json(),
+          usersResponse ? usersResponse.json() : Promise.resolve({ success: true, data: [] }),
         ]);
 
         if (!batchesResponse.ok || !batchesResult.success) {
           throw new Error(batchesResult.message || "No se pudo cargar el historial de compras.");
         }
 
-        if (!usersResponse.ok || !usersResult.success) {
+        if (usersResponse && (!usersResponse.ok || !usersResult.success)) {
           throw new Error(usersResult.message || "No se pudieron cargar los usuarios.");
         }
 

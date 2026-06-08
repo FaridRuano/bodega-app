@@ -171,7 +171,7 @@ export default function InventoryPage() {
   const operationalScope = getOperationalScopeForRole(currentUser?.role);
   const isCombinedOperationalView =
     isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope);
-  const effectiveViewMode = isCombinedOperationalView ? "compact" : viewMode;
+  const effectiveViewMode = viewMode;
   const combinedViewLocations = useMemo(
     () =>
       isCombinedOperationalView
@@ -309,11 +309,6 @@ export default function InventoryPage() {
   }, [availableScopes, scope]);
 
   useEffect(() => {
-    if (isCombinedOperationalView) {
-      setViewMode("compact");
-      return;
-    }
-
     const viewFromUrl = normalizeViewMode(getStringParam(searchParams, "view", ""), "");
 
     if (viewFromUrl) {
@@ -326,7 +321,7 @@ export default function InventoryPage() {
     if (storedViewMode) {
       setViewMode(storedViewMode);
     }
-  }, [isCombinedOperationalView, searchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     const nextQuery = buildSearchParams(searchParams, {
@@ -335,7 +330,7 @@ export default function InventoryPage() {
       familyId: familyFilter || null,
       categoryId: categoryFilter || null,
       scope: !isCombinedOperationalView && activeScope !== "all" ? activeScope : null,
-      view: !isCombinedOperationalView && effectiveViewMode !== "compact" ? effectiveViewMode : null,
+      view: effectiveViewMode !== "compact" ? effectiveViewMode : null,
       page: page > 1 ? page : null,
     });
 
@@ -626,13 +621,12 @@ export default function InventoryPage() {
       }
 
       if (movementModal.mode === "transfer") {
-        if (!movementForm.notes.trim()) {
-          throw new Error("Debes escribir un motivo para transferir inventario.");
-        }
-
         payload.movementType = "transfer";
         payload.fromLocation = movementForm.fromLocation;
         payload.toLocation = movementForm.toLocation;
+        payload.notes =
+          movementForm.notes.trim() ||
+          `Transferencia de ${getLocationLabel(movementForm.fromLocation).toLowerCase()} a ${getLocationLabel(movementForm.toLocation).toLowerCase()}.`;
       }
 
       const response = await fetch("/api/inventory/movements", {
@@ -764,44 +758,42 @@ export default function InventoryPage() {
           ) : null}
 
           {!isCombinedOperationalView ? (
-            <>
-              <div className={styles.viewSwitch}>
-                {availableScopes.map((scopeOption) => (
-                  <button
-                    key={scopeOption}
-                    type="button"
-                    className={`miniAction ${activeScope === scopeOption ? "miniActionPrimary" : ""}`}
-                    onClick={() => setScope(scopeOption)}
-                  >
-                    {INVENTORY_SCOPE_LABELS[scopeOption]}
-                  </button>
-                ))}
-              </div>
-
-              <div className={`${styles.viewSwitch} ${styles.iconViewSwitch}`}>
+            <div className={styles.viewSwitch}>
+              {availableScopes.map((scopeOption) => (
                 <button
+                  key={scopeOption}
                   type="button"
-                  className={`miniAction miniActionIconOnly ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
-                  onClick={() => updateViewMode("cards")}
-                  aria-label="Tarjetas"
-                  disabled={products.length === 0}
+                  className={`miniAction ${activeScope === scopeOption ? "miniActionPrimary" : ""}`}
+                  onClick={() => setScope(scopeOption)}
                 >
-                  <LayoutGrid size={14} />
-                  <span className="miniActionLabel">Tarjetas</span>
+                  {INVENTORY_SCOPE_LABELS[scopeOption]}
                 </button>
-                <button
-                  type="button"
-                  className={`miniAction miniActionIconOnly ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
-                  onClick={() => updateViewMode("compact")}
-                  aria-label="Seguimiento"
-                  disabled={products.length === 0}
-                >
-                  <List size={14} />
-                  <span className="miniActionLabel">Seguimiento</span>
-                </button>
-              </div>
-            </>
+              ))}
+            </div>
           ) : null}
+
+          <div className={`${styles.viewSwitch} ${styles.iconViewSwitch}`}>
+            <button
+              type="button"
+              className={`miniAction miniActionIconOnly ${viewMode === "cards" ? "miniActionPrimary" : ""}`}
+              onClick={() => updateViewMode("cards")}
+              aria-label="Tarjetas"
+              disabled={products.length === 0}
+            >
+              <LayoutGrid size={14} />
+              <span className="miniActionLabel">Tarjetas</span>
+            </button>
+            <button
+              type="button"
+              className={`miniAction miniActionIconOnly ${viewMode === "compact" ? "miniActionPrimary" : ""}`}
+              onClick={() => updateViewMode("compact")}
+              aria-label="Seguimiento"
+              disabled={products.length === 0}
+            >
+              <List size={14} />
+              <span className="miniActionLabel">Seguimiento</span>
+            </button>
+          </div>
         </div>
 
         <div className={styles.filterRow}>

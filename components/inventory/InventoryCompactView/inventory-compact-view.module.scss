@@ -90,9 +90,25 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 4px;
+    gap: 6px;
     opacity: 1;
     transform: translateX(0);
+}
+
+.actionsCell :global(.action-button) {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    justify-content: center;
+}
+
+.actionsCell :global(.action-button__icon) {
+    margin: 0;
+}
+
+.actionsCell :global(.action-button__label) {
+    display: none;
 }
 
 .actionsHeaderSpacer {
@@ -159,8 +175,8 @@
 
 .skeletonActions {
     justify-self: end;
-    width: 94px;
-    height: 30px;
+    width: 108px;
+    height: 32px;
 }
 
 .emptyState {

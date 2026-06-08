@@ -33,14 +33,14 @@ export default function InventoryCompactView({
   const quantityLabel = scopeLabel || "Cantidad";
   const gridTemplateColumns = isGeneralScope
     ? showActions
-      ? "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr)) minmax(122px, auto)"
+      ? "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr)) 116px"
       : "minmax(180px, 2fr) repeat(4, minmax(46px, 0.55fr))"
     : hasCustomLocations
       ? showActions
-        ? `minmax(180px, 2fr) repeat(${visibleLocations.length}, minmax(46px, 0.55fr)) minmax(122px, auto)`
+        ? `minmax(180px, 2fr) repeat(${visibleLocations.length}, minmax(46px, 0.55fr)) 116px`
         : `minmax(180px, 2fr) repeat(${visibleLocations.length}, minmax(46px, 0.55fr))`
     : showActions
-      ? "minmax(180px, 2fr) minmax(46px, 0.55fr) minmax(122px, auto)"
+      ? "minmax(180px, 2fr) minmax(46px, 0.55fr) 116px"
       : "minmax(180px, 2fr) minmax(46px, 0.55fr)";
 
   useEffect(() => {
@@ -192,6 +192,8 @@ export default function InventoryCompactView({
                       type="button"
                       className="action-button action-button--neutral"
                       onClick={() => onEntry(product)}
+                      title="Agregar inventario"
+                      aria-label="Agregar inventario"
                     >
                       <span className="action-button__icon">
                         <ArrowDownToLine size={14} />
@@ -203,6 +205,8 @@ export default function InventoryCompactView({
                       type="button"
                       className="action-button action-button--neutral"
                       onClick={() => onExit(product)}
+                      title="Retirar inventario"
+                      aria-label="Retirar inventario"
                     >
                       <span className="action-button__icon">
                         <ArrowUpFromLine size={14} />
@@ -217,6 +221,8 @@ export default function InventoryCompactView({
                     type="button"
                     className="action-button action-button--neutral"
                     onClick={() => onTransfer(product)}
+                    title="Transferir inventario"
+                    aria-label="Transferir inventario"
                   >
                     <span className="action-button__icon">
                       <ArrowRightLeft size={14} />

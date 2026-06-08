@@ -98,12 +98,10 @@ export default function PurchaseExecutionModal({
   categories = [],
   isSubmitting = false,
   hasSelectedItems = false,
-  hasDraftData = false,
   isDraft = false,
   onClose,
   onSubmit,
-  onSaveDraft,
-  onDeleteDraft,
+  onCompleteAll,
   onDraftChange,
   onItemChange,
 }) {
@@ -116,11 +114,12 @@ export default function PurchaseExecutionModal({
     () => buildGroupedShoppingList(renderableItems, families, categories),
     [categories, families, renderableItems]
   );
+  const canCompleteAll = renderableItems.some((item) => Number(item.pendingQuantity || 0) > 0);
 
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-overlay ${styles.executionOverlay}`} onClick={onClose}>
       <div
         className={`modal-container ${styles.largeModal}`}
         onClick={(event) => event.stopPropagation()}
@@ -297,22 +296,12 @@ export default function PurchaseExecutionModal({
               </button>
               <button
                 type="button"
-                className="miniAction"
-                onClick={onSaveDraft}
-                disabled={isSubmitting || !hasDraftData}
+                className="miniAction miniActionSuccess"
+                onClick={onCompleteAll}
+                disabled={isSubmitting || !canCompleteAll}
               >
-                {isSubmitting && !hasSelectedItems ? "Guardando..." : "Guardar borrador"}
+                Completar todo
               </button>
-              {isDraft ? (
-                <button
-                  type="button"
-                  className={`miniAction miniActionDanger ${styles.deleteDraftButton}`}
-                  onClick={onDeleteDraft}
-                  disabled={isSubmitting}
-                >
-                  Eliminar borrador
-                </button>
-              ) : null}
               <button
                 type="submit"
                 className="miniAction miniActionPrimary"
@@ -335,11 +324,11 @@ export default function PurchaseExecutionModal({
               <div className={styles.mobilePrimaryRow}>
                 <button
                   type="button"
-                  className="miniAction"
-                  onClick={onSaveDraft}
-                  disabled={isSubmitting || !hasDraftData}
+                  className="miniAction miniActionSuccess"
+                  onClick={onCompleteAll}
+                  disabled={isSubmitting || !canCompleteAll}
                 >
-                  {isSubmitting && !hasSelectedItems ? "Guardando..." : "Guardar borrador"}
+                  Completar todo
                 </button>
                 <button
                   type="submit"
@@ -349,17 +338,6 @@ export default function PurchaseExecutionModal({
                   {isSubmitting && hasSelectedItems ? "Registrando..." : "Registrar compra"}
                 </button>
               </div>
-
-              {isDraft ? (
-                <button
-                  type="button"
-                  className={`miniAction miniActionDanger ${styles.mobileDeleteButton}`}
-                  onClick={onDeleteDraft}
-                  disabled={isSubmitting}
-                >
-                  Eliminar borrador
-                </button>
-              ) : null}
             </div>
           </div>
         </form>

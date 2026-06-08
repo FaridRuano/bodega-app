@@ -279,7 +279,6 @@ export default function PurchasesPage() {
   const [requestDraft, setRequestDraft] = useState(() => getDefaultRequestDraft());
   const [purchaseDraft, setPurchaseDraft] = useState(() => getDefaultPurchaseDraft());
   const [hasInitializedPurchaseDraft, setHasInitializedPurchaseDraft] = useState(false);
-  const [isDeletingPurchaseDraft, setIsDeletingPurchaseDraft] = useState(false);
 
   const [dialogModal, setDialogModal] = useState({
     open: false,
@@ -731,10 +730,6 @@ export default function PurchasesPage() {
   );
 
   const hasPurchaseSelection = selectedPurchaseItems.length > 0;
-  const hasPurchaseDraftData =
-    selectedPurchaseItems.some((item) => Number(item.quantity) > 0) ||
-    Boolean(purchaseDraft.supplierName?.trim()) ||
-    Boolean(purchaseDraft.note?.trim());
 
   function openRequestModal() {
     const destinationLocation = getDefaultRequestLocationForRole(currentUser?.role);
@@ -859,7 +854,7 @@ export default function PurchasesPage() {
   }
 
   function closePurchaseModal() {
-    if (isSubmittingPurchase || isDeletingPurchaseDraft) return;
+    if (isSubmittingPurchase) return;
     suppressExecutionModalAutoOpenRef.current = true;
     setPurchaseModalOpen(false);
 
@@ -919,6 +914,27 @@ export default function PurchasesPage() {
         },
       },
     }));
+  }
+
+  function handleCompleteAllPurchaseItems() {
+    setPurchaseDraft((prev) => {
+      const mergedDraft = mergePurchaseDraftWithShoppingList(prev, shoppingList);
+      const nextItems = {};
+
+      for (const [productId, item] of Object.entries(mergedDraft.itemsByProduct || {})) {
+        const pendingQuantity = Number(item.pendingQuantity || 0);
+
+        nextItems[productId] = {
+          ...item,
+          quantity: pendingQuantity > 0 ? String(pendingQuantity) : item.quantity || "",
+        };
+      }
+
+      return {
+        ...mergedDraft,
+        itemsByProduct: nextItems,
+      };
+    });
   }
 
   useEffect(() => {
@@ -1229,130 +1245,6 @@ export default function PurchasesPage() {
       });
     } finally {
       setIsSubmittingPurchase(false);
-    }
-  }
-
-  async function handleSavePurchaseDraft() {
-    if (!hasPurchaseDraftData) {
-      setDialogModal({
-        open: true,
-        title: "Nada para guardar",
-        message: "Agrega al menos un producto o una nota antes de guardar el borrador.",
-        variant: "warning",
-      });
-      return;
-    }
-
-    try {
-      setIsSubmittingPurchase(true);
-
-      const items = Object.values(purchaseDraft.itemsByProduct || {})
-        .filter((item) => Number(item.quantity) > 0)
-        .map((item) => ({
-          productId: item.productId,
-          quantity: Number(item.quantity || 0),
-          unitCost: item.unitCost === "" ? null : Number(item.unitCost),
-          note: item.note || "",
-        }));
-
-      const response = await fetch("/api/purchase-batches", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          batchId: purchaseDraft.batchId || null,
-          saveAsDraft: true,
-          supplierName: purchaseDraft.supplierName,
-          purchasedAt: purchaseDraft.purchasedAt || null,
-          note: purchaseDraft.note,
-          items,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo guardar el borrador.");
-      }
-
-      setPurchaseDraft((prev) => ({
-        ...prev,
-        batchId: result.data?._id || prev.batchId || null,
-      }));
-
-      try {
-        window.localStorage.setItem(
-          PURCHASE_DRAFT_STORAGE_KEY,
-          JSON.stringify({
-            ...mergePurchaseDraftWithShoppingList(purchaseDraft, shoppingList),
-            batchId: result.data?._id || purchaseDraft.batchId || null,
-          })
-        );
-      } catch (storageError) {
-        console.error(storageError);
-      }
-
-      setDialogModal({
-        open: true,
-        title: "Borrador guardado",
-        message: "La compra quedó guardada como borrador para continuar luego.",
-        variant: "success",
-      });
-      await loadPage({ silent: true });
-    } catch (error) {
-      console.error(error);
-      setDialogModal({
-        open: true,
-        title: "No se pudo guardar el borrador",
-        message: error.message || "Intenta nuevamente.",
-        variant: "danger",
-      });
-    } finally {
-      setIsSubmittingPurchase(false);
-    }
-  }
-
-  async function handleDeletePurchaseDraft() {
-    if (!purchaseDraft.batchId) {
-      setPurchaseDraft(getDefaultPurchaseDraft());
-      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
-      dismissPurchaseModal();
-      return;
-    }
-
-    try {
-      setIsDeletingPurchaseDraft(true);
-
-      const response = await fetch(`/api/purchase-batches/${purchaseDraft.batchId}`, {
-        method: "DELETE",
-      });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "No se pudo eliminar el borrador.");
-      }
-
-      setPurchaseDraft(getDefaultPurchaseDraft());
-      window.localStorage.removeItem(PURCHASE_DRAFT_STORAGE_KEY);
-      dismissPurchaseModal();
-      setDialogModal({
-        open: true,
-        title: "Borrador eliminado",
-        message: "El borrador de compra fue eliminado correctamente.",
-        variant: "success",
-      });
-      await loadPage({ silent: true });
-    } catch (error) {
-      console.error(error);
-      setDialogModal({
-        open: true,
-        title: "No se pudo eliminar el borrador",
-        message: error.message || "Intenta nuevamente.",
-        variant: "danger",
-      });
-    } finally {
-      setIsDeletingPurchaseDraft(false);
     }
   }
 
@@ -1915,14 +1807,12 @@ export default function PurchasesPage() {
         shoppingList={shoppingList}
         families={builderFamilies}
         categories={builderCategories}
-        isSubmitting={isSubmittingPurchase || isDeletingPurchaseDraft}
+        isSubmitting={isSubmittingPurchase}
         hasSelectedItems={hasPurchaseSelection}
-        hasDraftData={hasPurchaseDraftData}
         isDraft={Boolean(purchaseDraft.batchId)}
         onClose={closePurchaseModal}
         onSubmit={handleCreatePurchase}
-        onSaveDraft={handleSavePurchaseDraft}
-        onDeleteDraft={handleDeletePurchaseDraft}
+        onCompleteAll={handleCompleteAllPurchaseItems}
         onDraftChange={(field, value) =>
           setPurchaseDraft((prev) => ({
             ...prev,

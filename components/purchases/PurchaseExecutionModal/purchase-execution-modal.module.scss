@@ -4,6 +4,7 @@
   height: min(calc(100vh - 20px), 960px);
   max-height: calc(100vh - 20px);
   padding: 18px 18px 16px;
+  overflow: hidden;
 }
 
 .modalForm {
@@ -232,8 +233,45 @@
 }
 
 @media (max-width: 640px) {
+  .executionOverlay {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  .largeModal {
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .largeModal :global(.modal-top) {
+    top: 0;
+    margin: 0;
+    padding: 10px 10px 8px;
+  }
+
   .modalForm {
     gap: 12px;
+    padding: 0 10px 10px;
+  }
+
+  .purchaseHeader {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .purchaseHeader input {
+    min-width: 0;
+  }
+
+  .purchaseHeader input:nth-child(3) {
+    grid-column: 1 / -1;
   }
 
   .purchaseRowLayout {
@@ -277,13 +315,6 @@
     justify-content: center;
   }
 
-  .largeModal {
-    width: min(100vw - 12px, 100%);
-    height: calc(100vh - 12px);
-    max-height: calc(100vh - 12px);
-    padding: 14px;
-  }
-
   :global(.modal-footer).footerBar {
     display: flex;
     align-items: stretch;
@@ -302,8 +333,7 @@
     width: 100%;
   }
 
-  .mobileCancelButton,
-  .mobileDeleteButton {
+  .mobileCancelButton {
     width: 100%;
   }
 
@@ -313,10 +343,6 @@
 
   .mobileCancelButton {
     order: 2;
-  }
-
-  .mobileDeleteButton {
-    order: 3;
   }
 
   .mobilePrimaryRow :global(.miniAction) {
