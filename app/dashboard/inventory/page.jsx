@@ -378,7 +378,7 @@ export default function InventoryPage() {
 
       if (isCombinedOperationalView && inventoryStockMode === "local") {
         params.set("location", operationalScope);
-        params.set("locationOnly", "true");
+        params.set("inStockOnly", "true");
       } else if (!isCombinedOperationalView && !isGeneralScope) {
         params.set("location", activeScope);
         params.set("inStockOnly", "true");
