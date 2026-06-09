@@ -243,6 +243,66 @@ function buildPurchaseDraftFromBatch(batch, shoppingList = []) {
   };
 }
 
+function buildEditableShoppingListFromRequests(requests = [], batch = {}) {
+  const oldAllocationsByRequestItem = new Map();
+
+  for (const batchItem of batch?.items || []) {
+    for (const allocation of batchItem.allocations || []) {
+      const requestItemId = String(allocation.purchaseRequestItemId || "");
+      if (!requestItemId) continue;
+      oldAllocationsByRequestItem.set(
+        requestItemId,
+        Number(oldAllocationsByRequestItem.get(requestItemId) || 0) + Number(allocation.quantity || 0)
+      );
+    }
+  }
+
+  const grouped = new Map();
+  const closedStatuses = new Set(["cancelled", "rejected", "completed"]);
+
+  for (const request of requests || []) {
+    if (closedStatuses.has(String(request?.status || "").toLowerCase())) continue;
+
+    for (const item of request.items || []) {
+      const productId = String(item.productId || item.product?._id || "");
+      if (!productId) continue;
+
+      const requestItemId = String(item._id || "");
+      const approvedQuantity = Number(item.approvedQuantity || item.requestedQuantity || 0);
+      const purchasedOutsideCurrentBatch = Math.max(
+        Number(item.purchasedQuantity || 0) - Number(oldAllocationsByRequestItem.get(requestItemId) || 0),
+        0
+      );
+      const editableQuantity = Math.max(approvedQuantity - purchasedOutsideCurrentBatch, 0);
+
+      if (editableQuantity <= 0) continue;
+
+      if (!grouped.has(productId)) {
+        grouped.set(productId, {
+          productId,
+          product: item.product || null,
+          unitSnapshot: item.unitSnapshot || item.product?.unit || "",
+          pendingQuantity: 0,
+          requests: [],
+        });
+      }
+
+      const current = grouped.get(productId);
+      current.pendingQuantity += editableQuantity;
+      current.requests.push({
+        purchaseRequestId: request._id,
+        purchaseRequestItemId: item._id,
+        requestNumber: request.requestNumber,
+        quantity: editableQuantity,
+      });
+    }
+  }
+
+  return Array.from(grouped.values()).sort((left, right) =>
+    (left.product?.name || "").localeCompare(right.product?.name || "")
+  );
+}
+
 export default function PurchasesPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -819,10 +879,33 @@ export default function PurchasesPage() {
     setPurchaseModalOpen(true);
   }
 
-  function openPurchaseDraft(batch) {
+  async function openPurchaseDraft(batch) {
     if (!batch?._id) return;
     suppressExecutionModalAutoOpenRef.current = false;
-    setPurchaseDraft(buildPurchaseDraftFromBatch(batch, shoppingList));
+
+    let editableShoppingList = shoppingList;
+
+    if (batch.baseStatus === "purchased" || batch.status === "purchased") {
+      try {
+        const params = new URLSearchParams();
+        params.set("limit", "500");
+        params.set("dateFrom", purchaseDayFilter);
+        params.set("dateTo", purchaseDayFilter);
+
+        const response = await fetch(`/api/purchase-requests?${params.toString()}`, {
+          cache: "no-store",
+        });
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          editableShoppingList = buildEditableShoppingListFromRequests(result.data || [], batch);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    setPurchaseDraft(buildPurchaseDraftFromBatch(batch, editableShoppingList));
     setPurchaseModalOpen(true);
   }
 
