@@ -21,6 +21,7 @@ function getDefaultInventory() {
         warehouse: 0,
         kitchen: 0,
         lounge: 0,
+        locations: [],
     };
 }
 
@@ -91,6 +92,11 @@ async function buildInventoryMap(productIds = [], options = {}) {
         const key = String(stock.productId);
 
         const current = ensureInventoryEntry(inventoryMap, key);
+        const locationKey = String(stock.location || "");
+
+        if (STOCK_LOCATIONS.includes(locationKey) && !current.locations.includes(locationKey)) {
+            current.locations.push(locationKey);
+        }
 
         const quantity = Number(stock.quantity || 0);
         const reservedQuantity = Number(stock.reservedQuantity || 0);
@@ -279,6 +285,7 @@ export async function GET(request) {
         const locations = normalizeLocations(searchParams.get("locations"));
         const alert = normalizeAlertFilter(searchParams.get("alert"));
         const inStockOnly = searchParams.get("inStockOnly") === "true";
+        const locationOnly = searchParams.get("locationOnly") === "true";
         const activeOnly = searchParams.get("activeOnly") === "true";
         const purchaseEligibleOnly = searchParams.get("purchaseEligible") === "true";
         const categoryId = String(searchParams.get("categoryId") || "").trim();
@@ -376,6 +383,18 @@ export async function GET(request) {
                 }
             }
 
+            if (locationOnly && locations.length) {
+                const productLocations = product.inventory?.locations || [];
+                if (!locations.some((currentLocation) => productLocations.includes(currentLocation))) {
+                    return false;
+                }
+            } else if (location && locationOnly) {
+                const productLocations = product.inventory?.locations || [];
+                if (!productLocations.includes(location)) {
+                    return false;
+                }
+            }
+
             if (alert === "low") {
                 return product.status === "low";
             }
@@ -405,6 +424,10 @@ export async function GET(request) {
             activeProducts: normalizedProducts.filter((product) => product.isActive).length,
             trackedProducts: normalizedProducts.filter((product) => product.tracksStock).length,
             outOfStockProducts: normalizedProducts.filter((product) => getScopedQuantity(product) <= 0).length,
+            totalOutOfStockProducts: normalizedProducts.filter((product) => Number(product.inventory?.total || 0) <= 0).length,
+            warehouseStockProducts: normalizedProducts.filter((product) => product.inventory?.locations?.includes("warehouse")).length,
+            kitchenStockProducts: normalizedProducts.filter((product) => product.inventory?.locations?.includes("kitchen")).length,
+            loungeStockProducts: normalizedProducts.filter((product) => product.inventory?.locations?.includes("lounge")).length,
             lowStockProducts: normalizedProducts.filter((product) => product.status === "low").length,
             warningStockProducts: normalizedProducts.filter((product) => product.status === "warning").length,
             selectedLocation: location,

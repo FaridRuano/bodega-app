@@ -184,6 +184,15 @@ export default function InventoryPage() {
     if (alertFilter === "out") return "out";
     return inventoryStockMode === "local" ? "area" : "products";
   })();
+  const operationalAreaStockCount = Number(
+    operationalScope === "kitchen"
+      ? summary?.kitchenStockProducts || 0
+      : operationalScope === "lounge"
+        ? summary?.loungeStockProducts || 0
+        : operationalScope === "warehouse"
+          ? summary?.warehouseStockProducts || 0
+          : summary?.selectedStockProducts || 0
+  );
   const combinedViewLocations = useMemo(
     () =>
       isCombinedOperationalView
@@ -367,15 +376,9 @@ export default function InventoryPage() {
         params.set("categoryId", categoryFilter);
       }
 
-      if (
-        isCombinedOperationalView &&
-        (inventoryStockMode === "local" || alertFilter === "out")
-      ) {
+      if (isCombinedOperationalView && inventoryStockMode === "local") {
         params.set("location", operationalScope);
-
-        if (inventoryStockMode === "local") {
-          params.set("inStockOnly", "true");
-        }
+        params.set("locationOnly", "true");
       } else if (!isCombinedOperationalView && !isGeneralScope) {
         params.set("location", activeScope);
         params.set("inStockOnly", "true");
@@ -712,7 +715,7 @@ export default function InventoryPage() {
                 >
                   <Warehouse size={14} />
                   <span>
-                    {scopeLabel} <strong>{summary?.selectedStockProducts || 0}</strong>
+                    {scopeLabel} <strong>{operationalAreaStockCount}</strong>
                   </span>
                 </button>
                 <button
@@ -745,7 +748,7 @@ export default function InventoryPage() {
                 >
                   <PackageSearch size={14} />
                   <span>
-                    Sin stock <strong>{summary?.outOfStockProducts || 0}</strong>
+                    Sin stock <strong>{summary?.totalOutOfStockProducts ?? summary?.outOfStockProducts ?? 0}</strong>
                   </span>
                 </button>
               </>
