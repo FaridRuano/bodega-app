@@ -29,7 +29,7 @@ import { PAGE_LIMITS } from "@libs/constants/pagination";
 import { getUnitLabel } from "@libs/constants/units";
 import { buildSearchParams, getPositiveIntParam, getStringParam } from "@libs/urlParams";
 import { formatQuantity } from "@libs/unitQuantities";
-import { isPrivilegedUserRole } from "@libs/userRoles";
+import { isPrivilegedUserRole, normalizeUserRole } from "@libs/userRoles";
 
 const PAGE_SIZE = PAGE_LIMITS.inventory;
 const AUTO_REFRESH_INTERVAL_MS = 30000;
@@ -165,15 +165,16 @@ export default function InventoryPage() {
     variant: "info",
   });
 
+  const currentUserRole = normalizeUserRole(currentUser?.role);
   const availableScopes = useMemo(
-    () => getAvailableScopesForRole(currentUser?.role),
-    [currentUser?.role]
+    () => getAvailableScopesForRole(currentUserRole),
+    [currentUserRole]
   );
   const activeScope = availableScopes.includes(scope) ? scope : availableScopes[0] || "all";
   const isGeneralScope = activeScope === "all";
-  const operationalScope = getOperationalScopeForRole(currentUser?.role);
+  const operationalScope = getOperationalScopeForRole(currentUserRole);
   const isCombinedOperationalView =
-    isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope);
+    isOperationalFloorRole(currentUserRole) && Boolean(operationalScope);
   const effectiveViewMode = viewMode;
   const shouldShowAllInventoryProducts = isCombinedOperationalView && inventoryStockMode === "all";
   const operationalInventoryFilter = (() => {
@@ -195,13 +196,13 @@ export default function InventoryPage() {
     [isCombinedOperationalView, operationalScope]
   );
   const canAdjustCurrentScope =
-    isPrivilegedUserRole(currentUser?.role) ||
+    isPrivilegedUserRole(currentUserRole) ||
     (!isGeneralScope && operationalScope === activeScope);
   const canTransferInventory =
-    isPrivilegedUserRole(currentUser?.role) ||
-    ["warehouse", "kitchen", "loung"].includes(String(currentUser?.role || "").trim());
+    isPrivilegedUserRole(currentUserRole) ||
+    ["warehouse", "kitchen", "loung"].includes(currentUserRole);
   const canShowInventoryActions = canAdjustCurrentScope || canTransferInventory;
-  const canAccessInventoryHistory = isPrivilegedUserRole(currentUser?.role);
+  const canAccessInventoryHistory = isPrivilegedUserRole(currentUserRole);
   const scopeLabel = INVENTORY_SCOPE_LABELS[activeScope] || "Inventario";
   const heroEyebrow = isGeneralScope ? "Inventario" : scopeLabel;
   const heroTitle = isGeneralScope ? "Control de existencias" : `Inventario de ${scopeLabel.toLowerCase()}`;
@@ -213,17 +214,17 @@ export default function InventoryPage() {
   const shouldUseQuickAdjustModal =
     movementModal.mode !== "transfer" &&
     !isGeneralScope &&
-    isOperationalFloorRole(currentUser?.role) &&
+    isOperationalFloorRole(currentUserRole) &&
     operationalScope === activeScope;
   const movementLocationOptions = useMemo(() => {
     if (!canAdjustCurrentScope) return [];
-    if (isPrivilegedUserRole(currentUser?.role)) {
+    if (isPrivilegedUserRole(currentUserRole)) {
       if (isGeneralScope) return INVENTORY_LOCATION_OPTIONS;
       return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === activeScope);
     }
 
     return INVENTORY_LOCATION_OPTIONS.filter((option) => option.value === operationalScope);
-  }, [activeScope, canAdjustCurrentScope, currentUser?.role, isGeneralScope, operationalScope]);
+  }, [activeScope, canAdjustCurrentScope, currentUserRole, isGeneralScope, operationalScope]);
   const transferSourceOptions = useMemo(() => {
     if (!canTransferInventory) return [];
     return INVENTORY_LOCATION_OPTIONS;
@@ -366,10 +367,16 @@ export default function InventoryPage() {
         params.set("categoryId", categoryFilter);
       }
 
-      if (isCombinedOperationalView && inventoryStockMode === "local") {
+      if (
+        isCombinedOperationalView &&
+        (inventoryStockMode === "local" || alertFilter === "out")
+      ) {
         params.set("location", operationalScope);
-        params.set("inStockOnly", "true");
-      } else if (!isGeneralScope) {
+
+        if (inventoryStockMode === "local") {
+          params.set("inStockOnly", "true");
+        }
+      } else if (!isCombinedOperationalView && !isGeneralScope) {
         params.set("location", activeScope);
         params.set("inStockOnly", "true");
       }
@@ -543,15 +550,15 @@ export default function InventoryPage() {
     }
 
     const defaultLocation = isGeneralScope ? "warehouse" : activeScope;
-    const defaultTransferFrom = isOperationalFloorRole(currentUser?.role)
+    const defaultTransferFrom = isOperationalFloorRole(currentUserRole)
       ? "warehouse"
       : activeScope === "all"
         ? "warehouse"
         : activeScope;
     let defaultTransferTo =
-      currentUser?.role === "loung"
+      currentUserRole === "loung"
         ? "lounge"
-        : currentUser?.role === "kitchen"
+        : currentUserRole === "kitchen"
           ? "kitchen"
           : activeScope === "all" || activeScope === "warehouse"
             ? "kitchen"
