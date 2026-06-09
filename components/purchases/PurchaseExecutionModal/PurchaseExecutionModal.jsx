@@ -117,6 +117,14 @@ export default function PurchaseExecutionModal({
   );
   const canCompleteAll = renderableItems.some((item) => Number(item.pendingQuantity || 0) > 0);
   const canSubmitPurchase = hasSelectedItems || canSubmitWithoutSelection;
+  const isEditingRegisteredPurchase = isDraft && purchaseDraft?.status === "purchased";
+  const modalTitle = isEditingRegisteredPurchase
+    ? "Editar compra"
+    : isDraft
+      ? "Editar borrador de compra"
+      : "Registrar compra";
+  const submitLabel = isEditingRegisteredPurchase ? "Guardar cambios" : "Registrar compra";
+  const submittingLabel = isEditingRegisteredPurchase ? "Guardando..." : "Registrando...";
 
   if (!open) return null;
 
@@ -133,10 +141,12 @@ export default function PurchaseExecutionModal({
             </div>
             <div>
               <h2 className="modal-title">
-                {isDraft ? "Editar borrador de compra" : "Registrar compra"}
+                {modalTitle}
               </h2>
               <p className="modal-description">
-                Guarda avances mientras compras y registra la compra final solo cuando termines.
+                {isEditingRegisteredPurchase
+                  ? "Actualiza la compra antes del despacho para que salga con las cantidades correctas."
+                  : "Guarda avances mientras compras y registra la compra final solo cuando termines."}
               </p>
             </div>
           </div>
@@ -309,7 +319,7 @@ export default function PurchaseExecutionModal({
                 className="miniAction miniActionPrimary"
                 disabled={isSubmitting || renderableItems.length === 0 || !canSubmitPurchase}
               >
-                {isSubmitting && hasSelectedItems ? "Registrando..." : "Registrar compra"}
+                {isSubmitting && hasSelectedItems ? submittingLabel : submitLabel}
               </button>
             </div>
 
@@ -337,7 +347,7 @@ export default function PurchaseExecutionModal({
                   className="miniAction miniActionPrimary"
                   disabled={isSubmitting || renderableItems.length === 0 || !canSubmitPurchase}
                 >
-                  {isSubmitting && hasSelectedItems ? "Registrando..." : "Registrar compra"}
+                  {isSubmitting && hasSelectedItems ? submittingLabel : submitLabel}
                 </button>
               </div>
             </div>

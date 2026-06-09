@@ -33,6 +33,7 @@ export const PURCHASE_BATCH_ACTIVITY_TYPES = [
     "purchase_saved_draft",
     "purchase_updated_draft",
     "purchase_created",
+    "purchase_updated",
     "purchase_dispatched",
     "receipt_confirmed",
     "purchase_deleted_draft",

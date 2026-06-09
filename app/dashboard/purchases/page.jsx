@@ -103,6 +103,13 @@ function canDispatchBatch(batch) {
   return !batch.dispatchedAt && !["draft", "dispatched", "completed", "cancelled"].includes(effectiveStatus);
 }
 
+function canEditPurchaseBatch(batch) {
+  if (!batch) return false;
+
+  const effectiveStatus = String(batch.baseStatus || batch.status || "").toLowerCase();
+  return !batch.dispatchedAt && ["draft", "purchased"].includes(effectiveStatus);
+}
+
 function getDefaultRequestDraft() {
   return {
     destinationLocation: "warehouse",
@@ -127,6 +134,7 @@ function getDefaultRequestLocationForRole(role = "") {
 function getDefaultPurchaseDraft() {
   return {
     batchId: null,
+    status: "",
     supplierName: "",
     purchasedAt: "",
     note: "",
@@ -186,6 +194,7 @@ function mergePurchaseDraftWithShoppingList(draft, shoppingList = []) {
 
   return {
     batchId: draft?.batchId || null,
+    status: draft?.status || "",
     supplierName: draft?.supplierName || "",
     purchasedAt: draft?.purchasedAt || getTodayDateTimeLocal(),
     note: draft?.note || "",
@@ -197,6 +206,7 @@ function buildPurchaseDraftFromBatch(batch, shoppingList = []) {
   const baseDraft = mergePurchaseDraftWithShoppingList(
     {
       batchId: batch?._id || null,
+      status: batch?.baseStatus || batch?.status || "",
       supplierName: batch?.supplierName || "",
       purchasedAt: batch?.purchasedAt
         ? formatDateTimeLocalInput(batch.purchasedAt)
@@ -1175,6 +1185,7 @@ export default function PurchasesPage() {
 
   async function handleCreatePurchase(event) {
     event.preventDefault();
+    const isEditingRegisteredPurchase = purchaseDraft.status === "purchased";
 
     const items = selectedPurchaseItems.map((item) => ({
       productId: item.productId,
@@ -1223,8 +1234,10 @@ export default function PurchasesPage() {
       setActiveTab("execution");
       setDialogModal({
         open: true,
-        title: "Compra registrada",
-        message: "La compra quedo registrada. La solicitud pasa a en proceso hasta que el despacho y la recepcion sean confirmados.",
+        title: isEditingRegisteredPurchase ? "Compra actualizada" : "Compra registrada",
+        message: isEditingRegisteredPurchase
+          ? "La compra quedo actualizada y se despachara con los cambios guardados."
+          : "La compra quedo registrada. La solicitud pasa a en proceso hasta que el despacho y la recepcion sean confirmados.",
         variant: "success",
       });
       await loadPage({ silent: true });
@@ -1666,64 +1679,82 @@ export default function PurchasesPage() {
                   <div className={styles.emptyState}>Aun no hay compras registradas.</div>
                 ) : (
                   <div className={styles.batchList}>
-                    {executionBatches.map((batch, index) => (
-                      <article
-                        key={batch._id}
-                        className={`${styles.batchCard} fadeScaleIn`}
-                        style={{ animationDelay: `${Math.min(index, 8) * 0.03}s` }}
-                      >
-                        <div className={styles.batchTop}>
-                          <div className={styles.batchHeading}>
-                            <strong>{batch.batchNumber}</strong>
-                            <span>{formatDate(batch.purchasedAt)}</span>
-                          </div>
-                          <span className={`${styles.statusBadge} ${batch.status === "completed" ? styles.statusCompleted : styles.statusApproved}`}>
-                            {getPurchaseBatchStatusLabel(batch.status)}
-                          </span>
-                        </div>
+                    {executionBatches.map((batch, index) => {
+                      const canEditBatch = isAdmin && canEditPurchaseBatch(batch);
 
-                        <div className={styles.batchBody}>
-                          {batch.baseStatus === "dispatched"
-                            ? <span>{getLocationLabel(batch.destinationLocation)}</span>
-                            : batch.baseStatus === "draft"
-                              ? <span>Borrador editable</span>
-                              : null}
-                        </div>
-
-                        {isAdmin && batch.baseStatus === "draft" ? (
-                          <div className={styles.batchActions}>
-                            <button
-                              type="button"
-                              className={`miniAction ${styles.batchDispatchButton}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openPurchaseDraft(batch);
-                              }}
-                            >
-                              <ShoppingCart size={14} />
-                              Abrir borrador
-                            </button>
+                      return (
+                        <article
+                          key={batch._id}
+                          className={`${styles.batchCard} fadeScaleIn`}
+                          style={{ animationDelay: `${Math.min(index, 8) * 0.03}s` }}
+                          role={canEditBatch ? "button" : undefined}
+                          tabIndex={canEditBatch ? 0 : undefined}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (canEditBatch) {
+                              openPurchaseDraft(batch);
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (!canEditBatch || (event.key !== "Enter" && event.key !== " ")) return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openPurchaseDraft(batch);
+                          }}
+                        >
+                          <div className={styles.batchTop}>
+                            <div className={styles.batchHeading}>
+                              <strong>{batch.batchNumber}</strong>
+                              <span>{formatDate(batch.purchasedAt)}</span>
+                            </div>
+                            <span className={`${styles.statusBadge} ${batch.status === "completed" ? styles.statusCompleted : styles.statusApproved}`}>
+                              {getPurchaseBatchStatusLabel(batch.status)}
+                            </span>
                           </div>
-                        ) : null}
 
-                        {isAdmin && canDispatchBatch(batch) ? (
-                          <div className={styles.batchActions}>
-                            <button
-                              type="button"
-                              className={`miniAction ${styles.batchDispatchButton}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openDispatchConfirm(batch);
-                              }}
-                              disabled={dispatchingBatchId === batch._id}
-                            >
-                              <ShoppingCart size={14} />
-                              {dispatchingBatchId === batch._id ? "Despachando..." : "Despachar compra"}
-                            </button>
+                          <div className={styles.batchBody}>
+                            {batch.baseStatus === "dispatched"
+                              ? <span>{getLocationLabel(batch.destinationLocation)}</span>
+                              : canEditBatch
+                                ? <span>{batch.baseStatus === "draft" ? "Borrador editable" : "Pendiente de despacho editable"}</span>
+                                : null}
                           </div>
-                        ) : null}
-                      </article>
-                    ))}
+
+                          {canEditBatch ? (
+                            <div className={styles.batchActions}>
+                              <button
+                                type="button"
+                                className={`miniAction ${styles.batchDispatchButton}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openPurchaseDraft(batch);
+                                }}
+                              >
+                                <ShoppingCart size={14} />
+                                {batch.baseStatus === "draft" ? "Abrir borrador" : "Editar compra"}
+                              </button>
+                            </div>
+                          ) : null}
+
+                          {isAdmin && canDispatchBatch(batch) ? (
+                            <div className={styles.batchActions}>
+                              <button
+                                type="button"
+                                className={`miniAction ${styles.batchDispatchButton}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openDispatchConfirm(batch);
+                                }}
+                                disabled={dispatchingBatchId === batch._id}
+                              >
+                                <ShoppingCart size={14} />
+                                {dispatchingBatchId === batch._id ? "Despachando..." : "Despachar compra"}
+                              </button>
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
 

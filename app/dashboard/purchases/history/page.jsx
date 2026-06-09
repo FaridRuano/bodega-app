@@ -62,6 +62,8 @@ function getBatchActivityTitle(entry) {
       return entry?.title || "Borrador actualizado";
     case "purchase_created":
       return entry?.title || "Compra registrada";
+    case "purchase_updated":
+      return entry?.title || "Compra actualizada";
     case "purchase_dispatched":
       return entry?.title || "Compra despachada";
     case "receipt_confirmed":

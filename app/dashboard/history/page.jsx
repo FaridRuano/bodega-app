@@ -152,6 +152,8 @@ function getPurchaseBatchActionLabel(activity) {
       return "Borrador actualizado";
     case "purchase_created":
       return "Compra registrada";
+    case "purchase_updated":
+      return "Compra actualizada";
     case "purchase_dispatched":
       return "Compra despachada";
     case "receipt_confirmed":

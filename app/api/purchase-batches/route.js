@@ -157,6 +157,66 @@ function createAutoAllocationPlan(requests, purchasedItems) {
     });
 }
 
+function createEditableAllocationPlan(requests, purchasedItems, oldAllocationsByRequestItem = new Map()) {
+    const requestsByProduct = new Map();
+
+    for (const request of requests) {
+        for (const item of request.items || []) {
+            const productId = String(item.productId);
+            const itemId = String(item._id);
+            const approvedQuantity = Number(item.approvedQuantity || item.requestedQuantity || 0);
+            const purchasedOutsideCurrentBatch = Math.max(
+                Number(item.purchasedQuantity || 0) - Number(oldAllocationsByRequestItem.get(itemId) || 0),
+                0
+            );
+            const editableQuantity = Math.max(approvedQuantity - purchasedOutsideCurrentBatch, 0);
+
+            if (editableQuantity <= 0) continue;
+
+            if (!requestsByProduct.has(productId)) {
+                requestsByProduct.set(productId, []);
+            }
+
+            requestsByProduct.get(productId).push({
+                purchaseRequestId: request._id,
+                purchaseRequestItemId: item._id,
+                remainingQuantity: editableQuantity,
+            });
+        }
+    }
+
+    return purchasedItems.map((item) => {
+        let remainingToAllocate = Number(item.quantity || 0);
+        const queue = requestsByProduct.get(String(item.productId)) || [];
+        const allocations = [];
+        let lastAllocation = null;
+
+        for (const requestItem of queue) {
+            if (remainingToAllocate <= 0) break;
+
+            const quantity = Math.min(remainingToAllocate, requestItem.remainingQuantity);
+            if (quantity <= 0) continue;
+
+            lastAllocation = {
+                purchaseRequestId: requestItem.purchaseRequestId,
+                purchaseRequestItemId: requestItem.purchaseRequestItemId,
+                quantity,
+            };
+            allocations.push(lastAllocation);
+
+            requestItem.remainingQuantity -= quantity;
+            remainingToAllocate -= quantity;
+        }
+
+        if (remainingToAllocate > 0 && lastAllocation) {
+            lastAllocation.quantity = Number(lastAllocation.quantity || 0) + remainingToAllocate;
+            remainingToAllocate = 0;
+        }
+
+        return allocations;
+    });
+}
+
 function normalizePurchaseAllocations(rawAllocations = [], purchasedQuantity = 0) {
     const allocations = (rawAllocations || [])
         .map((allocation) => ({
@@ -182,6 +242,23 @@ function normalizePurchaseAllocations(rawAllocations = [], purchasedQuantity = 0
     }
 
     return allocations;
+}
+
+function buildAllocationsByRequestItem(items = []) {
+    const allocationMap = new Map();
+
+    for (const batchItem of items || []) {
+        for (const allocation of batchItem.allocations || []) {
+            const requestItemId = String(allocation.purchaseRequestItemId || "");
+            if (!requestItemId) continue;
+            allocationMap.set(
+                requestItemId,
+                Number(allocationMap.get(requestItemId) || 0) + Number(allocation.quantity || 0)
+            );
+        }
+    }
+
+    return allocationMap;
 }
 
 function buildItemNotesByProduct(items = []) {
@@ -415,11 +492,13 @@ export async function POST(request) {
         });
 
         let draftBatch = null;
+        let isUpdatingRegisteredPurchase = false;
+        let previousAllocationsByRequestItem = new Map();
 
         if (batchId) {
             if (!isValidObjectId(batchId)) {
                 return NextResponse.json(
-                    { success: false, message: "El borrador de compra no es valido." },
+                    { success: false, message: "La compra no es valida." },
                     { status: 400 }
                 );
             }
@@ -428,24 +507,39 @@ export async function POST(request) {
 
             if (!draftBatch) {
                 return NextResponse.json(
-                    { success: false, message: "El borrador de compra no existe." },
+                    { success: false, message: "La compra no existe." },
                     { status: 404 }
                 );
             }
 
-            if (draftBatch.status !== "draft") {
+            isUpdatingRegisteredPurchase = draftBatch.status === "purchased" && !draftBatch.dispatchedAt;
+
+            if (draftBatch.status !== "draft" && !isUpdatingRegisteredPurchase) {
                 return NextResponse.json(
-                    { success: false, message: "Solo se pueden editar compras en borrador." },
+                    { success: false, message: "Solo se pueden editar compras en borrador o pendientes de despacho." },
                     { status: 409 }
+                );
+            }
+
+            previousAllocationsByRequestItem = buildAllocationsByRequestItem(draftBatch.items || []);
+
+            if (isUpdatingRegisteredPurchase && (!scopeDateFrom || !scopeDateTo)) {
+                return NextResponse.json(
+                    { success: false, message: "Debes elegir un dia valido para editar la compra." },
+                    { status: 400 }
                 );
             }
         }
 
         const pendingRequestQuery = {
-            status: { $in: ["approved", "in_progress", "partially_purchased"] },
+            status: {
+                $in: isUpdatingRegisteredPurchase
+                    ? ["approved", "in_progress", "partially_purchased", "not_purchased"]
+                    : ["approved", "in_progress", "partially_purchased"],
+            },
         };
 
-        if (closeUnpurchased) {
+        if (closeUnpurchased || isUpdatingRegisteredPurchase) {
             pendingRequestQuery.requestedAt = { $gte: scopeDateFrom, $lte: scopeDateTo };
         } else if (productIds.length) {
             pendingRequestQuery["items.productId"] = { $in: productIds };
@@ -460,7 +554,9 @@ export async function POST(request) {
 
         const autoAllocations = saveAsDraft
             ? purchaseItems.map(() => [])
-            : createAutoAllocationPlan(pendingRequests, purchaseItems);
+            : isUpdatingRegisteredPurchase
+                ? createEditableAllocationPlan(pendingRequests, purchaseItems, previousAllocationsByRequestItem)
+                : createAutoAllocationPlan(pendingRequests, purchaseItems);
         const batchNumber = draftBatch?.batchNumber || await generateSequentialCode(PurchaseBatch, "PBT");
         const purchasedAt = body.purchasedAt ? new Date(body.purchasedAt) : new Date();
 
@@ -590,12 +686,18 @@ export async function POST(request) {
 
         if (batch) {
             batch.addActivity({
-                type: "purchase_created",
+                type: isUpdatingRegisteredPurchase ? "purchase_updated" : "purchase_created",
                 performedBy: user.id,
-                title: draftBatch ? "Compra registrada desde borrador" : "Compra registrada",
-                description: draftBatch
-                    ? "El borrador se registró como compra y queda pendiente de despacho."
-                    : "La compra fue registrada y queda pendiente de despacho.",
+                title: isUpdatingRegisteredPurchase
+                    ? "Compra actualizada"
+                    : draftBatch
+                        ? "Compra registrada desde borrador"
+                        : "Compra registrada",
+                description: isUpdatingRegisteredPurchase
+                    ? "La compra pendiente de despacho fue actualizada."
+                    : draftBatch
+                        ? "El borrador se registró como compra y queda pendiente de despacho."
+                        : "La compra fue registrada y queda pendiente de despacho.",
                 metadata: {
                     purchasedAt,
                 },
@@ -603,24 +705,33 @@ export async function POST(request) {
             });
         }
 
-        const allocationMap = new Map();
-
-        for (const batchItem of batch?.items || []) {
-            for (const allocation of batchItem.allocations || []) {
-                const key = `${allocation.purchaseRequestId}:${allocation.purchaseRequestItemId}`;
-                allocationMap.set(key, (allocationMap.get(key) || 0) + Number(allocation.quantity || 0));
-            }
-        }
+        const allocationMap = buildAllocationsByRequestItem(batch?.items || []);
 
         for (const purchaseRequest of pendingRequests) {
             let requestWasUpdated = false;
 
             purchaseRequest.items = purchaseRequest.items.map((item) => {
-                const key = `${purchaseRequest._id}:${item._id}`;
-                const purchasedIncrement = allocationMap.get(key) || 0;
+                const itemId = String(item._id);
+                const purchasedIncrement = allocationMap.get(itemId) || 0;
+                const previousPurchasedIncrement = previousAllocationsByRequestItem.get(itemId) || 0;
                 const itemNote = itemNotesByProduct.get(String(item.productId));
 
-                if (purchasedIncrement > 0) {
+                if (isUpdatingRegisteredPurchase) {
+                    const approvedQuantity = Number(item.approvedQuantity || item.requestedQuantity || 0);
+                    const purchasedOutsideCurrentBatch = Math.max(
+                        Number(item.purchasedQuantity || 0) - previousPurchasedIncrement,
+                        0
+                    );
+                    const nextPurchasedQuantity = purchasedOutsideCurrentBatch + purchasedIncrement;
+                    const nextNotPurchasedQuantity = Math.max(approvedQuantity - nextPurchasedQuantity, 0);
+                    const didChangeQuantities =
+                        Number(item.purchasedQuantity || 0) !== nextPurchasedQuantity ||
+                        Number(item.notPurchasedQuantity || 0) !== nextNotPurchasedQuantity;
+
+                    item.purchasedQuantity = nextPurchasedQuantity;
+                    item.notPurchasedQuantity = nextNotPurchasedQuantity;
+                    requestWasUpdated = requestWasUpdated || didChangeQuantities;
+                } else if (purchasedIncrement > 0) {
                     item.purchasedQuantity = Number(item.purchasedQuantity || 0) + purchasedIncrement;
                     requestWasUpdated = true;
                 }
@@ -630,7 +741,7 @@ export async function POST(request) {
                     requestWasUpdated = true;
                 }
 
-                if (closeUnpurchased) {
+                if (closeUnpurchased && !isUpdatingRegisteredPurchase) {
                     const progress = calculateRequestItemProgress(item);
                     if (progress.pendingPurchaseQuantity > 0) {
                         item.notPurchasedQuantity =
@@ -650,12 +761,18 @@ export async function POST(request) {
                 purchaseRequest.addActivity({
                     type: batch ? "purchase_registered" : "purchase_not_purchased",
                     performedBy: user.id,
-                    title: batch ? "Compra registrada" : "Pendientes marcados como no comprados",
+                    title: batch
+                        ? isUpdatingRegisteredPurchase
+                            ? "Compra actualizada"
+                            : "Compra registrada"
+                        : "Pendientes marcados como no comprados",
                     description: batch
-                        ? `Se registro la compra del lote ${batch.batchNumber}. Lo no comprado del dia quedo cerrado.`
+                        ? isUpdatingRegisteredPurchase
+                            ? `Se actualizo la compra del lote ${batch.batchNumber}.`
+                            : `Se registro la compra del lote ${batch.batchNumber}. Lo no comprado del dia quedo cerrado.`
                         : `Se cerro el dia ${purchaseScopeDate} sin compra registrada para estos pendientes.`,
                     metadata: batch
-                        ? { batchId: batch._id, batchNumber: batch.batchNumber, closedUnpurchased: closeUnpurchased }
+                        ? { batchId: batch._id, batchNumber: batch.batchNumber, closedUnpurchased: closeUnpurchased && !isUpdatingRegisteredPurchase }
                         : { purchaseScopeDate, closedUnpurchased: true },
                 });
 
@@ -708,14 +825,16 @@ export async function POST(request) {
         return NextResponse.json(
             {
                 success: true,
-                message: draftBatch
+                message: isUpdatingRegisteredPurchase
+                    ? "Compra actualizada correctamente."
+                    : draftBatch
                     ? "Borrador registrado como compra correctamente."
                     : "Compra registrada correctamente.",
                 data: mapPurchaseBatch(
                     enrichBatchDestinations(populatedBatch, requestLocationMap)
                 ),
             },
-            { status: 201 }
+            { status: isUpdatingRegisteredPurchase ? 200 : 201 }
         );
     } catch (error) {
         await session.abortTransaction().catch(() => { });
