@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowRightLeft,
@@ -132,7 +132,7 @@ export default function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState(() => getStringParam(searchParams, "categoryId"));
   const [scope, setScope] = useState(() => getStringParam(searchParams, "scope", "all"));
   const [inventoryStockMode, setInventoryStockMode] = useState(() =>
-    getStringParam(searchParams, "stock") === "all" ? "all" : "local"
+    getStringParam(searchParams, "stock") === "local" ? "local" : "all"
   );
   const [viewMode, setViewMode] = useState(() =>
     normalizeViewMode(getStringParam(searchParams, "view", "compact"))
@@ -176,6 +176,13 @@ export default function InventoryPage() {
     isOperationalFloorRole(currentUser?.role) && Boolean(operationalScope);
   const effectiveViewMode = viewMode;
   const shouldShowAllInventoryProducts = isCombinedOperationalView && inventoryStockMode === "all";
+  const operationalInventoryFilter = (() => {
+    if (!isCombinedOperationalView) return "";
+    if (alertFilter === "low") return "low";
+    if (alertFilter === "warning") return "warning";
+    if (alertFilter === "out") return "out";
+    return inventoryStockMode === "local" ? "area" : "products";
+  })();
   const combinedViewLocations = useMemo(
     () =>
       isCombinedOperationalView
@@ -231,7 +238,7 @@ export default function InventoryPage() {
     Boolean(alertFilter) ||
     Boolean(familyFilter) ||
     Boolean(categoryFilter) ||
-    shouldShowAllInventoryProducts;
+    (isCombinedOperationalView ? inventoryStockMode !== "all" : shouldShowAllInventoryProducts);
   const historyHref = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -320,7 +327,7 @@ export default function InventoryPage() {
       familyId: familyFilter || null,
       categoryId: categoryFilter || null,
       scope: !isCombinedOperationalView && activeScope !== "all" ? activeScope : null,
-      stock: shouldShowAllInventoryProducts ? "all" : null,
+      stock: isCombinedOperationalView && inventoryStockMode === "local" ? "local" : null,
       view: effectiveViewMode !== "compact" ? effectiveViewMode : null,
       page: page > 1 ? page : null,
     });
@@ -328,9 +335,9 @@ export default function InventoryPage() {
     if (nextQuery !== searchParams.toString()) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }
-  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, effectiveViewMode, isCombinedOperationalView, shouldShowAllInventoryProducts]);
+  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, effectiveViewMode, inventoryStockMode, isCombinedOperationalView]);
 
-  async function fetchInventory(options = {}) {
+  const fetchInventory = useCallback(async function fetchInventory(options = {}) {
     const { silent = false } = options;
 
     try {
@@ -359,11 +366,9 @@ export default function InventoryPage() {
         params.set("categoryId", categoryFilter);
       }
 
-      if (isCombinedOperationalView) {
+      if (isCombinedOperationalView && inventoryStockMode === "local") {
         params.set("location", operationalScope);
-        if (!shouldShowAllInventoryProducts) {
-          params.set("inStockOnly", "true");
-        }
+        params.set("inStockOnly", "true");
       } else if (!isGeneralScope) {
         params.set("location", activeScope);
         params.set("inStockOnly", "true");
@@ -397,7 +402,18 @@ export default function InventoryPage() {
         setIsLoading(false);
       }
     }
-  }
+  }, [
+    activeScope,
+    alertFilter,
+    categoryFilter,
+    familyFilter,
+    isCombinedOperationalView,
+    isGeneralScope,
+    operationalScope,
+    page,
+    searchTerm,
+    inventoryStockMode,
+  ]);
 
   async function fetchCategories() {
     const response = await fetch("/api/categories", {
@@ -445,8 +461,7 @@ export default function InventoryPage() {
           variant: "danger",
         });
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeScope, alertFilter, categoryFilter, familyFilter, isCombinedOperationalView, operationalScope, page, searchTerm, shouldShowAllInventoryProducts]);
+  }, [fetchInventory]);
 
   useEffect(() => {
     if (categories.length === 0) return;
@@ -486,18 +501,22 @@ export default function InventoryPage() {
     dialogModal.open,
     movementModal.open,
     productPickerOpen,
-    page,
-    searchTerm,
-    alertFilter,
-    familyFilter,
-    categoryFilter,
-    activeScope,
-    isCombinedOperationalView,
-    operationalScope,
+    fetchInventory,
   ]);
 
   function toggleAlertFilter(nextFilter) {
     setAlertFilter((prev) => (prev === nextFilter ? "" : nextFilter));
+  }
+
+  function applyOperationalInventoryFilter(nextFilter) {
+    if (nextFilter === "area") {
+      setInventoryStockMode("local");
+      setAlertFilter("");
+      return;
+    }
+
+    setInventoryStockMode("all");
+    setAlertFilter(nextFilter === "products" ? "" : nextFilter);
   }
 
   function updateViewMode(nextViewMode) {
@@ -665,76 +684,111 @@ export default function InventoryPage() {
           </div>
 
           <div className={styles.heroStats}>
-            <button
-              type="button"
-              className={`compactStat ${styles.heroStatButton} ${!alertFilter && !shouldShowAllInventoryProducts ? styles.heroStatActive : ""}`}
-              onClick={() => {
-                setAlertFilter("");
-                if (isCombinedOperationalView) {
-                  setInventoryStockMode("local");
-                }
-              }}
-              aria-pressed={!alertFilter && !shouldShowAllInventoryProducts}
-            >
-              <Boxes size={14} />
-              <span>
-                Productos{" "}
-                <strong>
-                  {isCombinedOperationalView
-                    ? summary?.selectedStockProducts || 0
-                    : summary?.totalProducts || 0}
-                </strong>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`compactStat ${styles.heroStatButton} ${styles.heroStatDanger} ${alertFilter === "low" ? styles.heroStatActive : ""}`}
-              onClick={() => toggleAlertFilter("low")}
-              aria-pressed={alertFilter === "low"}
-            >
-              <PackageSearch size={14} />
-              <span>
-                Bajo stock <strong>{summary?.lowStockProducts || 0}</strong>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`compactStat ${styles.heroStatButton} heroStatWarning ${alertFilter === "warning" ? styles.heroStatActive : ""}`}
-              onClick={() => toggleAlertFilter("warning")}
-              aria-pressed={alertFilter === "warning"}
-            >
-              <AlertTriangle size={14} />
-              <span>
-                Reposicion <strong>{summary?.warningStockProducts || 0}</strong>
-              </span>
-            </button>
             {isCombinedOperationalView ? (
-              <button
-                type="button"
-                className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${shouldShowAllInventoryProducts ? styles.heroStatActive : ""}`}
-                onClick={() => {
-                  setAlertFilter("");
-                  setInventoryStockMode((prev) => (prev === "all" ? "local" : "all"));
-                }}
-                aria-pressed={shouldShowAllInventoryProducts}
-              >
-                <Warehouse size={14} />
-                <span>
-                  Total <strong>{summary?.totalProducts || 0}</strong>
-                </span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} ${operationalInventoryFilter === "products" ? styles.heroStatActive : ""}`}
+                  onClick={() => applyOperationalInventoryFilter("products")}
+                  aria-pressed={operationalInventoryFilter === "products"}
+                >
+                  <Boxes size={14} />
+                  <span>
+                    Productos <strong>{summary?.totalProducts || 0}</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} ${operationalInventoryFilter === "area" ? styles.heroStatActive : ""}`}
+                  onClick={() => applyOperationalInventoryFilter("area")}
+                  aria-pressed={operationalInventoryFilter === "area"}
+                >
+                  <Warehouse size={14} />
+                  <span>
+                    {scopeLabel} <strong>{summary?.selectedStockProducts || 0}</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} ${styles.heroStatDanger} ${operationalInventoryFilter === "low" ? styles.heroStatActive : ""}`}
+                  onClick={() => applyOperationalInventoryFilter("low")}
+                  aria-pressed={operationalInventoryFilter === "low"}
+                >
+                  <PackageSearch size={14} />
+                  <span>
+                    Bajo stock <strong>{summary?.lowStockProducts || 0}</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} heroStatWarning ${operationalInventoryFilter === "warning" ? styles.heroStatActive : ""}`}
+                  onClick={() => applyOperationalInventoryFilter("warning")}
+                  aria-pressed={operationalInventoryFilter === "warning"}
+                >
+                  <AlertTriangle size={14} />
+                  <span>
+                    Reposicion <strong>{summary?.warningStockProducts || 0}</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${operationalInventoryFilter === "out" ? styles.heroStatActive : ""}`}
+                  onClick={() => applyOperationalInventoryFilter("out")}
+                  aria-pressed={operationalInventoryFilter === "out"}
+                >
+                  <PackageSearch size={14} />
+                  <span>
+                    Sin stock <strong>{summary?.outOfStockProducts || 0}</strong>
+                  </span>
+                </button>
+              </>
             ) : (
-              <button
-                type="button"
-                className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${alertFilter === "out" ? styles.heroStatActive : ""}`}
-                onClick={() => toggleAlertFilter("out")}
-                aria-pressed={alertFilter === "out"}
-              >
-                <Warehouse size={14} />
-                <span>
-                  Sin stock <strong>{summary?.outOfStockProducts || 0}</strong>
-                </span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} ${!alertFilter ? styles.heroStatActive : ""}`}
+                  onClick={() => setAlertFilter("")}
+                  aria-pressed={!alertFilter}
+                >
+                  <Boxes size={14} />
+                  <span>
+                    Productos <strong>{summary?.totalProducts || 0}</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} ${styles.heroStatDanger} ${alertFilter === "low" ? styles.heroStatActive : ""}`}
+                  onClick={() => toggleAlertFilter("low")}
+                  aria-pressed={alertFilter === "low"}
+                >
+                  <PackageSearch size={14} />
+                  <span>
+                    Bajo stock <strong>{summary?.lowStockProducts || 0}</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} heroStatWarning ${alertFilter === "warning" ? styles.heroStatActive : ""}`}
+                  onClick={() => toggleAlertFilter("warning")}
+                  aria-pressed={alertFilter === "warning"}
+                >
+                  <AlertTriangle size={14} />
+                  <span>
+                    Reposicion <strong>{summary?.warningStockProducts || 0}</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`compactStat ${styles.heroStatButton} ${styles.heroStatMuted} ${alertFilter === "out" ? styles.heroStatActive : ""}`}
+                  onClick={() => toggleAlertFilter("out")}
+                  aria-pressed={alertFilter === "out"}
+                >
+                  <Warehouse size={14} />
+                  <span>
+                    Sin stock <strong>{summary?.outOfStockProducts || 0}</strong>
+                  </span>
+                </button>
+              </>
             )}
           </div>
         </section>
@@ -761,7 +815,7 @@ export default function InventoryPage() {
               setAlertFilter("");
               setFamilyFilter("");
               setCategoryFilter("");
-              setInventoryStockMode("local");
+              setInventoryStockMode("all");
               setPage(1);
             }}
           >
