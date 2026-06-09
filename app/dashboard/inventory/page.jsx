@@ -122,6 +122,7 @@ export default function InventoryPage() {
   const hasInitializedPageReset = useRef(false);
 
   const [currentUser, setCurrentUser] = useState(null);
+  const [hasLoadedCurrentUser, setHasLoadedCurrentUser] = useState(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [families, setFamilies] = useState([]);
@@ -293,11 +294,13 @@ export default function InventoryPage() {
 
         if (!cancelled) {
           setCurrentUser(result?.user || null);
+          setHasLoadedCurrentUser(true);
         }
       } catch (error) {
         console.error(error);
         if (!cancelled) {
           setCurrentUser(null);
+          setHasLoadedCurrentUser(true);
         }
       }
     }
@@ -310,10 +313,12 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => {
+    if (!hasLoadedCurrentUser) return;
+
     if (!availableScopes.includes(scope)) {
       setScope(availableScopes[0] || "all");
     }
-  }, [availableScopes, scope]);
+  }, [availableScopes, hasLoadedCurrentUser, scope]);
 
   useEffect(() => {
     const viewFromUrl = normalizeViewMode(getStringParam(searchParams, "view", ""), "");
@@ -331,6 +336,8 @@ export default function InventoryPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (!hasLoadedCurrentUser) return;
+
     const nextQuery = buildSearchParams(searchParams, {
       search: searchTerm.trim() || null,
       alert: alertFilter || null,
@@ -345,7 +352,7 @@ export default function InventoryPage() {
     if (nextQuery !== searchParams.toString()) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }
-  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, effectiveViewMode, inventoryStockMode, isCombinedOperationalView]);
+  }, [page, pathname, router, searchParams, searchTerm, alertFilter, familyFilter, categoryFilter, activeScope, effectiveViewMode, inventoryStockMode, isCombinedOperationalView, hasLoadedCurrentUser]);
 
   const fetchInventory = useCallback(async function fetchInventory(options = {}) {
     const { silent = false } = options;
@@ -456,6 +463,8 @@ export default function InventoryPage() {
   }
 
   useEffect(() => {
+    if (!hasLoadedCurrentUser) return;
+
     Promise.all([fetchInventory(), fetchCategories(), fetchFamilies()])
       .then(([, categoriesData, familiesData]) => {
         setCategories(categoriesData.filter((category) => category.isActive));
@@ -471,7 +480,7 @@ export default function InventoryPage() {
           variant: "danger",
         });
       });
-  }, [fetchInventory]);
+  }, [fetchInventory, hasLoadedCurrentUser]);
 
   useEffect(() => {
     if (categories.length === 0) return;
@@ -482,6 +491,10 @@ export default function InventoryPage() {
   }, [categories.length, categoryFilter, filteredCategories]);
 
   useEffect(() => {
+    if (!hasLoadedCurrentUser) {
+      return undefined;
+    }
+
     const hasBlockingModal =
       movementModal.open || productPickerOpen || dialogModal.open;
 
@@ -509,6 +522,7 @@ export default function InventoryPage() {
     };
   }, [
     dialogModal.open,
+    hasLoadedCurrentUser,
     movementModal.open,
     productPickerOpen,
     fetchInventory,
@@ -832,7 +846,7 @@ export default function InventoryPage() {
             Limpiar filtros
           </button>
 
-          {!isGeneralScope && canAdjustCurrentScope ? (
+          {!isCombinedOperationalView && !isGeneralScope && canAdjustCurrentScope ? (
             <button
               type="button"
               className="miniAction"
